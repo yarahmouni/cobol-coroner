@@ -63,7 +63,7 @@ _Requirements: 1.2_
 
 Done when: `.venv/bin/pytest tests/test_trace_parser.py -v` shows all tests passing.
 
-- [ ] 7. Create toy Java program
+- [x] 7. Create toy Java program
   - Create `smoke/Toy.java` that prints Java version from `System.getProperty("java.version")`
   - Program exits with code 0
   - Create `build/` directory if not present

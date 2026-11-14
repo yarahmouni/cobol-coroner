@@ -55,3 +55,7 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent lazarus-builder` (ag
 - Fixes sent (4): wrong comment for line 9, fixture path made independent of the working directory, no-op assertion removed, redundant comments removed.
 - Tests: `pytest` 4 passed, from repo root and from another directory.
 - Status: clean.
+
+### R-11 2026-11-15: s0-toolchain task 7 (smoke/Toy.java)
+- Checked: prints `java.version`, compiled to build/, host output "Java version: 17.0.21", exit 0.
+- Status: clean.
