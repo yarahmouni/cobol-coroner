@@ -71,3 +71,9 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent lazarus-builder` (ag
 - Fixes sent (4): `server.run()` instead of an asyncio wrapper, typed `Verdict` dataclass return (output schema), one-line package docstring, redundant comments removed.
 - Follow-up for S1: `Verdict` moves to the engine (quality.md: no business logic in MCP handlers) once a real verdict exists.
 - Status: clean.
+
+### R-14 2026-11-15: s0-toolchain task 13 (MCP stdio tests)
+- First run interrupted by Kiro service throttling; resumed.
+- Fixes sent (2 rounds): BUG, the missing project_id test caught `except Exception` and swallowed its own `assert False`, so it could never fail; now asserts the observed SDK behavior (`is_error` True, "Field required"). Success test asserts full equality of `structured_content`; output schema required fields checked; one shared session helper.
+- Tests: `pytest` 7 passed.
+- Status: clean.

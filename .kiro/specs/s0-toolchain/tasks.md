@@ -132,7 +132,7 @@ _Requirements: 3.1_
 
 Done when: `.venv/bin/python -m lazarus.mcp` starts without error and waits for stdin input. Task 13 tests pass.
 
-- [ ] 13. Write unit tests for MCP stub
+- [x] 13. Write unit tests for MCP stub
   - Create `tests/test_mcp_stub.py`
   - Test: stdio integration test that spawns `.venv/bin/python -m lazarus.mcp` with MCP SDK client
   - Test: list tools returns `get_verdict`
@@ -141,7 +141,7 @@ Done when: `.venv/bin/python -m lazarus.mcp` starts without error and waits for 
 
 _Requirements: 3.1_
 
-Done when: `.venv/bin/pytest tests/test_mcp_stub.py -v` shows all tests passing.
+Done when: `.venv/bin/pytest tests/test_mcp_stub.py -q` shows all tests passing.
 
 - [ ] 14. Create Kiro MCP configuration
   - Create `.kiro/settings/` directory if missing
