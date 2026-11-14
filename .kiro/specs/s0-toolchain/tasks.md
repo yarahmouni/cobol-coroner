@@ -165,7 +165,7 @@ Done when: `kiro-cli mcp list` shows the lazarus server, and `kiro-cli chat --no
 
 Note: Verified on 2026-11-15 with kiro-cli 3.3.0. `kiro-cli mcp list` shows server 'lazarus' with command .venv/bin/python from workspace .kiro/settings/mcp.json. `kiro-cli chat --no-interactive` with agent lazarus-builder called tool '@lazarus/get_verdict' with project_id 'test' and received {"verdict": "VIVANT", "divergences": 0, "test_cases": 1, "message": "0 divergence found on 1 case (stub)"}, isError false.
 
-- [ ] 16. Create GitHub Actions workflow
+- [x] 16. Create GitHub Actions workflow
   - Create `.github/workflows/test.yml`
   - Configure ubuntu-latest runner
   - Pin all action versions

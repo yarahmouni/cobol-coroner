@@ -85,3 +85,9 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent lazarus-builder` (ag
 ### R-16 2026-11-15: s0-toolchain task 15 (Kiro lists and calls get_verdict)
 - Verified by the operator: `kiro-cli mcp list` shows `lazarus` from the workspace mcp.json; a non-interactive Kiro chat called `@lazarus/get_verdict` (project_id "test") and got the exact stub verdict, isError false. Evidence note added under task 15.
 - Status: clean. S0 acceptance item "Kiro lists and calls get_verdict": met.
+
+### R-17 2026-11-15: s0-toolchain task 16 (CI workflow)
+- Checked: test job (Python 3.12, .venv, `make test`) and gitleaks secret-scan job (full history), actions pinned by commit SHA (checkout v7.0.1, setup-python v7.1.0, gitleaks-action v3.0.0), read-only permissions. Minimal Makefile with `test` (real tab), `smoke` added in task 10.
+- Fixes sent (2): `branches: ["*"]` missed names with "/", now `on: [push, pull_request]`; secret-scan job gets `pull-requests: read`.
+- Tests: YAML parses, `make test` 7 passed. CI itself not run yet (needs the owner push, task 17).
+- Status: clean.
