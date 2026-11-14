@@ -41,7 +41,7 @@ Done when: `tests/fixtures/sample_trace.txt` exists, is non-empty, and the resul
 
 Note: Line numbers present: yes. The trace file contains line number annotations in the format "Line: N" for each executed statement (e.g., Line: 9, Line: 10, Line: 11, Line: 16, Line: 17).
 
-- [ ] 5. Implement trace parser
+- [x] 5. Implement trace parser
   - Create `lazarus/parse/__init__.py` (empty or with module exports)
   - Create `lazarus/parse/trace.py` with `parse_trace(trace_file_path: str) -> set[int]` function
   - Parse the real trace format from `tests/fixtures/sample_trace.txt`

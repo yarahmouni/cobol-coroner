@@ -43,3 +43,9 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent lazarus-builder` (ag
 ### R-08 2026-11-15: s0-toolchain task 4 (trace fixture)
 - Checked: `tests/fixtures/sample_trace.txt` is a real GnuCOBOL 3.2.0 `-ftraceall` trace with `Line: N` per statement; lines 9, 10, 11, 16, 17 executed, line 13 (ELSE) absent as expected. Line numbers present: yes, D-07 DISPLAY fallback not needed.
 - Status: clean.
+
+### R-09 2026-11-15: s0-toolchain task 5 (trace parser)
+- Checked: `parse_trace` reads only the `Line: N` field, returns {9, 10, 11, 16, 17} on the fixture, FileNotFoundError and ValueError as designed.
+- Fix sent (1): missing `lazarus/__init__.py` (regular package discovery would drop `lazarus` in a non-editable install, i.e. Docker).
+- Follow-up for S1 (not S0 scope): with copybooks the trace has several `Source:` files, so line numbers must be keyed by source file.
+- Status: clean.
