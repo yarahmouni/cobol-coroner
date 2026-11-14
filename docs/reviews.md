@@ -59,3 +59,9 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent lazarus-builder` (ag
 ### R-11 2026-11-15: s0-toolchain task 7 (smoke/Toy.java)
 - Checked: prints `java.version`, compiled to build/, host output "Java version: 17.0.21", exit 0.
 - Status: clean.
+
+### R-12 2026-11-15: s0-toolchain task 9 (smoke/run_smoke.sh)
+- Fixes sent (5): run from any directory, stale trace cannot pass (truncate + non-empty check), ERR trap prints "Smoke test FAILED", Java check on the "17." prefix, single FAILED message per failure.
+- Tests: host run PASSED (5 line numbers, Java 17.0.21), also from another directory; negative run without cobc prints FAILED and exits non-zero (127, accepted).
+- Note: Docker daemon down (corrupted libnetwork bolt db in the Docker Desktop VM), tasks 8, 10, 11 postponed; owner approval needed to reset it.
+- Status: clean.

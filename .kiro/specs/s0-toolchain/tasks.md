@@ -86,7 +86,7 @@ _Requirements: 2.1, 2.3_
 
 Done when: `docker build -t lazarus:smoke .` succeeds and image contains all three runtimes. `docker run --rm lazarus:smoke id` shows uid=1000(lazarus). `docker run --rm lazarus:smoke cobc --version` shows 3.2.0, `docker run --rm lazarus:smoke java -version` shows 17, and `docker run --rm lazarus:smoke python3 --version` shows 3.12.
 
-- [ ] 9. Create smoke test runner script
+- [x] 9. Create smoke test runner script
   - Create `smoke/run_smoke.sh`
   - Compile toy.cob with `-ftraceall` to `build/toy` and run with COB_SET_TRACE=Y
   - Parse trace file and count line numbers using parse_trace from lazarus/
