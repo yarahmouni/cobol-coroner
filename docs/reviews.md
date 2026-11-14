@@ -65,3 +65,9 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent lazarus-builder` (ag
 - Tests: host run PASSED (5 line numbers, Java 17.0.21), also from another directory; negative run without cobc prints FAILED and exits non-zero (127, accepted).
 - Note: Docker daemon down (corrupted libnetwork bolt db in the Docker Desktop VM), tasks 8, 10, 11 postponed; owner approval needed to reset it.
 - Status: clean.
+
+### R-13 2026-11-15: s0-toolchain task 12 (MCP stub server)
+- Checked: mcp 2.3.0 `MCPServer` API, stdio initialize answered, logs on stderr only, fixed stub verdict.
+- Fixes sent (4): `server.run()` instead of an asyncio wrapper, typed `Verdict` dataclass return (output schema), one-line package docstring, redundant comments removed.
+- Follow-up for S1: `Verdict` moves to the engine (quality.md: no business logic in MCP handlers) once a real verdict exists.
+- Status: clean.

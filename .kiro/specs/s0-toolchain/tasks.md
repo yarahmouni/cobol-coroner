@@ -120,7 +120,7 @@ _Requirements: 2.2_
 
 Done when: `make smoke` completes with exit code 0 and all expected output lines present.
 
-- [ ] 12. Create MCP server stub module
+- [x] 12. Create MCP server stub module
   - Create `lazarus/mcp/__init__.py` with server entry point
   - Implement MCP stdio server using official MCP Python SDK
   - Register tool `get_verdict` with input schema (project_id: string)
