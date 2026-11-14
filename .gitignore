@@ -1,0 +1,11 @@
+# Never ignore /.kiro (required by Kiroween rules)
+build/
+runs/
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+target/
+*.class
+.env
+.DS_Store
