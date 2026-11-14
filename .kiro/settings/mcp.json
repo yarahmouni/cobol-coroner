@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "lazarus": {
+      "command": ".venv/bin/python",
+      "args": ["-m", "lazarus.mcp"]
+    }
+  }
+}

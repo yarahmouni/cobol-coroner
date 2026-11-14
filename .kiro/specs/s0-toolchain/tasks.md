@@ -143,7 +143,7 @@ _Requirements: 3.1_
 
 Done when: `.venv/bin/pytest tests/test_mcp_stub.py -q` shows all tests passing.
 
-- [ ] 14. Create Kiro MCP configuration
+- [x] 14. Create Kiro MCP configuration
   - Create `.kiro/settings/` directory if missing
   - Create `.kiro/settings/mcp.json` with `mcpServers.lazarus` entry
   - Set command to `.venv/bin/python`

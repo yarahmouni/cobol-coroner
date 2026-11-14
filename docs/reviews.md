@@ -77,3 +77,7 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent lazarus-builder` (ag
 - Fixes sent (2 rounds): BUG, the missing project_id test caught `except Exception` and swallowed its own `assert False`, so it could never fail; now asserts the observed SDK behavior (`is_error` True, "Field required"). Success test asserts full equality of `structured_content`; output schema required fields checked; one shared session helper.
 - Tests: `pytest` 7 passed.
 - Status: clean.
+
+### R-15 2026-11-15: s0-toolchain task 14 (.kiro/settings/mcp.json)
+- Checked: matches design (command `.venv/bin/python`, args `-m lazarus.mcp`), valid JSON.
+- Status: clean.
