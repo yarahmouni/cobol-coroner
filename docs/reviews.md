@@ -49,3 +49,9 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent lazarus-builder` (ag
 - Fix sent (1): missing `lazarus/__init__.py` (regular package discovery would drop `lazarus` in a non-editable install, i.e. Docker).
 - Follow-up for S1 (not S0 scope): with copybooks the trace has several `Source:` files, so line numbers must be keyed by source file.
 - Status: clean.
+
+### R-10 2026-11-15: s0-toolchain task 6 (parser tests)
+- Checked: 4 tests (exact set {9, 10, 11, 16, 17} with line 13 absent, empty file, missing file, duplicates).
+- Fixes sent (4): wrong comment for line 9, fixture path made independent of the working directory, no-op assertion removed, redundant comments removed.
+- Tests: `pytest` 4 passed, from repo root and from another directory.
+- Status: clean.

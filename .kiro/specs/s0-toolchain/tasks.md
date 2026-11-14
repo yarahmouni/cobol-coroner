@@ -52,7 +52,7 @@ _Requirements: 1.2_
 
 Done when: `from lazarus.parse.trace import parse_trace` succeeds and `parse_trace("tests/fixtures/sample_trace.txt")` returns a non-empty set of integers.
 
-- [ ] 6. Write unit tests for trace parser
+- [x] 6. Write unit tests for trace parser
   - Create `tests/test_trace_parser.py`
   - Test: parse_trace with valid fixture returns non-empty set
   - Test: parse_trace with empty file raises ValueError
