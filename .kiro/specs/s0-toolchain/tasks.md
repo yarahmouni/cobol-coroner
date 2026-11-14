@@ -153,7 +153,7 @@ _Requirements: 3.2_
 
 Done when: `.kiro/settings/mcp.json` exists with valid JSON syntax and correct server configuration.
 
-- [ ] 15. Verify Kiro discovers and calls MCP server
+- [x] 15. Verify Kiro discovers and calls MCP server
   - Check that `kiro-cli mcp list` (or equivalent command) shows the lazarus server
   - Call `get_verdict` with project_id test using `kiro-cli chat --no-interactive`
   - Verify response contains the stub verdict
@@ -162,6 +162,8 @@ Done when: `.kiro/settings/mcp.json` exists with valid JSON syntax and correct s
 _Requirements: 3.2_
 
 Done when: `kiro-cli mcp list` shows the lazarus server, and `kiro-cli chat --no-interactive` asked to call get_verdict with project_id test returns the stub verdict. Output saved as evidence for task 18.
+
+Note: Verified on 2026-11-15 with kiro-cli 3.3.0. `kiro-cli mcp list` shows server 'lazarus' with command .venv/bin/python from workspace .kiro/settings/mcp.json. `kiro-cli chat --no-interactive` with agent lazarus-builder called tool '@lazarus/get_verdict' with project_id 'test' and received {"verdict": "VIVANT", "divergences": 0, "test_cases": 1, "message": "0 divergence found on 1 case (stub)"}, isError false.
 
 - [ ] 16. Create GitHub Actions workflow
   - Create `.github/workflows/test.yml`

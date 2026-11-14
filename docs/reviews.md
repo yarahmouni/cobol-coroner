@@ -81,3 +81,7 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent lazarus-builder` (ag
 ### R-15 2026-11-15: s0-toolchain task 14 (.kiro/settings/mcp.json)
 - Checked: matches design (command `.venv/bin/python`, args `-m lazarus.mcp`), valid JSON.
 - Status: clean.
+
+### R-16 2026-11-15: s0-toolchain task 15 (Kiro lists and calls get_verdict)
+- Verified by the operator: `kiro-cli mcp list` shows `lazarus` from the workspace mcp.json; a non-interactive Kiro chat called `@lazarus/get_verdict` (project_id "test") and got the exact stub verdict, isError false. Evidence note added under task 15.
+- Status: clean. S0 acceptance item "Kiro lists and calls get_verdict": met.
