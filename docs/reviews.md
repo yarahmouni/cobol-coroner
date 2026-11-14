@@ -39,3 +39,7 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent lazarus-builder` (ag
 ### R-07 2026-11-15: s0-toolchain task 3 (smoke/toy.cob)
 - Checked: one IF/ELSE with explicit ELSE, no GO TO, compiles to build/toy, prints branch A, RETURN-CODE 0.
 - Status: clean (trailing spaces on blank lines accepted).
+
+### R-08 2026-11-15: s0-toolchain task 4 (trace fixture)
+- Checked: `tests/fixtures/sample_trace.txt` is a real GnuCOBOL 3.2.0 `-ftraceall` trace with `Line: N` per statement; lines 9, 10, 11, 16, 17 executed, line 13 (ELSE) absent as expected. Line numbers present: yes, D-07 DISPLAY fallback not needed.
+- Status: clean.

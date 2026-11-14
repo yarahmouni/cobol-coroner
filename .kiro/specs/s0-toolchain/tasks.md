@@ -28,7 +28,7 @@ _Requirements: 1.1_
 
 Done when: `smoke/toy.cob` exists, compiles with `cobc -x smoke/toy.cob -o build/toy`, and runs successfully.
 
-- [ ] 4. Capture real GnuCOBOL trace as test fixture
+- [x] 4. Capture real GnuCOBOL trace as test fixture
   - Create `build/` directory if not present
   - Compile toy.cob with `cobc -x -ftraceall smoke/toy.cob -o build/toy`
   - Create `tests/fixtures/` directory
@@ -39,7 +39,7 @@ _Requirements: 1.1_
 
 Done when: `tests/fixtures/sample_trace.txt` exists, is non-empty, and the result (line numbers present: yes/no) is written as a note line under this task in tasks.md.
 
-Note: [To be filled after execution]
+Note: Line numbers present: yes. The trace file contains line number annotations in the format "Line: N" for each executed statement (e.g., Line: 9, Line: 10, Line: 11, Line: 16, Line: 17).
 
 - [ ] 5. Implement trace parser
   - Create `lazarus/parse/__init__.py` (empty or with module exports)

@@ -1,0 +1,8 @@
+Source: 'smoke/toy.cob'
+Program-Id:  TOY
+Program-Id:  TOY                  Entry: TOY                             Line:      9
+Program-Id:  TOY              Paragraph: MAIN-LOGIC                      Line:      9
+Program-Id:  TOY                         IF                              Line:     10
+Program-Id:  TOY                         DISPLAY                         Line:     11
+Program-Id:  TOY                         MOVE                            Line:     16
+Program-Id:  TOY                         STOP RUN                        Line:     17
