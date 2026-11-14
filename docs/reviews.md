@@ -35,3 +35,7 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent lazarus-builder` (ag
 - Private names, bonus and contract mentions removed from README, steering, checklist and decisions (D-16 deleted). New steering file `public-repo.md`.
 - Edited directly by the operator under an explicit owner exception. History rewritten to a single commit.
 - LICENSE left untouched (its "contract" wording is Apache-2.0 legal text).
+
+### R-07 2026-11-15: s0-toolchain task 3 (smoke/toy.cob)
+- Checked: one IF/ELSE with explicit ELSE, no GO TO, compiles to build/toy, prints branch A, RETURN-CODE 0.
+- Status: clean (trailing spaces on blank lines accepted).

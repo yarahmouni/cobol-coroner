@@ -18,7 +18,7 @@ _Requirements: 3.1_
 
 Done when: `.venv/bin/python --version` shows Python 3.12.x, `.venv/bin/python -c "import mcp"` succeeds without error, and `.venv/bin/pytest --version` succeeds.
 
-- [ ] 3. Create toy COBOL program with conditional logic
+- [x] 3. Create toy COBOL program with conditional logic
   - Create `smoke/toy.cob` with one IF/ELSE structure
   - Program displays a message in both branches
   - Program sets RETURN-CODE to 0
