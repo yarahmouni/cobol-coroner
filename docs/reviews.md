@@ -97,3 +97,9 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent lazarus-builder` (ag
 - Blocking findings: most fixture "ties" are not exact ties; the 10.00 minimum fee masks every tie (demo trap would never fire); wrong HALF_EVEN statement (divergence needs an even preceding digit, D-06); UNSTRING into numeric DISPLAY fields ignores the decimal point and sign (use TEST-NUMVAL/NUMVAL); requirement 1.5 validation declared out of scope; REASON-CODE X(3) with longer values and no priority; SIGN LEADING SEPARATE on an edited picture; silent S9(7)V99 overflow without ON SIZE ERROR; make target overwrites the committed expected-output.csv; obsolete AUTHOR paragraph (warning); program too short for requirement 2.2.
 - 10 fixes sent (also a Python Decimal oracle test independent of the COBOL output). Not applied yet: Kiro returned "request was throttled by the service" on 5 consecutive calls, including a trivial one.
 - Status: open.
+
+### R-19 2026-11-15: push and CI (task 17)
+- Commit email switched to the GitHub noreply address; all commits rewritten (author and committer); `git log -p` grep for private names, personal email and local paths: 0 matches. decisions.md replaced by the owner's version.
+- Single approved force-push: `main` at b23b339, 14 commits, one author email.
+- CI run 43655751273: both jobs not started, "account is locked due to a billing issue" (GitHub account, not the code). Task 17 open until the owner resolves billing.
+- Local equivalent on a fresh clone of `main` (macOS): venv, `pip install -e ".[dev]"`, `make test` 7 passed. Secret scan not reproduced locally.
