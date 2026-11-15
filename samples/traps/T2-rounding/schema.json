@@ -1,0 +1,54 @@
+{
+  "program": "ROUNDING-CALC",
+  "description": "Trap 2: Rounding mode divergence demonstration",
+  "input": {
+    "file": "input.csv",
+    "columns": [
+      {
+        "name": "CASE-ID",
+        "type": "string",
+        "pic": "X(10)",
+        "description": "Case identifier"
+      },
+      {
+        "name": "PRINCIPAL",
+        "type": "decimal",
+        "pic": "S9(9)V99",
+        "scale": 2,
+        "description": "Principal amount"
+      },
+      {
+        "name": "RATE",
+        "type": "decimal",
+        "pic": "V9(5)",
+        "scale": 5,
+        "description": "Rate as decimal"
+      }
+    ]
+  },
+  "output": {
+    "file": "output.csv",
+    "columns": [
+      {
+        "name": "CASE-ID",
+        "type": "string",
+        "pic": "X(10)",
+        "description": "Case identifier"
+      },
+      {
+        "name": "FEE1",
+        "type": "decimal",
+        "pic": "+9(7).99",
+        "scale": 2,
+        "description": "Fee without ROUNDED (truncates)"
+      },
+      {
+        "name": "FEE2",
+        "type": "decimal",
+        "pic": "+9(7).99",
+        "scale": 2,
+        "description": "Fee with ROUNDED (HALF_UP)"
+      }
+    ]
+  }
+}

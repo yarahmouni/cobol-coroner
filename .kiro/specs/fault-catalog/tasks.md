@@ -30,7 +30,7 @@ Done when:
 - Run the engine on the fixture (--cases 0 to use the fixture only): faulty Java ZOMBIE with divergent BRANCH rows and a matching TOTAL row (verified with measured numbers: TOTAL rows are equal, at least one branch subtotal differs), non-zero exposure; correct Java ALIVE.
 - pytest passes.
 
-- [ ] 3. Trap 2 (T2-rounding)
+- [x] 3. Trap 2 (T2-rounding)
 
 _Requirements: Req 2. COBOL program computes with and without ROUNDED; faulty Java uses HALF_EVEN where COBOL has ROUNDED and HALF_UP where COBOL truncates; correct Java uses DOWN for truncation and HALF_UP for ROUNDED._
 

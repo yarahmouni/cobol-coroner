@@ -151,14 +151,19 @@ def generate_ties(schema: Schema, num_ties: int, rng: random.Random) -> list[dic
     """
     ties = []
     
-    # Find PRINCIPAL and FEE-RATE columns
+    # Find PRINCIPAL and FEE-RATE (or RATE) columns
     principal_col = None
     fee_rate_col = None
+    rate_field_name = None
     for col in schema.input_columns:
         if col.name == 'PRINCIPAL':
             principal_col = col
         elif col.name == 'FEE-RATE':
             fee_rate_col = col
+            rate_field_name = 'FEE-RATE'
+        elif col.name == 'RATE':
+            fee_rate_col = col
+            rate_field_name = 'RATE'
     
     if not principal_col or not fee_rate_col:
         return ties
@@ -197,7 +202,7 @@ def generate_ties(schema: Schema, num_ties: int, rng: random.Random) -> list[dic
         
         ties.append({
             'PRINCIPAL': principal,
-            'FEE-RATE': fee_rate,
+            rate_field_name: fee_rate,
             'tie_type': 'even',
             'product': product
         })
@@ -219,7 +224,7 @@ def generate_ties(schema: Schema, num_ties: int, rng: random.Random) -> list[dic
         
         ties.append({
             'PRINCIPAL': principal,
-            'FEE-RATE': fee_rate,
+            rate_field_name: fee_rate,
             'tie_type': 'odd',
             'product': principal * fee_rate
         })
@@ -333,64 +338,81 @@ def generate_cases(
     for tie_spec in tie_cases:
         row = {}
         
-        # Set PRINCIPAL and FEE-RATE from tie
-        row['PRINCIPAL'] = format_decimal(tie_spec['PRINCIPAL'], 2, True)
-        row['FEE-RATE'] = format_decimal(tie_spec['FEE-RATE'], 5, False)
+        # Set fields from tie spec (PRINCIPAL and rate field)
+        for key, value in tie_spec.items():
+            if key in ['PRINCIPAL', 'FEE-RATE', 'RATE']:
+                # Determine scale from schema
+                col = next((c for c in schema.input_columns if c.name == key), None)
+                if col and col.type == 'decimal':
+                    signed = (col.pic and 'S' in col.pic) or key == 'PRINCIPAL'
+                    row[key] = format_decimal(value, col.scale, signed)
         
-        # Set other fields randomly
-        # DURATION-MONTHS: random in [1, 999]
-        row['DURATION-MONTHS'] = str(draw_int(rng, 1, 999))
-        
-        # CUSTOMER-SEGMENT: 'B' or non-matching letter (no discount)
-        # Use 'B' for half, 'Z' (non-matching) for the other half
-        segment = 'B' if len(rows) % 2 == 0 else 'Z'
-        row['CUSTOMER-SEGMENT'] = segment
-        
-        # INCOME: random eligible value (>= 25000.00) for half, random for others
-        if len(rows) % 2 == 0:
-            income_int_digits = draw_int(rng, 5, 9)
-            income = draw_decimal_by_magnitude(rng, income_int_digits, 2, False)
-            if income < Decimal("25000.00"):
-                income = Decimal("25000.00") + income
-        else:
-            income_int_digits = draw_int(rng, 0, 9)
-            income = draw_decimal_by_magnitude(rng, income_int_digits, 2, False)
-        row['INCOME'] = format_decimal(income, 2, False)
+        # Set other fields randomly based on schema
+        for col in schema.input_columns:
+            if col.name not in row and col.name != 'CASE-ID':
+                if col.type == 'decimal':
+                    signed = col.pic and 'S' in col.pic
+                    max_int_digits = col.pic.count('9') if col.pic else 9
+                    int_digits = draw_int(rng, 0, max_int_digits)
+                    value = draw_decimal_by_magnitude(rng, int_digits, col.scale, signed)
+                    row[col.name] = format_decimal(value, col.scale, signed)
+                elif col.type == 'integer':
+                    max_val = 10 ** col.pic.count('9') - 1 if col.pic else 999
+                    row[col.name] = str(draw_int(rng, 0, max_val))
+                elif col.type == 'string':
+                    # Use empty or a single character
+                    row[col.name] = ''
         
         rows.append(row)
     
     # Generate random cases for the rest
     num_random = num_cases - len(rows)
     
-    # Customer segment literals from COBOL (EVALUATE on 'P', 'S', 'B')
-    segment_values = ['P', 'S', 'B', 'Z', '']
-    
     for i in range(num_random):
         row = {}
         
-        # PRINCIPAL: S9(9)V99, scale 2, signed
-        # Draw by magnitude to avoid excessive overflow cases
-        principal_int_digits = draw_int(rng, 0, 9)
-        principal = draw_decimal_by_magnitude(rng, principal_int_digits, 2, True)
-        row['PRINCIPAL'] = format_decimal(principal, 2, True)
-        
-        # FEE-RATE: V9(5), scale 5, unsigned
-        # This is always < 1, so magnitude doesn't apply
-        fee_rate = draw_decimal(rng, Decimal("0.00000"), Decimal("0.99999"), 5)
-        row['FEE-RATE'] = format_decimal(fee_rate, 5, False)
-        
-        # DURATION-MONTHS: 9(3), unsigned integer [0, 999]
-        row['DURATION-MONTHS'] = str(draw_int(rng, 0, 999))
-        
-        # CUSTOMER-SEGMENT: X(1), from literals
-        idx = draw_int(rng, 0, len(segment_values) - 1)
-        row['CUSTOMER-SEGMENT'] = segment_values[idx]
-        
-        # INCOME: 9(9)V99, scale 2, unsigned
-        # Draw by magnitude
-        income_int_digits = draw_int(rng, 0, 9)
-        income = draw_decimal_by_magnitude(rng, income_int_digits, 2, False)
-        row['INCOME'] = format_decimal(income, 2, False)
+        # Generate values for each column based on schema
+        for col in schema.input_columns:
+            if col.name == 'CASE-ID':
+                continue  # Added later
+            
+            if col.type == 'decimal':
+                signed = col.pic and 'S' in col.pic
+                # Count integer digits from PIC
+                if col.pic:
+                    # V9(5) means no integer part, V is the decimal point
+                    if col.pic.startswith('V'):
+                        max_int_digits = 0
+                    else:
+                        # Extract digit count from PIC (e.g., "S9(9)V99" -> 9)
+                        import re
+                        match = re.search(r'9\((\d+)\)', col.pic)
+                        if match:
+                            # This is the integer part if before V
+                            pic_part = col.pic.split('V')[0] if 'V' in col.pic else col.pic
+                            match = re.search(r'9\((\d+)\)', pic_part)
+                            max_int_digits = int(match.group(1)) if match else 0
+                        else:
+                            # Count 9s before V
+                            pic_part = col.pic.split('V')[0] if 'V' in col.pic else col.pic
+                            max_int_digits = pic_part.count('9')
+                else:
+                    max_int_digits = 9
+                
+                # Limit int_digits to max_int_digits - 1 to avoid overflow cases
+                # (a 9-digit value with decimals can overflow S9(9)V99)
+                safe_max = max(0, max_int_digits - 1) if max_int_digits > 0 else 0
+                int_digits = draw_int(rng, 0, safe_max)
+                value = draw_decimal_by_magnitude(rng, int_digits, col.scale, signed)
+                row[col.name] = format_decimal(value, col.scale, signed)
+                
+            elif col.type == 'integer':
+                max_val = 10 ** col.pic.count('9') - 1 if col.pic else 999
+                row[col.name] = str(draw_int(rng, 0, max_val))
+                
+            elif col.type == 'string':
+                # Use empty string or single character
+                row[col.name] = ''
         
         rows.append(row)
     

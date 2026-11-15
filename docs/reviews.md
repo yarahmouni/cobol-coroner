@@ -423,3 +423,8 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Kiroween credits redeemed by the owner and now visible: kiroween2026 4000 credits, expires in 46 days (Dec 31). Credit pressure gone; Sonnet still for anything that runs or verifies; no new features after the 2026-11-28 freeze.
 - Tests: pytest 210 passed, 22 deselected in 202.26s (0:03:22).
 - Kiro balance: plan 405.95 of 531 used (125.05 left); bonus kiroween2026: 0.00/4000; Trial credits: 0.00/500.
+
+### R-67 2026-11-15: trap T2 (rounding)
+- Call ct3 (sonnet), with the T1 lessons as rules (COBOL runs first in the tests, expected only from COBOL, no extra environment, build only in build/).
+- Operator verification script (same checks for every trap): files clean; cobc rc 0; COBOL run from /tmp with only INPUT_FILE and OUTPUT_FILE: rc 0, 4 data rows; expected equals a fresh COBOL run; correct Java byte-identical; faulty Java differs on the fixture (4 rows); verify 200 cases: correct ALIVE exit 0, faulty ZOMBIE 94 cases exit 1; 2000 cases: correct ALIVE, faulty ZOMBIE 1021 cases (the faulty HALF_UP on the truncated computation differs on any remainder, not only on ties). tests/test_trap_t2.py: 9 passed. Clean on the first attempt.
+- Kiro balance: plan 405.95 of 531 used (125.05 left); bonus kiroween2026: 15.92/4000; Trial credits: 0.00/500.
