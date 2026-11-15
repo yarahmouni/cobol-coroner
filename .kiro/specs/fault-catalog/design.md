@@ -124,15 +124,15 @@ Packed decimal sign nibble F is read as positive by GnuCOBOL (evidence file) but
 Generated and certified cases use only the preferred sign nibbles: C for positive, D for negative, and F for unsigned fields. Non-preferred nibbles (B, A, E and others) are excluded from certified cases. This limitation is documented in the README and never claimed to match z/OS behavior.
 
 ### COBOL design
-- Input: HEX-VALUE (10 characters, hex digits representing 5 packed bytes).
-- WORKING-STORAGE: a field populated with FUNCTION HEX-TO-CHAR(HEX-VALUE), redefined as PIC S9(5) COMP-3, moved to a signed edited output field.
+- Input: HEX-VALUE (10 characters, hex digits representing 5 packed bytes with amount and 2 decimals).
+- WORKING-STORAGE: a field populated with FUNCTION HEX-TO-CHAR(HEX-VALUE), redefined as PIC S9(7)V99 COMP-3, moved to a signed edited output field PIC +9(7).99.
 - Output: CASE-ID, DECODED-VALUE.
 
 ### Faulty Java design
-- Decodes hex to bytes, reads the sign nibble: C positive, D negative, F negative (or rejects).
+- Decodes hex to bytes, reads the 5 bytes with 9 digit nibbles and a sign nibble: C positive, D negative, F negative (or rejects).
 
 ### Correct Java design
-- C positive, D negative, F positive, B positive (matches GnuCOBOL; document in a comment that IBM documentation treats B as negative).
+- Decodes the 5 bytes using the low nibble of each byte as the digit value (9 digit nibbles plus 1 sign nibble), interpreting the sign nibble: C positive, D negative, F positive, B positive (matches GnuCOBOL; document in a comment that IBM documentation treats B as negative, GnuCOBOL differs, and certified cases use only C, D, F).
 
 ### Fixture
 At least 3 hex values: one with C, one with D, one with F. Expected output from COBOL.
@@ -173,7 +173,7 @@ At least 2 values: "12345}" (= -12340 in EBCDIC overpunch) and "12345" (= +12345
 ## Trap 5: REDEFINES of invalid numeric data
 
 ### Problem statement
-GnuCOBOL reads an alphanumeric field with non-digit characters through a REDEFINES as PIC 9(n), uses the digit bytes and ignores the rest (evidence file: "12A45" + 1 = 12146 with no abend). A Java port may reject the record or treat it as zero, diverging from the reference behavior.
+GnuCOBOL reads an alphanumeric field with non-digit characters through a REDEFINES as PIC 9(n), using the low nibble of each byte as the digit value (evidence file: "12A45" where A is 0x41, low nibble 1, is read as 12145, so + 1 = 12146 with no abend). A Java port may reject the record or treat it as zero, diverging from the reference behavior.
 
 Wording: Coroner reports the behavior change, it does not judge which side is right (the COBOL behavior is permissive, the Java rejection may be a valid business rule).
 
@@ -187,10 +187,10 @@ Wording: Coroner reports the behavior change, it does not judge which side is ri
 - Rejects non-digit characters (throws an exception or writes 0).
 
 ### Correct Java design
-- Reads only the digit bytes, ignoring non-digit bytes (matches GnuCOBOL).
+- Reads the low nibble of each byte, matching GnuCOBOL (A=0x41, low nibble 1; J=0x4A, low nibble 10 with carry).
 
 ### Fixture
-At least 2 values: "12A45" and "12345". Expected output from COBOL.
+At least 2 values: "12A45" (A is 0x41, low nibble 1, read as 12145, output 12146) and "12345" (output 12346). Expected output from COBOL.
 
 ### Detection
 100 percent on cases where the generator emits at least one invalid numeric value.
@@ -243,7 +243,7 @@ def run_catalog(seed=42, cases=2000):
 - T2: "Faulty Java uses HALF_EVEN where COBOL has ROUNDED (default HALF_UP). Use RoundingMode.HALF_UP."
 - T3: "Faulty Java treats sign nibble F as negative or rejects it. GnuCOBOL reads F as positive."
 - T4: "Faulty Java applies EBCDIC overpunch table to ASCII-encoded data. Use the ASCII default convention (last char >= 0x70 is negative)."
-- T5: "Faulty Java rejects invalid numeric data under REDEFINES. GnuCOBOL reads digit bytes and ignores the rest."
+- T5: "Faulty Java rejects invalid numeric data under REDEFINES. GnuCOBOL reads the low nibble of each byte (A=x41 becomes 1, J=x4A becomes 10 with carry)."
 - T6: placeholder, no fix.
 
 ## Given/When/Then card generation (D-43)
@@ -293,7 +293,7 @@ Coroner demonstrates detection of six banking migration traps that silently corr
 2. Rounding mode divergence (ROUNDED ported as HALF_EVEN instead of HALF_UP).
 3. COMP-3 sign nibble (F read as positive by GnuCOBOL, may be rejected by Java; generated cases use only preferred nibbles C, D, F).
 4. Zoned decimal overpunch (ASCII convention vs EBCDIC table).
-5. Invalid numeric data under REDEFINES (GnuCOBOL reads digit bytes, Java may reject).
+5. Invalid numeric data under REDEFINES (GnuCOBOL reads the low nibble of each byte, Java may reject).
 6. Reserved for owner field trap.
 
 See samples/traps/ and `make traps`.

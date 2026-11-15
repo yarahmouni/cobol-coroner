@@ -409,3 +409,9 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Note: javac reports a deprecated API use in both Java files (to clean up).
 - Tests: pytest 205 passed, 22 deselected in 409.97s (0:06:49).
 - Kiro balance: plan 383.10 of 531 used (147.9 left); bonus Trial credits: 0.00/500.
+
+### R-65 2026-11-15: D-51, reference-output rule, trap spec corrections
+- Calls d51 and d51b (haiku). D-51 logged with the owner-approved definition of "reference did not run" (missing output, no data rows for a non-empty input, "libcob: error" on stderr, signal or timeout; never an exit code alone). quality.md: "Reference outputs come only from executing the COBOL program. A test that compares against a hand-written expected file is rejected."
+- Owner-found spec errors fixed: T3 COBOL design no longer says the reference reads F as negative (only the faulty Java does); T5 uses the low-nibble rule, verified by the operator ("12A45" used as 12145, +1 = 12146; "12B45" 12246; "12J45" and "12Z45" 13046; space 12046; added to docs/evidence/gnucobol-encodings.md).
+- Operator-found spec errors fixed: T3 field size (10 hex digits cannot fit PIC S9(5) COMP-3: now S9(7)V99 COMP-3, 5 bytes); T5 requirement 5.4 said the correct Java ignores non-digit bytes (now the low-nibble rule). Leftover: the T3 example "12345D" has 6 hex digits; corrected in the T3 build task.
+- Kiro balance: plan 386.86 of 531 used (144.14 left); bonus Trial credits: 0.00/500.

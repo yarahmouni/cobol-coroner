@@ -15,3 +15,4 @@ inclusion: always
 - No secrets in code. Secret scan in CI.
 - Makefile targets: `demo`, `test`, `zombie`, `serve`.
 - All random case generation must use random.Random(seed).random(). Hypothesis is reserved for property tests and never feeds a certificate.
+- Reference outputs come only from executing the COBOL program. A test that compares against a hand-written expected file is rejected.

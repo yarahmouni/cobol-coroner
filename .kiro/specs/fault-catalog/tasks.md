@@ -50,10 +50,10 @@ _Requirements: Req 3. COBOL decodes hex text to COMP-3 with FUNCTION HEX-TO-CHAR
 
 Done when:
 - samples/traps/T3-comp3-sign/ created with COMP3-SIGN.cob, schema.json, fixtures/sign-nibbles.csv, java/correct/Comp3Sign.java and java/faulty/Comp3Sign.java.
-- COMP3-SIGN.cob: reads INPUT-FILE (CASE-ID, HEX-VALUE), WORKING-STORAGE field populated with FUNCTION HEX-TO-CHAR(HEX-VALUE), redefined as PIC S9(5) COMP-3, moved to a signed edited output field, writes OUTPUT-FILE (CASE-ID, DECODED-VALUE).
+- COMP3-SIGN.cob: reads INPUT-FILE (CASE-ID, HEX-VALUE), WORKING-STORAGE field populated with FUNCTION HEX-TO-CHAR(HEX-VALUE), redefined as PIC S9(7)V99 COMP-3 (5 bytes, 10 hex digits), moved to a signed edited output field PIC +9(7).99, writes OUTPUT-FILE (CASE-ID, DECODED-VALUE).
 - Compiles with `cobc -x -Wall`, every IF has ELSE.
 - Faulty Java: decodes hex to bytes, reads sign nibble C positive, D negative, F negative (or rejects).
-- Correct Java: C positive, D negative, F positive, B positive (matches GnuCOBOL; comment states that IBM documentation treats B as negative, GnuCOBOL differs, and certified cases use only C, D, F).
+- Correct Java: decodes the 5 bytes with 9 digit nibbles plus a sign nibble, using the low nibble of each byte as the digit value, interprets sign nibble C positive, D negative, F positive, B positive (matches GnuCOBOL; comment states that IBM documentation treats B as negative, GnuCOBOL differs, and certified cases use only C, D, F).
 - Case generator: when HEX-VALUE is generated, use only sign nibbles C (positive), D (negative), and F (unsigned); never generate B, A, E or other non-preferred nibbles.
 - fixtures/sign-nibbles.csv: at least 3 hex values (one with C, one with D, one with F), expected output from COBOL.
 - Run the engine on the fixture: faulty Java ZOMBIE with divergent DECODED-VALUE on F; correct Java ALIVE.
@@ -75,15 +75,15 @@ Done when:
 
 - [ ] 6. Trap 5 (T5-redefines-invalid)
 
-_Requirements: Req 5. COBOL reads an alphanumeric field with non-digit characters through a REDEFINES as PIC 9(n), uses the digit bytes (evidence file: "12A45" + 1 = 12146 with no abend); faulty Java rejects or treats it as zero._
+_Requirements: Req 5. COBOL reads an alphanumeric field with non-digit characters through a REDEFINES as PIC 9(n), using the low nibble of each byte as the digit value (evidence file: "12A45" where A is 0x41, low nibble 1, is read as 12145, so + 1 = 12146 with no abend); faulty Java rejects or treats it as zero._
 
 Done when:
 - samples/traps/T5-redefines-invalid/ created with REDEFINES-INVALID.cob, schema.json, fixtures/invalid-numerics.csv, java/correct/RedefinesInvalid.java and java/faulty/RedefinesInvalid.java.
 - REDEFINES-INVALID.cob: reads INPUT-FILE (CASE-ID, ALPHA-VALUE), WORKING-STORAGE PIC X(5) redefined as PIC 9(5), COMPUTE OUTPUT-VALUE = REDEF-NUMERIC + 1, writes OUTPUT-FILE (CASE-ID, OUTPUT-VALUE).
 - Compiles with `cobc -x -Wall`, every IF has ELSE.
 - Faulty Java: rejects non-digit characters (throws an exception or writes 0).
-- Correct Java: reads only the digit bytes, ignoring non-digit bytes (matches GnuCOBOL).
-- fixtures/invalid-numerics.csv: at least 2 values ("12A45" and "12345"), expected output from COBOL.
+- Correct Java: reads the low nibble of each byte (A=0x41 becomes 1, J=0x4A becomes 10 with carry), matching GnuCOBOL.
+- fixtures/invalid-numerics.csv: at least 2 values ("12A45" (low nibble reads as 12145, output 12146) and "12345" (output 12346)), expected output from COBOL.
 - Run the engine on the fixture: faulty Java ZOMBIE with divergent OUTPUT-VALUE on "12A45"; correct Java ALIVE.
 - pytest passes.
 
@@ -111,7 +111,7 @@ _Requirements: Req 8. `python -m coroner traps` runs the engine on all built tra
 
 Done when:
 - coroner/traps.py: run_catalog(seed=42, cases=2000) loops over T1 to T5, runs the engine on faulty Java and correct Java, collects id, title, status, cases_generated, cases_detected, detection_rate, minimal_case, cobol_lines, probable_cause, suggested_fix, given_when_then, correct_java_verdict, and for T1 the exposure.
-- Probable cause and suggested fix per trap (one sentence each): T1 "Faulty Java sorts by ASCII String.compareTo instead of EBCDIC byte order. Use IBM1047 Charset or a custom Comparator.", T2 "Faulty Java uses HALF_EVEN where COBOL has ROUNDED (default HALF_UP). Use RoundingMode.HALF_UP.", T3 "Faulty Java treats sign nibble F as negative or rejects it. GnuCOBOL reads F as positive.", T4 "Faulty Java applies ASCII overpunch convention to EBCDIC-encoded data. Use the EBCDIC overpunch table (compile the reference with -fsign=EBCDIC).", T5 "Faulty Java rejects invalid numeric data under REDEFINES. GnuCOBOL reads digit bytes and ignores the rest."
+- Probable cause and suggested fix per trap (one sentence each): T1 "Faulty Java sorts by ASCII String.compareTo instead of EBCDIC byte order. Use IBM1047 Charset or a custom Comparator.", T2 "Faulty Java uses HALF_EVEN where COBOL has ROUNDED (default HALF_UP). Use RoundingMode.HALF_UP.", T3 "Faulty Java treats sign nibble F as negative or rejects it. GnuCOBOL reads F as positive.", T4 "Faulty Java applies the ASCII convention (or strips the last character) to EBCDIC-encoded data. Use the EBCDIC overpunch table (compile the reference with -fsign=EBCDIC).", T5 "Faulty Java rejects invalid numeric data under REDEFINES. GnuCOBOL reads the low nibble of each byte."
 - T6: {"id": "T6", "title": "Reserved for owner field trap", "status": "placeholder: owner field trap pending"}.
 - Writes runs/trap_catalog.json (JSON array of trap results) and runs/trap_catalog.txt (human-readable rendering).
 - CLI entry point: python -m coroner traps calls run_catalog.

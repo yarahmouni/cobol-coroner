@@ -38,12 +38,12 @@ Positioning: targeted regression traps within the supported COBOL subset. Not ge
 2.5. The hand fixture includes at least one tie that diverges (even preceding digit, positive and negative).
 
 ### 3. Trap 3 (T3-comp3-sign): COMP-3 sign nibble
-3.1. Input: packed values as hex text (for example "12345D"), decoded in COBOL with FUNCTION HEX-TO-CHAR into a field redefined as COMP-3.
+3.1. Input: packed values as hex text (for example "12345D"), representing 5 packed bytes (10 hex digits). Decoded in COBOL with FUNCTION HEX-TO-CHAR into a field redefined as PIC S9(7)V99 COMP-3.
 3.2. COBOL rules (evidence file): C positive, D negative, F read as positive, B read as positive (GnuCOBOL rule; IBM treats B as negative).
 3.3. Generated and certified cases use only the preferred sign nibbles (C for positive, D for negative, and F for unsigned fields). Non-preferred nibbles (B, A, E and others) are excluded from certified cases.
 3.4. Document this as a known GnuCOBOL vs IBM difference (docs/evidence/gnucobol-encodings.md already records it; README limitations gets one line in the documentation task). Never claim the reference matches z/OS for these.
 3.5. Faulty Java: treats F as negative or rejects it.
-3.6. Correct Java: C positive, D negative, F positive, B positive (matches GnuCOBOL).
+3.6. Correct Java: C positive, D negative, F positive, B positive (matches GnuCOBOL). Decodes the 5 bytes with 9 digit nibbles plus sign nibble, using the low nibble of each byte as the digit value, then interprets the sign nibble (C, D, F positive; D negative).
 3.7. The hand fixture includes at least one hex value with F.
 
 ### 4. Trap 4 (T4-zoned-overpunch): zoned decimal overpunch sign
@@ -58,7 +58,7 @@ Positioning: targeted regression traps within the supported COBOL subset. Not ge
 5.1. Input: alphanumeric values with non-digit characters.
 5.2. COBOL: PIC X(n) input field redefined as PIC 9(n), moved to output, or used in arithmetic (evidence file: "12A45" + 1 = 12146 with no abend, rc 0).
 5.3. Faulty Java: rejects the record or treats the value as zero.
-5.4. Correct Java: reads the digit bytes and ignores non-digit bytes (matches GnuCOBOL measured behavior).
+5.4. Correct Java: reads the low nibble of each byte as the digit value, matching GnuCOBOL (A=0x41 low nibble 1; J=0x4A low nibble 10 with carry).
 5.5. Wording: Coroner reports the behavior change, it does not judge which side is right.
 5.6. The hand fixture includes at least one invalid numeric value.
 
