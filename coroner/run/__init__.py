@@ -126,6 +126,74 @@ def compile_java(source: str, output_dir: str) -> None:
         raise RuntimeError("Java compilation timed out after 60s")
 
 
+def validate_reference_output(
+    result: RunResult,
+    input_csv: str,
+    was_killed_by_signal: bool = False
+) -> tuple[bool, str]:
+    """
+    Check if the COBOL reference ran successfully.
+    
+    A reference "did not run" when:
+    - The output file is missing
+    - The output has no data rows while the input has data rows
+    - stderr contains "libcob: error"
+    - The process was killed by a signal or timed out
+    
+    An exit code alone never triggers this (credit-fees legitimately exits 4).
+    
+    Args:
+        result: The RunResult from run_cobol
+        input_csv: Path to input CSV (to count data rows)
+        was_killed_by_signal: True if process was killed by signal or timed out
+        
+    Returns:
+        (is_valid, error_reason): (True, "") if valid, (False, reason) if broken
+    """
+    import csv
+    
+    # Check 1: Process killed by signal or timed out
+    if was_killed_by_signal:
+        return (False, "process was killed by a signal or timed out")
+    
+    # Check 2: stderr contains "libcob: error"
+    if "libcob: error" in result.stderr:
+        return (False, "libcob error in stderr")
+    
+    # Check 3: Output file missing
+    if not Path(result.output_path).exists():
+        return (False, "output file missing")
+    
+    # Check 4: Count input and output data rows
+    # Input data rows = lines - 1 (header)
+    input_data_rows = 0
+    try:
+        with open(input_csv, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            next(reader, None)  # Skip header
+            for _ in reader:
+                input_data_rows += 1
+    except Exception as e:
+        return (False, f"could not read input file: {e}")
+    
+    # Output data rows = lines - 1 (header)
+    output_data_rows = 0
+    try:
+        with open(result.output_path, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            next(reader, None)  # Skip header
+            for _ in reader:
+                output_data_rows += 1
+    except Exception as e:
+        return (False, f"could not read output file: {e}")
+    
+    # If input has data rows but output has none, reference did not run
+    if input_data_rows > 0 and output_data_rows == 0:
+        return (False, "no data rows in output while input has data rows")
+    
+    return (True, "")
+
+
 def run_cobol(binary: str, input_csv: str, output_csv: str, timeout: float = 60.0) -> RunResult:
     """
     Run COBOL binary with INPUT_FILE and OUTPUT_FILE environment variables.

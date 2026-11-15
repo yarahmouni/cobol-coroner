@@ -81,6 +81,7 @@ def run_differential_check(
     Raises:
         ToolError: If paths are outside repository or parameters are invalid
     """
+    import sys
     from coroner.cli import run_verify
     
     # Validate and resolve paths
@@ -95,8 +96,17 @@ def run_differential_check(
     if seed < 0:
         raise ToolError(f"seed must be non-negative, got {seed}")
     
-    # Run verification
-    verdict, run_dir = run_verify(cobol_path, java_path, schema_path, copybooks_path, cases, seed, timings=False, base_dir=str(REPO_ROOT))
+    # Run verification, catching SystemExit for broken reference
+    try:
+        verdict, run_dir = run_verify(cobol_path, java_path, schema_path, copybooks_path, cases, seed, timings=False, base_dir=str(REPO_ROOT))
+    except SystemExit as e:
+        if e.code == 2:
+            # Broken reference: read error from run directory if available
+            # We need to find the run_id to read the error file
+            # Since run_verify exited early, we need to reconstruct or read stderr
+            raise ToolError("ERROR: reference did not run. Check COBOL program for file errors, libcob errors, or timeouts.")
+        else:
+            raise
     
     # Read coverage report
     with open(run_dir / "coverage_report.json", 'r') as f:

@@ -259,6 +259,12 @@ def gate_command(hook_input: dict) -> None:
         if exit_code == 0:
             # ALIVE and valid: allow
             sys.exit(0)
+        elif exit_code == 2:
+            # Reference did not run: block with error message
+            message = f"ERROR: reference did not run\nCheck the COBOL program for file errors, libcob errors, or timeouts.\nRun run_differential_check again after fixing the reference."
+            print(json.dumps({"decision": "block", "reason": message}))
+            print(message, file=sys.stderr)
+            sys.exit(2)
         else:
             # ZOMBIE (exit 1) or invalid (exit 3): block
             message = build_block_message(cert_data)
@@ -300,10 +306,16 @@ def stop_command(hook_input: dict) -> None:
     # Check certificate status
     should_block = False
     block_message = ""
+    is_reference_error = False
     
     if cert_path:
         exit_code, verdict_line, cert_data = replay_certificate(repo_root, cert_path)
-        if exit_code != 0:
+        if exit_code == 2:
+            # Reference did not run: error, not ZOMBIE
+            should_block = True
+            is_reference_error = True
+            block_message = "ERROR: reference did not run. Check the COBOL program for file errors, libcob errors, or timeouts."
+        elif exit_code != 0:
             # ZOMBIE or invalid: should block
             should_block = True
             block_message = build_block_message(cert_data)
@@ -500,8 +512,15 @@ def precommit_command() -> None:
             else:
                 print(f"Commit blocked by Coroner: {verdict_line}. Fix the Java port, then run run_differential_check again.", file=sys.stderr)
             sys.exit(1)
+        elif result.returncode == 2:
+            # Reference did not run
+            print("Commit blocked by Coroner: ERROR: reference did not run.", file=sys.stderr)
+            print("Check the COBOL program for file errors, libcob errors, or timeouts.", file=sys.stderr)
+            if result.stderr:
+                print(result.stderr, file=sys.stderr)
+            sys.exit(1)
         else:
-            # Error
+            # Other error
             print(f"Coroner pre-commit: check error (exit {result.returncode})", file=sys.stderr)
             if result.stderr:
                 print(result.stderr, file=sys.stderr)

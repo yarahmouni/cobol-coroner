@@ -167,7 +167,50 @@ def run_verify(
     # Step 6: Run reference COBOL
     step_start = time.time()
     cobol_output = str(build_dir / "cobol_output.csv")
-    cobol_result = run_cobol(cobol_binary, cases_csv_path, cobol_output)
+    was_killed = False
+    try:
+        cobol_result = run_cobol(cobol_binary, cases_csv_path, cobol_output)
+    except RuntimeError as e:
+        if "timed out" in str(e):
+            was_killed = True
+            # Create a dummy result for validation
+            cobol_result = type('obj', (object,), {
+                'output_path': cobol_output,
+                'return_code': -1,
+                'stderr': str(e),
+                'wall_time': 0.0
+            })()
+        else:
+            raise
+    
+    # Validate reference output
+    from coroner.run import validate_reference_output
+    is_valid, error_reason = validate_reference_output(cobol_result, cases_csv_path, was_killed)
+    if not is_valid:
+        # Reference did not run successfully
+        # Print error message and exit 2 without verdict or certificate
+        print("ERROR: reference did not run", file=sys.stderr)
+        print(f"Reason: {error_reason}", file=sys.stderr)
+        
+        # Show first few lines of stderr if available
+        if cobol_result.stderr:
+            stderr_lines = cobol_result.stderr.strip().split('\n')[:10]
+            print("COBOL stderr:", file=sys.stderr)
+            for line in stderr_lines:
+                print(f"  {line}", file=sys.stderr)
+        
+        # Write error info to run directory
+        error_path = run_dir / "run_error.txt"
+        with open(error_path, 'w') as f:
+            f.write(f"ERROR: reference did not run\n")
+            f.write(f"Reason: {error_reason}\n\n")
+            if cobol_result.stderr:
+                f.write("COBOL stderr:\n")
+                f.write(cobol_result.stderr)
+        
+        # Exit without verdict or certificate
+        sys.exit(2)
+    
     record_step("Run COBOL reference", step_start)
     
     # Step 6b: Run Java

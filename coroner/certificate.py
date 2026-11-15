@@ -369,7 +369,35 @@ def replay_certificate(certificate_path: str) -> ReplayResult:
             
             # Run COBOL reference
             cobol_output = f"{replay_build}/cobol_output.csv"
-            cobol_result = run_cobol(cobol_binary, cases_file, cobol_output)
+            was_killed = False
+            try:
+                cobol_result = run_cobol(cobol_binary, cases_file, cobol_output)
+            except RuntimeError as e:
+                if "timed out" in str(e):
+                    was_killed = True
+                    # Create dummy result for validation
+                    cobol_result = type('obj', (object,), {
+                        'output_path': cobol_output,
+                        'return_code': -1,
+                        'stderr': str(e),
+                        'wall_time': 0.0
+                    })()
+                else:
+                    raise
+            
+            # Validate reference output
+            from coroner.run import validate_reference_output
+            is_valid, error_reason = validate_reference_output(cobol_result, cases_file, was_killed)
+            if not is_valid:
+                # Reference did not run during replay
+                return ReplayResult(
+                    valid=False,
+                    reason=f"reference did not run during replay: {error_reason}",
+                    verdict=None, cases_total=0, cases_divergent=0,
+                    paragraph_coverage_reached=0, paragraph_coverage_total=0,
+                    branch_coverage_reached=0, branch_coverage_total=0,
+                    cases_file="", warnings=[]
+                )
             
             # Run Java
             java_output = f"{replay_build}/java_output.csv"
