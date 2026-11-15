@@ -146,7 +146,7 @@ _Requirements: 7.3, 7.4, 7.5_
 
 Done when: `.venv/bin/pytest tests/test_junit.py -q` shows all tests passing or skipped with clear reasons, and `make junit-jars` downloads jars successfully.
 
-- [ ] 12. Legacy HALF_EVEN variant generation (coroner/catalog/legacy_variant.py)
+- [x] 12. Legacy HALF_EVEN variant generation (coroner/catalog/legacy_variant.py)
   - Implement `generate_half_even_variant(source_path: str, output_path: str) -> None` that reads Java source, replaces all "RoundingMode.HALF_UP" with "RoundingMode.HALF_EVEN", writes to output_path
   - Simple text replacement, no parsing
   - Create `tests/test_legacy_variant.py` with pytest functions: test generate_half_even_variant replaces string, test output file compiles with javac (skip if javac missing), test variant runs without error (skip if cobc missing)

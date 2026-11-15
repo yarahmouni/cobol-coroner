@@ -303,3 +303,9 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 ### R-52 2026-11-15: decisions D-46 to D-49, scope frozen
 - Call d46-49 (haiku, 0.32 credits). Numbering per the owner: D-45 is the rejected list, D-46 the six-trap catalog (replaces D-35), D-47 the three Kiro skills, D-48 the static showcase page, D-49 the v6-scan reduction to 3 rules, full-chain emphasis and tagline. README gains "The full chain" with the tagline, marked "(in progress)" until built. Owner: scope frozen until submission.
 - Kiro balance after this task: plan 165.09 of 531 used (365.91 left); bonus 0.00 of 500 used.
+
+### R-53 2026-11-15: engine task 12 (legacy HALF_EVEN variant)
+- Calls et12 and et12fix (sonnet). Operator check: 3 replacements on exactly 3 lines, no HALF_UP left in code (one comment mentions it), class name unchanged; on rounding-ties.csv the variant diverges on the 26 even-digit tie rows of 30 (test computes them with Decimal).
+- Fixes: output directory created when missing; Kiro had compiled COBOL into samples/credit-fees/ and written a duplicate expected file there (byte-identical to expected-output.csv): the test now uses expected-output.csv and builds in build/; the operator deleted the two untracked strays (regenerable artifacts, owner autonomy rule).
+- Tests: pytest 155 passed.
+- Kiro balance: plan 172.17 of 531 used (358.83 left); bonus Trial credits: 0.00/500.
