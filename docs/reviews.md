@@ -282,3 +282,9 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Fix: nothing computed the inputs.json fields (only listed in a docstring). collect_inputs now computes every field: file hashes, copybook hashes sorted, cases file hash with LF check, python/cobc/javac/java versions, coroner_version, comparison_engine_sha256 (D-36), UTC timestamp.
 - Operator check on credit-fees: all fields present with real values; COBOL hash equals hashlib on the file; run_id stable across calls (a26c32ac9519), changes with the seed.
 - Tests: pytest 136 passed. Watch item: suite time rose from 25 s to 63 s (version commands in tests); to trim after the engine is complete.
+
+### R-49 2026-11-15: engine task 10 (coverage, minimal case, failure report)
+- Calls et10, et10fix, et10fix2, flaky (sonnet).
+- Operator run on 2,000 generated cases (seed 42): one instrumented run 6.95 s, trace 13.9 MB; Paragraph coverage 12/12, Branch coverage (Coroner definition) 42/70 (the uncovered branches are the input-validation error paths and the RETURN-CODE 0 path: the generator only emits valid inputs and the file always contains overflow rows). HALF_EVEN copy: 75 divergent cases; minimal case GEN-001213 (PRINCIPAL -0.21, FEE-RATE 0.25510, segment P): COBOL -0000000.05, HALF_EVEN -0000000.04; the tie is at the discount step (-0.05 x 0.90 = -0.045), the failure report lists the discount COMPUTE line 332.
+- BUGs fixed: hollow test (tie check ended in `pass`, COBOL-line check was a 100-line window) replaced by a real Decimal check of the tie at the base or discount step and the exact COMPUTE line; another test with only `pass` implemented for real (E01 re-run returns 4 on both sides); per-item coverage detail restored (needed by the UI evidence panel); a flaky timestamp assertion replaced by an explicit run_id check.
+- Operator scan: no test function with an empty body. Tests: pytest 145 passed on five consecutive runs.

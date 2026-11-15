@@ -122,7 +122,7 @@ _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6_
 
 Done when: `.venv/bin/pytest tests/test_store.py -q` shows all tests passing, and runs/ directory exists after a test with stored artifacts.
 
-- [ ] 10. Coverage and failure reports (coroner/diag/__init__.py)
+- [x] 10. Coverage and failure reports (coroner/diag/__init__.py)
   - Implement `coroner/diag/coverage.py` with `CoverageReport` dataclass and `compute_coverage(trace: dict[(source_file, line), int], cobol_structure: dict) -> CoverageReport` that matches trace keys against paragraphs and branch first statements
   - Coverage: paragraph covered if any line inside it appears in trace, branch covered if its first statement line appears in trace (D-07)
   - Implement `coroner/diag/report.py` with `FailureReport` dataclass and `generate_failure_report(...) -> FailureReport` that selects minimal case, re-runs instrumented COBOL on single case, extracts executed lines, returns all details

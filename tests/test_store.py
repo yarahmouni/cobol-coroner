@@ -420,7 +420,7 @@ def test_collect_inputs_stable_run_id_despite_different_timestamps(tmp_path):
     cases_file = tmp_path / "cases.csv"
     cases_file.write_text("CASE_ID\nTEST-001\n", encoding='utf-8')
     
-    # Collect inputs twice (timestamps will differ)
+    # Collect inputs once
     inputs_1 = collect_inputs(
         cobol_source=str(cobol_source),
         copybook_dir=str(copybook_dir),
@@ -431,23 +431,11 @@ def test_collect_inputs_stable_run_id_despite_different_timestamps(tmp_path):
         case_count=100
     )
     
-    import time
-    time.sleep(0.1)  # Ensure different timestamp
+    # Make a copy with a different timestamp
+    inputs_2 = inputs_1.copy()
+    inputs_2["timestamp"] = "2000-01-01T00:00:00Z"
     
-    inputs_2 = collect_inputs(
-        cobol_source=str(cobol_source),
-        copybook_dir=str(copybook_dir),
-        java_source=str(java_source),
-        schema_path=str(schema_path),
-        cases_file=str(cases_file),
-        seed=42,
-        case_count=100
-    )
-    
-    # Timestamps should differ
-    assert inputs_1["timestamp"] != inputs_2["timestamp"]
-    
-    # But run_ids should be the same
+    # run_ids should be the same despite different timestamps
     run_id_1 = compute_run_id(inputs_1)
     run_id_2 = compute_run_id(inputs_2)
     
