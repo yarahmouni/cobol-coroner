@@ -241,3 +241,7 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 ### R-40 2026-11-15: engine task 2 (schema loading)
 - Call et2 (sonnet). Operator check: parse_pic correct on S9(9)V99, V9(5), 9(3), X(1), 9(9)V99, +9(7).99, S9V9, 99V9(3); credit-fees schema gives the right types, signs and scales; invalid JSON and missing fields raise clear errors. Kiro correctly followed the real schema (6 input columns) where the task text was wrong.
 - Tests: pytest 52 passed.
+
+### R-41 2026-11-15: engine task 3 (trace keyed by source file and line)
+- Call et3 (sonnet). Real two-source trace captured from GnuCOBOL (program, copybook, back to program: 3 Source: records); parse_trace_counts keys (source, line) correctly; parse_trace wrapper unchanged ({9, 10, 11, 16, 17}); smoke PASSED; pytest 59 passed.
+- Notes for later tasks: the trace names the copybook HELPER.CPY while the file is HELPER.cpy (case-insensitive macOS filesystem): coverage matching (task 10) must resolve paths, not compare strings. parse_trace_counts reads the whole file instead of streaming (design); fix sent with task 4.

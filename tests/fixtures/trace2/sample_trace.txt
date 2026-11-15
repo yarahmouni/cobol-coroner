@@ -1,0 +1,15 @@
+Source: 'tests/fixtures/trace2/trace-two-source.cob'
+Program-Id:  TRACE-TWO-SOURCE
+Program-Id:  TRACE-TWO-SOURCE     Entry: TRACE-TWO-SOURCE                Line:      9
+Program-Id:  TRACE-TWO-SOURCE Paragraph: MAIN-PARA                       Line:      9
+Program-Id:  TRACE-TWO-SOURCE            DISPLAY                         Line:     10
+Program-Id:  TRACE-TWO-SOURCE            PERFORM                         Line:     11
+Program-Id:  TRACE-TWO-SOURCE Paragraph: HELPER-PARA                     Line:     16
+Source: 'tests/fixtures/trace2/HELPER.CPY'
+Program-Id:  TRACE-TWO-SOURCE            DISPLAY                         Line:      1
+Program-Id:  TRACE-TWO-SOURCE            ADD                             Line:      2
+Program-Id:  TRACE-TWO-SOURCE            DISPLAY                         Line:      3
+Source: 'tests/fixtures/trace2/trace-two-source.cob'
+Program-Id:  TRACE-TWO-SOURCE            DISPLAY                         Line:     12
+Program-Id:  TRACE-TWO-SOURCE            DISPLAY                         Line:     13
+Program-Id:  TRACE-TWO-SOURCE            STOP RUN                        Line:     14

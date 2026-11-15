@@ -22,7 +22,7 @@ _Requirements: 1.7, 1.8, 2.1, 2.2, 2.3_
 
 Done when: `.venv/bin/pytest tests/test_schema.py -q` shows all tests passing, and loading `samples/credit-fees/schema.json` returns a Schema object with input_columns length 4 and output_columns length 4.
 
-- [ ] 3. Trace parsing with source file keys (coroner/parse/trace.py)
+- [x] 3. Trace parsing with source file keys (coroner/parse/trace.py)
   - Keep existing `parse_trace(path: str) -> set[int]` working as a thin wrapper for backward compatibility (smoke/run_smoke.sh and tests/test_trace_parser.py use it)
   - Implement `parse_trace_counts(path: str) -> dict[(source_file: str, line: int), int]` that streams the trace file and returns execution counts keyed by (source_file, line_number)
   - Trace format: "Source: <file>" to track current source file, "Line: N" to record executed line, count incremented for each appearance
