@@ -296,7 +296,7 @@ def generate_cases(
     cobol_structure: dict,
     seed: int,
     num_cases: int,
-    tie_share: float = 0.05
+    tie_share: float = 0.06
 ) -> str:
     """
     Generate test cases from schema and COBOL structure.
@@ -306,7 +306,7 @@ def generate_cases(
         cobol_structure: Parsed COBOL constants, paragraphs, branches
         seed: Fixed seed for reproducibility
         num_cases: Total number of cases to generate
-        tie_share: Fraction of cases that are rounding ties (default 0.05)
+        tie_share: Fraction of cases that are rounding ties (default 0.06)
         
     Returns:
         Path to generated_cases.csv

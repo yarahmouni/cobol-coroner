@@ -317,3 +317,15 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
   - Re-run of make zombie: same run_id, byte-identical generated_cases.csv and verdict.json.
 - Extra changes reviewed: a `python -m coroner.catalog.legacy_variant` entry point (used by make zombie, no new script file) and coverage string helpers. Certificate replay form reserved (exit 2 "not implemented yet") until priority 2.
 - Kiro balance: plan 189.78 of 531 used (341.22 left); bonus Trial credits: 0.00/500.
+
+### R-55 2026-11-15: engine task 14 (S1 acceptance, measured)
+- Calls et14 (sonnet, wasted: the operator's sed step broke the prompt and Kiro received no task; prompts are now built with a small Python helper) and et14b (sonnet).
+- Calibration (Kiro measurement, seed 42, 2,000 cases): tie_share 0.06 is the smallest default giving 80 to 120 HALF_EVEN divergences (86).
+- Operator re-run of `make acceptance` (2,000 cases per run, seeds 42, 123, 456, 789, 1011, 1213, 1415, 1617, 1819, 2021, documented in tests/test_acceptance.py):
+  - correct Java: ALIVE on 10 of 10 seeds, 0 divergences each (0 false ZOMBIE);
+  - HALF_EVEN legacy variant: ZOMBIE on 10 of 10 (0 false ALIVE), divergences 86, 83, 84, 80, 75, 78, 68, 85, 80, 77;
+  - wall-clock per verify 4.7 s to 6.1 s, compilation included (target under 60 s);
+  - 22 passed in 122.69 s. `make zombie` now prints 86 divergences.
+- Slow marker excluded from plain pytest: pytest 159 passed, 22 deselected.
+- S1 acceptance (sprints.md): met.
+- Kiro balance: plan 195.92 of 531 used (335.08 left); bonus Trial credits: 0.00/500.

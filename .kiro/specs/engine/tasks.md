@@ -174,7 +174,7 @@ _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 9.9, 9.10, 10.1, 10.2_
 
 Done when: `make demo` exits 0 printing "ALIVE: PASS: business behavior preserved on 2000 cases" and coverage summary; `make zombie` exits 1 printing "ZOMBIE: FAIL: business behavior diverged on ...".
 
-- [ ] 14. Acceptance tests (10 seeds, 2000 cases each) - marked slow, run via 'make acceptance'
+- [x] 14. Acceptance tests (10 seeds, 2000 cases each) - marked slow, run via 'make acceptance'
   - Create `tests/test_acceptance.py` with parametrized tests using 10 documented fixed seeds (s1=42, s2=123, s3=456, s4=789, s5=1011, s6=1213, s7=1415, s8=1617, s9=1819, s10=2021)
   - Test `test_acceptance_no_false_zombie`: parametrized over 10 seeds, runs engine on correct Java with 2000 cases, asserts exit code 0 (ALIVE)
   - Test `test_acceptance_no_false_alive`: parametrized over 10 seeds, generates HALF_EVEN variant, runs engine with 2000 cases, asserts exit code 1 (ZOMBIE) and cases_divergent > 0

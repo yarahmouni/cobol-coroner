@@ -1,7 +1,10 @@
-.PHONY: test smoke demo zombie serve java-sample hooks junit-jars
+.PHONY: test smoke demo zombie serve java-sample hooks junit-jars acceptance
 
 test:
 	.venv/bin/pytest -q
+
+acceptance:
+	.venv/bin/pytest -m slow -s
 
 smoke:
 	docker build -t coroner:smoke . && docker run --rm coroner:smoke

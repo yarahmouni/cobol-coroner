@@ -70,7 +70,8 @@ def validate_inputs(cobol: str, copybooks: str, java: str, schema: str) -> None:
 
 
 def verify_command(cobol: str, copybooks: str, java: str, schema: str, 
-                   cases: int = 2000, seed: int = 42, timings: bool = False) -> int:
+                   cases: int = 2000, seed: int = 42, tie_share: float = 0.06, 
+                   timings: bool = False) -> int:
     """
     Orchestrate the full verification pipeline.
     
@@ -103,6 +104,7 @@ def verify_command(cobol: str, copybooks: str, java: str, schema: str,
         schema: Path to schema.json
         cases: Number of test cases to generate (default 2000)
         seed: Random seed (default 42)
+        tie_share: Fraction of cases that are rounding ties (default 0.06)
         timings: Print per-step timings (default False)
         
     Returns:
@@ -131,7 +133,7 @@ def verify_command(cobol: str, copybooks: str, java: str, schema: str,
         
         # Step 3: Generate cases
         step_start = time.time()
-        cases_csv_path = generate_cases(schema_obj, cobol_structure, seed, cases)
+        cases_csv_path = generate_cases(schema_obj, cobol_structure, seed, cases, tie_share)
         record_step(f"Generate {cases} cases", step_start)
         
         # Step 4: Collect inputs and compute run_id
@@ -315,6 +317,7 @@ def main():
     verify_parser.add_argument("--schema", required=True, help="Path to schema.json")
     verify_parser.add_argument("--cases", type=int, default=2000, help="Number of test cases (default: 2000)")
     verify_parser.add_argument("--seed", type=int, default=42, help="Random seed (default: 42)")
+    verify_parser.add_argument("--tie-share", type=float, default=0.06, help="Fraction of cases that are rounding ties (default: 0.06)")
     verify_parser.add_argument("--timings", action="store_true", help="Print per-step timings")
     
     args = parser.parse_args()
@@ -332,7 +335,8 @@ def main():
         
         exit_code = verify_command(
             args.cobol, args.copybooks, args.java, args.schema,
-            cases=args.cases, seed=args.seed, timings=args.timings
+            cases=args.cases, seed=args.seed, tie_share=args.tie_share,
+            timings=args.timings
         )
         return exit_code
     else:

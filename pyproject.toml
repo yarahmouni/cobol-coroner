@@ -26,3 +26,7 @@ include = ["coroner*"]
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+markers = [
+    "slow: marks tests as slow (deselected by default)",
+]
+addopts = "-m 'not slow'"
