@@ -190,3 +190,7 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - BUG: haiku wrote parity-expected.csv by hand (a CASE-ID "PAR-22" that is not in the input) after its commands were refused, and reported guessed results. Regenerated from the COBOL program. Rule kept: expected files only come from the COBOL reference; complex verification steps go to sonnet.
 - Verified by the operator: `javac -Xlint:all` clean; COBOL and Java byte-identical with equal exit codes on rounding-ties (0), edge-cases (4), validation-errors (4), parity-cases (4); parity-expected.csv equals a fresh COBOL run; no double, float, long or Math.round in CreditFees.java; `pytest` 32 passed.
 - Status: clean. S1 item "Java 17 version" done.
+
+### R-32 2026-11-15: keep the CRLF parity row in Git
+- `.gitattributes` (`* text=auto eol=lf`) had turned the deliberate CRLF row of parity-cases.csv into LF on commit, so a fresh clone no longer tested CRLF input. Call gitattr (haiku): the fixture is marked `-text`; file renormalized; the committed bytes now keep the CR.
+- Status: clean (fresh-clone check below).
