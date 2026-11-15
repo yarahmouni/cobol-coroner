@@ -215,3 +215,10 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Fixes sent: Kiro dropped the EARS format (restored); the reformat invented a "detection rate at least 50%" pass threshold that the owner never asked for (replaced by at least one detected case, rate reported only).
 - Scope conflicts resolved in text: EBCDIC-encoded data stays out of scope, only the collating sequence trap is in scope (README, scope-v1.md); engine spec wording only (HALF_EVEN legacy variant name, Req 5.5 return codes leftover).
 - D-29 logged; README tagline added; public catalog wording in no-formal-proof.md.
+
+### R-36 2026-11-15: engine design
+- Calls: engine-design (sonnet, 2.24 credits), engine-design-fix (sonnet, 3.47 credits). Total 69.39 of 531.
+- Operator verification on GnuCOBOL 3.2.0 (-ftraceall): CONTINUE is traced as a statement; WHEN lines are traced when their condition is tested even if not taken, so branch markers are the first statement inside each arm.
+- Fixes sent (8): BUG decimal normalization used quantize (rounding), which would hide a divergence such as Java 12.355 vs COBOL 12.36 (D-09): now pad only, extra non-zero decimals are divergent, plus Hypothesis properties; tie construction from products of input pairs with the correct even-digit arithmetic and a measured calibration target (80 to 120 HALF_EVEN divergences on 2,000 cases), not a guess; a return-code-only mismatch no longer prints "diverged on 0 cases"; branch map includes EVALUATE arms and uses first statements; parser scope stated, unsupported constructs give "not measured"; Decimal ordering for the minimal case; streaming trace parser and per-step timings; two owner questions kept.
+- Open for the owner: Hypothesis at runtime vs random.Random(seed); return codes per run in batch mode.
+- Status: clean.
