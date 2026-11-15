@@ -4,6 +4,8 @@
 
 It checks whether a migration kept the business behavior on N generated cases, and shows exactly where it broke.
 
+COBOL Coroner does not just compare outputs. It detects the banking migration traps that silently corrupt totals, control breaks and data ordering.
+
 > AI accelerates. Coroner certifies.
 
 COBOL Coroner does not convert code. It verifies a migration that already exists, whoever produced it (AWS Transform, Kiro, Claude or a human).
@@ -30,7 +32,7 @@ Work in progress for Kiroween 2026 (category: Resurrection). See `docs/sprints.m
 
 ## Out of scope (V1)
 
-CICS, DB2, IMS, VSAM, JCL, EBCDIC, multi-program applications, Pacbase, target languages other than Java 17.
+CICS, DB2, IMS, VSAM, JCL, EBCDIC-encoded data (the EBCDIC collating sequence trap is in scope), multi-program applications, Pacbase, target languages other than Java 17.
 
 ## How Kiro was used
 

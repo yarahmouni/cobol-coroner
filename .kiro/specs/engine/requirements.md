@@ -45,7 +45,7 @@ Dependencies: Hypothesis is added to the dev dependencies at a pinned version (q
 2. THE same seed SHALL produce the same cases byte for byte (D-08, per quality.md).
 3. THE module SHALL generate targeted cases: limits (minimum and maximum values for each PIC), boundaries around thresholds found in the schema or as numeric constants in the COBOL source (e.g., values just below and just above 10.00 if 10.00 appears as a constant), branch-driving values (values that force each IF condition true and false), exact rounding ties at scale 2 with even and odd preceding digits (e.g., 12.345, 11.345), and negative values for signed fields.
 4. THE module SHALL generate Hypothesis random cases using the same fixed seed, covering the full range of each input field.
-5. THE share of exact rounding ties SHALL be configurable so that the HALF_EVEN variant (F01, D-06) diverges on about 100 of 2,000 cases. The default configuration SHALL target approximately 5% rounding ties.
+5. THE share of exact rounding ties SHALL be configurable so that the HALF_EVEN legacy demo variant (D-06) produced by the catalog tooling (D-29) diverges on about 100 of 2,000 cases. The default configuration SHALL target approximately 5% rounding ties.
 6. GENERATED inputs SHALL use canonical numeric text format: optional leading '-', digits, optional '.', more digits (e.g., "123.45", "-0.50", "100"). This is the domain where Java parity is specified (per java-credit-fees requirement 5).
 7. THE module SHALL NOT generate numeric values with leading '+', scientific notation (e.g., "1E2"), or trailing/leading spaces in numeric fields. These forms are handled by the COBOL and Java parsers but are not canonical for generation.
 8. CASE-ID is the first schema input column. THE case generator SHALL write all generated cases to a CSV file in `runs/<run_id>/generated_cases.csv` with columns matching the schema input columns. Generated CASE-ID values are "GEN-00001", "GEN-00002", ... and must fit the PIC clause in schema.json (for credit-fees: X(10)).
@@ -75,7 +75,7 @@ Dependencies: Hypothesis is added to the dev dependencies at a pinned version (q
 2. THE first column SHALL be the case id. Row counts in COBOL and Java outputs SHALL be equal; if not, the comparison SHALL report a row count mismatch and consider the case divergent.
 3. THE COBOL and Java run return codes are compared. A mismatch is a run-level divergence that makes the verdict ZOMBIE and is listed first in the report. When a case is re-run alone (minimal case, failure report), its own return codes are compared too. NOTE: comparison-rules.md says return codes are compared for every case; in batch mode this applies per run and per re-run case; owner validation pending.
 4. FOR EACH case THE module SHALL compare each output column by name. If a column value differs after normalization, the case is divergent.
-5. THE module SHALL output per case: case id, divergent (boolean), list of divergent fields with (field name, COBOL value, Java value), COBOL return code, Java return code.
+5. THE module SHALL output per case: case id, divergent (boolean), list of divergent fields with (field name, COBOL value, Java value). Return codes are listed per run and per re-run case (consistent with Requirement 5.3).
 6. THE comparison result SHALL be written to `runs/<run_id>/comparison_results.json` as a JSON array of case results.
 7. WHEN a column is missing in one output but present in the other THE module SHALL report the column as divergent with value "missing".
 8. WHEN the schema specifies a decimal column with scale 2 THE module SHALL normalize both COBOL and Java values to exactly 2 decimal places before comparison (e.g., "10.5" becomes "10.50").
@@ -132,22 +132,22 @@ Dependencies: Hypothesis is added to the dev dependencies at a pinned version (q
 5. THE `--cases N` option SHALL override the default number of cases generated (default 2000).
 6. THE `--seed S` option SHALL override the default fixed seed (default seed documented in the code and docs).
 7. THE Makefile target `make demo` SHALL run `python -m coroner verify` on the correct Java version (`samples/credit-fees/java/CreditFees.java`) and print the ALIVE verdict. This target replaces the S0 placeholder ("not available yet").
-8. THE Makefile target `make zombie` SHALL run `python -m coroner verify` on the F01 HALF_EVEN variant (produced by the fault catalog F01 rewrite, path `samples/credit-fees/java/variants/CreditFees_F01.java`) and print the ZOMBIE verdict. This target replaces the S0 placeholder.
+8. THE Makefile target `make zombie` SHALL run `python -m coroner verify` on the HALF_EVEN legacy demo variant (produced by the catalog tooling, D-29, path `samples/credit-fees/java/variants/CreditFees_F01.java`) and print the ZOMBIE verdict. This target replaces the S0 placeholder.
 9. WHEN the COBOL source, copybooks, or schema are missing or invalid THE command SHALL print a clear error message and exit with code 2.
-10. THE CLI SHALL accept any Java source path, not only the samples directory (per Requirement 10, the engine must accept the F01 variant path).
+10. THE CLI SHALL accept any Java source path, not only the samples directory (per Requirement 10, the engine must accept the HALF_EVEN legacy demo variant path).
 
 ### Requirement 10: S1 acceptance criteria from sprints.md
 **User Story:** As a product owner, I need the engine to meet the S1 acceptance criteria: correct verdicts on 2,000 cases, performance under 60 seconds, and zero false verdicts.
 
 #### Acceptance Criteria
 1. THE engine SHALL produce an ALIVE verdict when run on `samples/credit-fees/CREDIT-FEES.cob` and `samples/credit-fees/java/CreditFees.java` with 2,000 cases and the default seed.
-2. THE engine SHALL produce a ZOMBIE verdict when run on the same COBOL and the F01 HALF_EVEN variant `samples/credit-fees/java/variants/CreditFees_F01.java` (produced by the fault catalog F01 rewrite) with 2,000 cases and the default seed.
+2. THE engine SHALL produce a ZOMBIE verdict when run on the same COBOL and the HALF_EVEN legacy demo variant `samples/credit-fees/java/variants/CreditFees_F01.java` (produced by the catalog tooling, D-29) with 2,000 cases and the default seed.
 3. THE wall-clock time of one `python -m coroner verify` with 2,000 cases on the dev machine SHALL be under 60 seconds, compilation included. This timing is measured by a test and printed by the CLI.
 4. THE engine SHALL produce 0 false ZOMBIE verdicts on 10 runs of the correct Java with 10 different documented fixed seeds (seeds s1 through s10 documented in the test or code).
 5. THE engine SHALL produce 0 false ALIVE verdicts on 10 runs of the HALF_EVEN variant with the same 10 seeds.
 6. THE 10 fixed seeds and their expected verdicts SHALL be documented in the test file or in a comment in the CLI module.
 7. WHEN any of these acceptance tests fail THE engine is not ready for S1 completion.
-8. THE engine SHALL accept any Java source path (not only the samples directory) so it can verify the F01 variant and other fault catalog variants.
+8. THE engine SHALL accept any Java source path (not only the samples directory) so it can verify the HALF_EVEN legacy demo variant and other fault catalog variants.
 
 ### Requirement 11: Comprehensive tests
 **User Story:** As a developer, I need unit tests, property-based tests, and end-to-end tests to ensure the engine works correctly.
