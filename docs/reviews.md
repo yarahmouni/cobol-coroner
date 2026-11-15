@@ -103,3 +103,9 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent lazarus-builder` (ag
 - Single approved force-push: `main` at b23b339, 14 commits, one author email.
 - CI run 43655751273: both jobs not started, "account is locked due to a billing issue" (GitHub account, not the code). Task 17 open until the owner resolves billing.
 - Local equivalent on a fresh clone of `main` (macOS): venv, `pip install -e ".[dev]"`, `make test` 7 passed. Secret scan not reproduced locally.
+
+### R-20 2026-11-15: cobol-sample design.md (rounds 1 to 3, closes R-18)
+- Round 1 (10 fixes of R-18): applied once the Kiro throttle cleared.
+- Round 2 (9 fixes): BUG stale state between records (no INITIALIZE, a valid record left A00 so the next record skipped validation and reused old numbers); BUG overflow E01 overwritten by eligibility; BUG silent truncation by MOVE of NUMVAL made range and decimal checks useless (now: moved value must equal NUMVAL of the text); UNSTRING ON OVERFLOW for extra fields; CASE-ID longer than 10 is E01; FILE STATUS bound; empty input file handled; every IF has an ELSE; verified tie examples (computed with Python Decimal); byte-exact regression test; one validation fixture row per E01 cause plus a no-leak check.
+- Round 3 (3 fixes): segment length tested on the 1-character field (never true); CASE-ID cut at an embedded space; OUTPUT-LINE not cleared before STRING.
+- Status: clean.
