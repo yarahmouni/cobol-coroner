@@ -1,0 +1,1 @@
+"""Diagnostic module for Coroner."""

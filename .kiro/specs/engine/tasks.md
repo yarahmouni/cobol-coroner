@@ -1,6 +1,6 @@
 # Tasks: Coroner engine (S1)
 
-- [ ] 1. Dependencies and package skeleton
+- [x] 1. Dependencies and package skeleton
   - Add `hypothesis==6.170.14` to dev dependencies in pyproject.toml
   - Reinstall with `.venv/bin/pip install -e ".[dev]"`
   - Create empty package structure: `coroner/parse/__init__.py`, `coroner/gen/__init__.py`, `coroner/run/__init__.py`, `coroner/compare/__init__.py`, `coroner/diag/__init__.py`, `coroner/catalog/__init__.py`

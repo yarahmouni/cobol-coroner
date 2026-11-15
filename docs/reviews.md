@@ -232,3 +232,8 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 ### R-38 2026-11-15: engine tasks.md
 - Call engine-tasks (haiku, 0.58 credits): 15 tasks, each with Requirements and Done when, coverage table maps every criterion. Constraints given: hypothesis pinned at 6.170.14 (2026-10-30; the latest release was 9 days old), parse_trace kept as a wrapper because smoke/run_smoke.sh and the S0 tests use it, real two-source trace fixture, structure counts checked by hand, grep test against non-random() draws, JUnit jar version and checksum filled by the operator from a real download.
 - Status: clean.
+
+### R-39 2026-11-15: engine task 1 (dependencies and skeleton)
+- Call et1 (sonnet): hypothesis 6.170.14 installed; package skeleton per the design.
+- Scope slip accepted: Kiro also rewrote coroner/parse/trace.py cosmetically and dropped the package-level re-export (nothing imports it; smoke and S0 tests pass).
+- Tests: pytest 39 passed; smoke PASSED.

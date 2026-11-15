@@ -1,0 +1,1 @@
+"""Comparison module for Coroner."""

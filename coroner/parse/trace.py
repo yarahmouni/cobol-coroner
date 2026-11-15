@@ -1,42 +1,36 @@
-"""Parse GnuCOBOL trace files to extract executed line numbers."""
+"""Trace parsing module for Coroner."""
 
 import re
 from pathlib import Path
 
 
-def parse_trace(trace_file_path: str) -> set[int]:
+def parse_trace(path: str) -> set[int]:
     """
-    Parse a GnuCOBOL trace file and return executed line numbers.
+    Parse GnuCOBOL trace file and return executed line numbers.
     
     Args:
-        trace_file_path: Path to the trace output file
+        path: Path to the trace file
         
     Returns:
-        Set of line numbers that were executed
+        Set of executed line numbers
         
     Raises:
-        FileNotFoundError: trace file does not exist
-        ValueError: trace file is empty or unparseable
+        FileNotFoundError: If trace file does not exist
+        ValueError: If trace file is empty
     """
-    path = Path(trace_file_path)
+    trace_path = Path(path)
+    if not trace_path.exists():
+        raise FileNotFoundError(f"Trace file not found: {path}")
     
-    if not path.exists():
-        raise FileNotFoundError(f"Trace file not found: {trace_file_path}")
-    
-    content = path.read_text()
-    
+    content = trace_path.read_text()
     if not content.strip():
         raise ValueError("Trace file is empty")
     
-    # Extract line numbers from executed statement records.
-    # Format: "Program-Id: TOY ... Line: 9"
-    # Only lines with "Line:" field carry line numbers (executed statements).
-    # Header lines like "Source:" and bare "Program-Id:" lines have no line number.
-    line_numbers = set()
-    pattern = re.compile(r'\bLine:\s+(\d+)')
+    line_pattern = re.compile(r'Line:\s+(\d+)')
+    lines = set()
     
-    for match in pattern.finditer(content):
-        line_number = int(match.group(1))
-        line_numbers.add(line_number)
+    for match in line_pattern.finditer(content):
+        line_num = int(match.group(1))
+        lines.add(line_num)
     
-    return line_numbers
+    return lines
