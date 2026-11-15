@@ -162,3 +162,10 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Kiro left two untracked helper scripts at the repository root (one hardcodes a local absolute path); not committed, removal pending owner approval.
 - S0 acceptance (docs/sprints.md): cobc compiles the sample, the trace lists executed lines, Kiro lists and calls get_verdict, make smoke green: all met. Task 17 (green CI) open: GitHub Actions still refuses to start jobs ("account is locked due to a billing issue"), runs 43667297533 (re-run, attempt 2) and 43669244196.
 - Credits used so far: 22.81 of 531.
+
+### R-28 2026-11-15: S1 start, requirements for java-credit-fees and fault-catalog
+- Call s1-reqs (sonnet, about 1.55 credits including reporting lag): both requirements files. Call s1-reqs-fix (haiku, 0.61 credits).
+- fault-catalog fixes (3): per-fault detection rate added (owner list), still no global rate; F01/F02/F03 no longer overlap (F02 is scale only, F03 is DOWN instead of HALF_UP); deterministic minimal failing case (smallest absolute PRINCIPAL, then FEE-RATE, then CASE-ID). Certificate, JUnit export and suggested fix explicitly excluded until the owner vote.
+- java-credit-fees fixes (4): trailing-only trim for CASE-ID and CUSTOMER-SEGMENT (a two-sided trim would accept " B", which COBOL rejects); invalid example (-100.005 is an E01 input) replaced by -1234.50 x 0.01000 = -12.345 gives -0000012.35; range check after rounding (ON SIZE ERROR with ROUNDED); CSV split keeps trailing empty fields, more than 6 fields is E01.
+- The HALF_EVEN demo variant is produced by fault F01 injection, not hand-written.
+- Status: java-credit-fees requirements clean; fault-catalog requirements waiting for owner review before design.
