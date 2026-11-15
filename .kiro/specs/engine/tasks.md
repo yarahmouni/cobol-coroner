@@ -95,7 +95,7 @@ _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9_
 
 Done when: `.venv/bin/pytest tests/test_compare.py -q` shows all tests and property tests passing.
 
-- [ ] 8. Verdict type and computation (coroner/verdict.py)
+- [x] 8. Verdict type and computation (coroner/verdict.py)
   - Move `Verdict` dataclass from `coroner/mcp/server.py` to `coroner/verdict.py`: fields status (str: "ALIVE" or "ZOMBIE"), sub_label (str), cases_total (int), cases_divergent (int), run_return_codes (tuple[int, int]), validation_notice (str, default "Validated under GnuCOBOL 3.x")
   - Implement `compute_verdict(comparison: ComparisonResult) -> Verdict` per design Component 7
   - ALIVE: `cases_divergent == 0` and `run_return_codes[0] == run_return_codes[1]`, sub_label = "PASS: business behavior preserved on {cases_total} cases"

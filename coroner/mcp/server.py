@@ -1,17 +1,8 @@
 """MCP server for COBOL Coroner."""
 
 import sys
-from dataclasses import dataclass
-from typing import Literal
 from mcp.server.mcpserver import MCPServer
-
-
-@dataclass
-class Verdict:
-    verdict: Literal["ALIVE", "ZOMBIE"]
-    divergences: int
-    test_cases: int
-    message: str
+from coroner.verdict import Verdict
 
 
 server = MCPServer(
@@ -30,13 +21,15 @@ def get_verdict(project_id: str) -> Verdict:
         project_id: Identifier for the verification project
         
     Returns:
-        Verdict with status, divergences count, test cases count, and message
+        Verdict with status, divergences count, test cases count, and sub_label
     """
     print(f"[get_verdict] Called with project_id={project_id!r}", file=sys.stderr)
     
     return Verdict(
-        verdict="ALIVE",
-        divergences=0,
-        test_cases=1,
-        message="PASS: business behavior preserved on 1 case (stub)"
+        status="ALIVE",
+        sub_label="PASS: business behavior preserved on 1 case (stub)",
+        cases_total=1,
+        cases_divergent=0,
+        run_return_codes=(0, 0),
+        validation_notice="Validated under GnuCOBOL 3.x"
     )

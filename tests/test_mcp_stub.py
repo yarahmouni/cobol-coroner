@@ -29,7 +29,7 @@ def test_list_tools():
         assert "get_verdict" in tools
         schema = tools["get_verdict"].input_schema
         assert schema["required"] == ["project_id"]
-        assert set(tools["get_verdict"].output_schema["required"]) == {"verdict", "divergences", "test_cases", "message"}
+        assert set(tools["get_verdict"].output_schema["required"]) == {"status", "sub_label", "cases_total", "cases_divergent", "run_return_codes"}
         
     asyncio.run(run_mcp_session(check))
 
@@ -40,10 +40,12 @@ def test_get_verdict_success():
         result = await session.call_tool("get_verdict", arguments={"project_id": "test"})
         assert result.is_error is False
         expected = {
-            "verdict": "ALIVE",
-            "divergences": 0,
-            "test_cases": 1,
-            "message": "PASS: business behavior preserved on 1 case (stub)"
+            "status": "ALIVE",
+            "sub_label": "PASS: business behavior preserved on 1 case (stub)",
+            "cases_total": 1,
+            "cases_divergent": 0,
+            "run_return_codes": [0, 0],
+            "validation_notice": "Validated under GnuCOBOL 3.x"
         }
         assert result.structured_content == expected
         

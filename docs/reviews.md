@@ -271,3 +271,8 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Calls et7 and et7fix (sonnet). Operator checks: equal values in different formats ("+0000012.35", "12.35", "12.350") are equal; "12.355" vs "12.35", an off-by-0.01 value and a non-numeric value are divergent (no rounding, D-09); leading spaces matter, trailing spaces are trimmed; exit statuses kept per run (D-31).
 - Fixes: Hypothesis tests were random (the operator run found a failure the Kiro run missed): tests/conftest.py now loads a derandomized profile without example database; a property test was wrong for all-space strings; a missing row marked every case divergent, now rows are matched by case id (only the missing case is divergent).
 - Tests: pytest 114 passed on three consecutive runs.
+
+### R-47 2026-11-15: engine task 8 (verdict)
+- Calls et8 and et8fix (sonnet). Operator check of the exact wording on six cases: ALIVE on N and on 1 case (singular), ZOMBIE on 75 and on 1 case, exit status only "FAIL: return code differs (COBOL 4, Java 0)", both combined; notice "Validated under GnuCOBOL 3.x".
+- Fix: the MCP server still defined its own Verdict and left the engine type unused (R-13); the operator instruction to keep the MCP test unchanged was wrong and was corrected. Now the MCP stub returns the engine Verdict; test updated to the engine fields, still through the real stdio server.
+- Tests: pytest 121 passed.
