@@ -63,7 +63,7 @@ _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9_
 
 Done when: `.venv/bin/pytest tests/test_gen.py -q` shows all tests passing, and the grep test confirms no forbidden random functions in coroner/gen.
 
-- [ ] 6. Compilation and execution (coroner/run/__init__.py)
+- [x] 6. Compilation and execution (coroner/run/__init__.py)
   - Implement `RunResult` dataclass with: output_path (str), return_code (int), stderr (str), wall_time (float)
   - Implement `compile_cobol(source: str, copybooks: str, output: str, flags: list[str]) -> None` that runs `cobc -x -Wall -I <copybooks> -o <output> <source>` with timeout 60s, raises RuntimeError on failure
   - Implement `compile_java(source: str, output_dir: str) -> None` that runs `javac -Xlint:all -d <output_dir> <source>` with timeout 60s, raises RuntimeError on failure

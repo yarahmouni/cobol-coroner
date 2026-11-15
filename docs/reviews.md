@@ -258,3 +258,8 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Parity: correct Java byte-identical to COBOL on the 2,000 generated cases; a throwaway HALF_EVEN build diverges on 75 (calibration to 80 to 120 in task 14).
 - Accepted for now: the eligibility mix is skewed (R01 80 percent, R02 3 cases); every branch is still reached and fees are printed for R01/R02 rows.
 - Tests: pytest 83 passed.
+
+### R-44 2026-11-15: engine task 6 (runners)
+- Calls et6 and et6fix (sonnet). Reference flags `cobc -x -Wall -I`, coverage adds only -ftraceall, Java main class read from source, batch runs, single-case re-run, timeouts kill the process, exact OS exit status (D-31).
+- BUG fixed (operator test inside coroner:smoke): the reduced subprocess environment dropped LD_LIBRARY_PATH, so COBOL binaries failed in the Docker image with "libcob.so.4: cannot open shared object file" (exit 127); invisible on macOS where Homebrew puts libcob in a default path. Now one helper builds the environment for every call and passes through LD_LIBRARY_PATH, COB_LIBRARY_PATH, COB_CONFIG_DIR, COB_COPY_DIR, JAVA_HOME when set; unit test proves an unrelated secret variable is not passed.
+- Operator check: run inside the image returns 0; pytest 97 passed.
