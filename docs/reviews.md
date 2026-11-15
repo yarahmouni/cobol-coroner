@@ -266,3 +266,8 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 
 ### R-45 2026-11-15: decisions D-32 to D-37 logged
 - Call d32-37 (haiku). Rows D-01 to D-37 without collision. Interactions recorded: D-35 (exactly 6 traps) supersedes the bonus traps of D-29; D-36 keeps the run form of `coroner verify` and treats a single .json argument as a certificate replay; D-34 applies to programs whose schema declares a group key and a subtotal; D-37 supersedes the PreToolUse wording of D-10. No hackathon project named.
+
+### R-46 2026-11-15: engine task 7 (comparator)
+- Calls et7 and et7fix (sonnet). Operator checks: equal values in different formats ("+0000012.35", "12.35", "12.350") are equal; "12.355" vs "12.35", an off-by-0.01 value and a non-numeric value are divergent (no rounding, D-09); leading spaces matter, trailing spaces are trimmed; exit statuses kept per run (D-31).
+- Fixes: Hypothesis tests were random (the operator run found a failure the Kiro run missed): tests/conftest.py now loads a derandomized profile without example database; a property test was wrong for all-space strings; a missing row marked every case divergent, now rows are matched by case id (only the missing case is divergent).
+- Tests: pytest 114 passed on three consecutive runs.

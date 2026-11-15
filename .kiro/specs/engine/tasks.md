@@ -80,7 +80,7 @@ _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 4.10, 4.11_
 
 Done when: `.venv/bin/pytest tests/test_run.py -q` shows all tests passing or skipped, and the test module compiles and runs both programs without hanging.
 
-- [ ] 7. Output comparison (coroner/compare/__init__.py)
+- [x] 7. Output comparison (coroner/compare/__init__.py)
   - Implement `CaseResult` dataclass with: case_id (str), divergent (bool), divergent_fields (list of tuples: field_name, cobol_value, java_value)
   - Implement `ComparisonResult` dataclass with: cases (list[CaseResult]), run_return_codes (tuple[int, int]), row_count_match (bool), total_divergent (int)
   - Implement `compare_outputs(cobol_csv: str, java_csv: str, schema: Schema, cobol_return_code: int, java_return_code: int) -> ComparisonResult` that parses both CSVs, normalizes, compares field by field per comparison-rules.md
