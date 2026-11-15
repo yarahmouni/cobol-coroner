@@ -194,7 +194,7 @@ _Requirements: all (CI validation)_
 
 Done when: GitHub Actions workflow completes successfully with green status, and branch protection is configured.
 
-- [ ] 18. Record S0 results in decisions log
+- [x] 18. Record S0 results in decisions log
   - Add new row to `docs/decisions.md` table documenting:
     - Working `mcp.json` content (command and args used)
     - Whether trace contains line numbers: yes or no
@@ -205,7 +205,7 @@ _Requirements: 1.3, 3.3_
 
 Done when: `docs/decisions.md` contains new entry recording the trace format result and working MCP configuration.
 
-- [ ] 19. Validate S0 acceptance criteria
+- [x] 19. Validate S0 acceptance criteria
   - Check trace file lists executed lines: confirmed by parse_trace returning non-empty set
   - Check Kiro lists and calls `get_verdict`: verified in task 15
   - Check `make smoke` completes successfully: includes compilation step
@@ -215,6 +215,8 @@ Done when: `docs/decisions.md` contains new entry recording the trace format res
 _Requirements: all_
 
 Done when: the three s0-toolchain acceptance criteria are verified and documented (trace with line numbers, Kiro MCP integration, make smoke green).
+
+Note: S0 acceptance results (from docs/sprints.md): cobc compiles the sample (samples/credit-fees/CREDIT-FEES.cob compiles with -Wall and empty stderr, cobol-sample tasks 1 to 8 done, 25 tests pass); the trace file lists executed lines (tests/fixtures/sample_trace.txt, parse_trace returns {9, 10, 11, 16, 17}); Kiro lists and calls get_verdict (task 15); make smoke green (task 11). CI (task 17) is an owner step, blocked by a GitHub account billing lock, not by the code.
 
 ## Requirements Coverage
 

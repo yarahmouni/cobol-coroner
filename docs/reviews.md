@@ -155,3 +155,10 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Verified by the operator: empty input exit 0 with header only; rounding-ties run is byte-identical to expected-output.csv; independent oracle: 30/30 rows equal ROUND_HALF_UP, 26 would diverge under HALF_EVEN (8 negative), 4 odd controls; rules check 0 GO TO, 33 IF / 33 ELSE, 1 EVALUATE / 1 WHEN OTHER; `pytest` 25 passed.
 - Note for CI: the COBOL tests skip on the CI runner (no GnuCOBOL 3.2 there; Debian/Ubuntu packages are 3.1.2). Running them in CI needs the coroner image; proposed for S1.
 - Status: clean. S0 acceptance "cobc compiles the sample": met.
+
+### R-27 2026-11-15: S0 tasks 18 and 19, S0 closed
+- Call s0-18-19 (haiku, 1.26 credits): tie generator writes LF (comparison-rules.md); D-21 records the S0 results (trace has line numbers, D-07 fallback not needed, working mcp.json); task 19 note lists each S0 acceptance item with its evidence.
+- Verified: rounding-ties.csv content unchanged (only line endings), expected-output.csv untouched, `pytest` 25 passed, no em dash.
+- Kiro left two untracked helper scripts at the repository root (one hardcodes a local absolute path); not committed, removal pending owner approval.
+- S0 acceptance (docs/sprints.md): cobc compiles the sample, the trace lists executed lines, Kiro lists and calls get_verdict, make smoke green: all met. Task 17 (green CI) open: GitHub Actions still refuses to start jobs ("account is locked due to a billing issue"), runs 43667297533 (re-run, attempt 2) and 43669244196.
+- Credits used so far: 22.81 of 531.

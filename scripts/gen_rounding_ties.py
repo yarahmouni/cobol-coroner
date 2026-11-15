@@ -181,7 +181,7 @@ def main():
     # Write CSV
     output_path = 'samples/credit-fees/fixtures/rounding-ties.csv'
     with open(output_path, 'w', newline='') as f:
-        writer = csv.writer(f)
+        writer = csv.writer(f, lineterminator='\n')
         writer.writerow(['CASE-ID', 'PRINCIPAL', 'FEE-RATE', 'DURATION-MONTHS', 'CUSTOMER-SEGMENT', 'INCOME'])
         
         for case_id, principal, fee_rate, segment, _ in ties:
