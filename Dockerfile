@@ -36,14 +36,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgmp10=2:6.2.1+dfsg1-1.1 \
     libdb5.3=5.3.28+dfsg2-1 \
     libncurses6=6.4-4 \
-    && apt-get clean
+    gcc=4:12.2.0-3 \
+    libc6-dev=2.36-9+deb12u14 \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copy GnuCOBOL installation from builder stage
 COPY --from=builder /opt/gnucobol /opt/gnucobol
 
 # Add GnuCOBOL to PATH
 ENV PATH="/opt/gnucobol/bin:${PATH}" \
-    LD_LIBRARY_PATH="/opt/gnucobol/lib:${LD_LIBRARY_PATH}" \
+    LD_LIBRARY_PATH="/opt/gnucobol/lib" \
     COB_LIBRARY_PATH="/opt/gnucobol/lib/gnucobol"
 
 # Create non-root user coroner with UID 1000

@@ -137,3 +137,10 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - GitHub Action SHAs verified against the real tags (`gh api repos/<repo>/git/ref/tags/<tag>`, annotated tags dereferenced): actions/checkout v7.0.1, actions/setup-python v7.1.0, gitleaks/gitleaks-action v3.0.0 all match. They were supplied to Kiro by the operator from the GitHub API, not generated. No change.
 - Task 15 marked done (owner request): Kiro listed and called get_verdict before the rename; after the rename `kiro-cli mcp list` shows server `coroner` and the stdio tests list and call it (3 passed). The Kiro chat call against `coroner` is re-run when credits are back.
 - Runtime image check (operator, as root in a throwaway container from coroner:smoke): with gcc 4:12.2.0-3 and libc6-dev 2.36-9+deb12u14 installed, the smoke test PASSED; libgmp-dev not needed. Kiro prompt prepared for the gcc fix, the LD_LIBRARY_PATH warning and Makefile targets smoke, demo, zombie, serve (demo, zombie and serve exit 2 with "not available yet" until S1/S2 exist).
+
+### R-25 2026-11-15: Kiro Pro, gcc fix and Makefile (S0 tasks 8, 10, 11)
+- Plan: KIRO PRO, 531 credits, reset 2026-12-01. Test call (claude-haiku-4.5): READY, no throttling.
+- Credits per call are logged from here on (from `/usage` before and after each call).
+- Call a-gcc-makefile (claude-haiku-4.5, 0.81 credits): runtime stage adds gcc=4:12.2.0-3 and libc6-dev=2.36-9+deb12u14 with apt list cleanup; LD_LIBRARY_PATH warning removed; Makefile targets smoke, demo, zombie, serve (the last three exit 2 with "not available yet" until S1/S2).
+- Verified by the operator: `make smoke` exit 0 (toy executed, 5 trace line numbers, Java 17.0.21, Smoke test PASSED); `make demo|zombie|serve` exit 2 with the message; `make test` 7 passed; image runs as uid=1000(coroner), 893 MB (the 674 MB in the task 8 note is the size before gcc).
+- Status: clean. S0 acceptance "make smoke green": met.

@@ -72,7 +72,7 @@ _Requirements: 2.2_
 
 Done when: `javac -d build/ smoke/Toy.java && java -cp build/ Toy` prints version string containing "17" on host machine.
 
-- [ ] 8. Create Dockerfile with pinned versions
+- [x] 8. Create Dockerfile with pinned versions
   - Check available versions inside a candidate Debian slim base image using `apt-cache policy gnucobol openjdk-17-jdk python3.12`
   - Pick a Debian slim based image that provides Python 3.12 and JDK 17 (e.g., official python:3.12-slim-<debian release> image) pinned by digest
   - If Debian package for GnuCOBOL is not 3.2.x, build GnuCOBOL 3.2.0 from official release tarball with sha256 checksum verification
@@ -85,6 +85,8 @@ Done when: `javac -d build/ smoke/Toy.java && java -cp build/ Toy` prints versio
 _Requirements: 2.1, 2.3_
 
 Done when: `docker build -t coroner:smoke .` succeeds and image contains all three runtimes. `docker run --rm coroner:smoke id` shows uid=1000(coroner). `docker run --rm coroner:smoke cobc --version` shows 3.2.0, `docker run --rm coroner:smoke java -version` shows 17, and `docker run --rm coroner:smoke python3 --version` shows 3.12.
+
+Note: Runtime stage fixed on 2026-11-15. Added gcc=4:12.2.0-3 and libc6-dev=2.36-9+deb12u14 (required for cobc -x at runtime), pinned with --no-install-recommends. Set LD_LIBRARY_PATH="/opt/gnucobol/lib" to remove undefined variable warning.
 
 - [x] 9. Create smoke test runner script
   - Create `smoke/run_smoke.sh`
@@ -99,7 +101,7 @@ _Requirements: 2.2_
 
 Done when: `bash smoke/run_smoke.sh` exits 0 on the host (host has cobc 3.2.0, JDK 17, python3.12 and .venv) and prints 'Smoke test PASSED'.
 
-- [ ] 10. Add Makefile targets
+- [x] 10. Add Makefile targets
   - Create or update `Makefile`
   - Add `test` target: `.venv/bin/pytest tests/ -v`
   - Add `smoke` target: `docker build -t coroner:smoke . && docker run --rm coroner:smoke`
@@ -108,7 +110,7 @@ _Requirements: 2.2_
 
 Done when: `make test` runs pytest and `make smoke` builds and runs the Docker smoke test.
 
-- [ ] 11. Verify smoke test end-to-end
+- [x] 11. Verify smoke test end-to-end
   - Run `make smoke`
   - Check output contains COBOL success message
   - Check output shows N > 0 line numbers parsed
@@ -119,6 +121,8 @@ Done when: `make test` runs pytest and `make smoke` builds and runs the Docker s
 _Requirements: 2.2_
 
 Done when: `make smoke` completes with exit code 0 and all expected output lines present.
+
+Note: Verified on 2026-11-15 by operator in R-22. Docker image builds successfully (674 MB). Task 8 Done when verified: `docker run --rm coroner:smoke id` uid=1000(coroner), `docker run --rm coroner:smoke cobc --version` 3.2.0, `docker run --rm coroner:smoke java -version` 17.0.21, `docker run --rm coroner:smoke python3 --version` 3.12.16. With gcc and libc6-dev installed, `docker run --rm coroner:smoke bash smoke/run_smoke.sh` exits 0 with output containing "[COBOL] toy executed successfully", "[COBOL] trace contains N line numbers", "[Java] java.version" with "17", and "Smoke test PASSED".
 
 - [x] 12. Create MCP server stub module
   - Create `coroner/mcp/__init__.py` with server entry point
