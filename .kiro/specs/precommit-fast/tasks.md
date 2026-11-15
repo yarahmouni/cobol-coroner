@@ -10,50 +10,65 @@ Add the `precommit` target to `Makefile`:
 
 **Done when**: `make precommit` runs and exits 0 on correct Java, non-zero on HALF_EVEN variant.
 
-## Task 2: Hook script (.githooks/pre-commit)
-**Requirements**: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9
+## Task 2: Hook logic (coroner/hooks.py precommit command)
+**Requirements**: 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.12
 
-Extend `.githooks/pre-commit`:
+Add `precommit` command to `coroner/hooks.py`:
+- Load scope from `.kiro/coroner-scope.json`
+- Get staged files using `git diff --cached --name-only`
+- If no scope files staged, print "Coroner pre-commit: no audited file staged" and exit 0
+- Create temporary directory under `build/precommit/`
+- Export staged versions of all scope files using `git show :<path>` (copybooks directory exported file by file)
+- Run verify with 500 cases, seed 42 on exported files
+- Clean up temporary directory
+- Parse verdict and duration from verify output
+- Exit 0 on ALIVE with message, exit 1 on ZOMBIE with block message
+
+**Done when**: `python -m coroner.hooks precommit` runs the staged-content check correctly.
+
+## Task 3: Shell wrapper (.githooks/pre-commit)
+**Requirements**: 3.1, 3.9, 3.11
+
+Update `.githooks/pre-commit`:
 - Keep the guard check first
 - Check `.venv/bin/python` exists
-- Run `make precommit` with timing
-- Parse output for verdict (ALIVE, ZOMBIE, error)
-- Exit 0 on ALIVE, 1 on ZOMBIE or error
-- Print "Coroner pre-commit: ALIVE/ZOMBIE on N cases in M.M s"
-- On ZOMBIE, print run_id and document `--no-verify`
-- Shell script with `set -eu`, no pipes, no semicolons for command chaining
+- Call `.venv/bin/python -m coroner.hooks precommit` instead of `make precommit`
+- Exit with the status from the Python command
+- Shell script with `set -eu`, no output parsing
 
-**Done when**: Hook runs in under 20 s on the dev machine; allows ALIVE, blocks ZOMBIE.
+**Done when**: Hook runs, allows ALIVE, blocks ZOMBIE on staged content.
 
-## Task 3: Tests (tests/test_precommit_fast.py)
-**Requirements**: 5.1, 5.2, 5.3, 5.4
+## Task 4: Tests (tests/test_precommit_fast.py)
+**Requirements**: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6
 
 Write tests:
-- Test (a): `make precommit` with correct Java exits 0, prints ALIVE, under 20 s
-- Test (b): `make precommit` with `CORONER_PRECOMMIT_JAVA=build/variants/CreditFees.java` exits non-zero, prints ZOMBIE
+- Create a temporary Git repository with scope files committed
+- Test (a): stage HALF_EVEN variant, working tree has correct Java, hook blocks (exit 1)
+- Test (b): stage correct Java, working tree has HALF_EVEN variant, hook allowed (exit 0)
+- Test (c): no scope file staged, hook allowed without running check
 - Subprocess with timeout 30 s
 - Mark slow if combined time exceeds 30 s
 
-**Done when**: `pytest tests/test_precommit_fast.py` passes; both tests run in under 30 s combined.
+**Done when**: `pytest tests/test_precommit_fast.py` passes; all tests verify staged vs working-tree behavior.
 
-## Task 4: Documentation
+## Task 5: Documentation
 **Requirements**: 7.1, 7.2
 
 Update README:
 - Add Git pre-commit hook to "The full chain" section
-- Mention 500-case fast check, blocks ZOMBIE
+- Mention 500-case fast check on staged content, blocks ZOMBIE
 - Document `--no-verify` bypass honestly
 
 **Done when**: README shows the hook as part of the chain with honest bypass documentation.
 
-## Task 5: Verification
+## Task 6: Verification
 Run:
-- `make precommit` on correct Java: ALIVE, under 20 s
-- `CORONER_PRECOMMIT_JAVA=build/variants/CreditFees.java make precommit`: ZOMBIE
-- `.venv/bin/pytest -q tests/test_precommit_fast.py`
+- Create a test commit with staged HALF_EVEN: blocked
+- Create a test commit with staged correct Java: allowed
+- `.venv/bin/pytest -q tests/test_precommit_fast.py tests/test_hooks.py`
 - Full test suite: `.venv/bin/pytest -q`
 
-**Done when**: All tests pass, hook timing measured under 20 s.
+**Done when**: All tests pass, hook verifies staged content correctly.
 
 ---
 
@@ -61,20 +76,25 @@ Run:
 
 | Requirement | Task |
 |-------------|------|
-| 3.1 Guard first | 2 |
-| 3.2 500 cases, seed 42 | 1, 2 |
-| 3.3 Demo sample paths | 1 |
-| 3.4 Allow ALIVE | 2 |
-| 3.5 Block ZOMBIE/error | 2 |
-| 3.6 Missing venv check | 2 |
-| 3.7 Under 20 s, print timing | 2 |
-| 3.8 No bypass variable, document --no-verify | 2, 4 |
-| 3.9 Same engine code | 1 |
+| 3.1 Guard first | 3 |
+| 3.2 Staged content | 2 |
+| 3.3 No scope file staged | 2 |
+| 3.4 Export staged files | 2 |
+| 3.5 Index version for unstaged | 2 |
+| 3.6 Allow ALIVE | 2 |
+| 3.7 Block ZOMBIE/error | 2 |
+| 3.8 ALIVE message | 2 |
+| 3.9 Missing venv check | 3 |
+| 3.10 Under 20 s | 2, 6 |
+| 3.11 No bypass variable, document --no-verify | 5 |
+| 3.12 Python logic, thin shell wrapper | 2, 3 |
 | 4.1 make precommit | 1 |
 | 4.2 CORONER_PRECOMMIT_JAVA | 1 |
-| 5.1 Test via make precommit | 3 |
-| 5.2 Test ALIVE | 3 |
-| 5.3 Test ZOMBIE | 3 |
-| 5.4 Mark slow if needed | 3 |
-| 7.1 README chain | 4 |
-| 7.2 Document --no-verify | 4 |
+| 5.1 Test with temp Git repo | 4 |
+| 5.2 Test staged HALF_EVEN blocked | 4 |
+| 5.3 Test staged correct allowed | 4 |
+| 5.4 Test no scope staged allowed | 4 |
+| 5.5 Subprocess timeout | 4 |
+| 5.6 Mark slow if needed | 4 |
+| 7.1 README chain | 5 |
+| 7.2 Document --no-verify | 5 |

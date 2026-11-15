@@ -1,9 +1,11 @@
-"""Kiro hooks for Coroner: delivery gate and stop hook."""
+"""Kiro hooks for Coroner: delivery gate, stop hook, and pre-commit."""
 import json
 import os
 import sys
 import subprocess
 import hashlib
+import tempfile
+import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -38,26 +40,42 @@ def parse_hook_input(stdin_text: str) -> dict:
     return json.loads(stdin_text)
 
 
-def load_scope(scope_path: str = ".kiro/coroner-scope.json") -> dict:
-    """Load the scope file."""
-    with open(scope_path) as f:
+def get_repo_root() -> Path:
+    """Get the git repository root directory."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        return Path(result.stdout.strip())
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Fallback to current directory
+        return Path.cwd()
+
+
+def load_scope(repo_root: Path, scope_path: str = ".kiro/coroner-scope.json") -> dict:
+    """Load the scope file from the repository root."""
+    scope_file = repo_root / scope_path
+    with open(scope_file) as f:
         return json.load(f)
 
 
-def find_certificate(scope: dict) -> Optional[str]:
+def find_certificate(repo_root: Path, scope: dict) -> Optional[str]:
     """
     Find the newest certificate whose recorded hashes match current files.
     Returns the certificate path or None.
     """
-    runs_dir = Path("runs")
+    runs_dir = repo_root / "runs"
     if not runs_dir.exists():
         return None
     
-    # Compute current hashes
-    current_cobol_hash = compute_file_hash(scope["cobol"])
-    current_java_hash = compute_file_hash(scope["java"])
-    current_schema_hash = compute_file_hash(scope["schema"])
-    current_copybook_hashes = compute_directory_hash(scope["copybooks"])
+    # Compute current hashes (resolve paths relative to repo_root)
+    current_cobol_hash = compute_file_hash(str(repo_root / scope["cobol"]))
+    current_java_hash = compute_file_hash(str(repo_root / scope["java"]))
+    current_schema_hash = compute_file_hash(str(repo_root / scope["schema"]))
+    current_copybook_hashes = compute_directory_hash(str(repo_root / scope["copybooks"]))
     
     matching_certs = []
     
@@ -94,15 +112,20 @@ def find_certificate(scope: dict) -> Optional[str]:
     return str(matching_certs[0][0])
 
 
-def replay_certificate(cert_path: str) -> tuple[int, str, dict]:
+def replay_certificate(repo_root: Path, cert_path: str, python_executable: Optional[str] = None) -> tuple[int, str, dict]:
     """
     Replay a certificate using 'python -m coroner verify cert_path'.
     Returns (exit_code, verdict_line, cert_data).
+    Uses python_executable if provided, otherwise sys.executable.
     """
+    if python_executable is None:
+        python_executable = sys.executable
+    
     result = subprocess.run(
-        [sys.executable, "-m", "coroner", "verify", cert_path],
+        [python_executable, "-m", "coroner", "verify", cert_path],
         capture_output=True,
-        text=True
+        text=True,
+        cwd=str(repo_root)
     )
     
     # Extract the verdict line (first line of stdout)
@@ -128,36 +151,40 @@ def is_git_commit_push_merge(command: str) -> bool:
     return words[0] == "git" and words[1] in ["commit", "push", "merge"]
 
 
-def get_staged_files() -> list[str]:
+def get_staged_files(repo_root: Path) -> list[str]:
     """Get list of staged files using git diff --cached --name-only."""
     try:
         result = subprocess.run(
             ["git", "diff", "--cached", "--name-only"],
             capture_output=True,
             text=True,
-            check=True
+            check=True,
+            cwd=str(repo_root)
         )
         return [line.strip() for line in result.stdout.strip().split('\n') if line.strip()]
     except (subprocess.CalledProcessError, FileNotFoundError):
         return []
 
 
-def is_audited_file_staged(scope: dict, staged: list[str]) -> bool:
+def is_audited_file_staged(repo_root: Path, scope: dict, staged: list[str]) -> bool:
     """Check if COBOL or Java from scope is staged."""
     cobol_path = scope["cobol"]
     java_path = scope["java"]
     
-    # Normalize paths for comparison (handle both absolute and relative)
-    cobol_abs = str(Path(cobol_path).resolve())
-    java_abs = str(Path(java_path).resolve())
-    
     for staged_file in staged:
-        staged_abs = str(Path(staged_file).resolve())
-        if staged_abs == cobol_abs or staged_abs == java_abs:
-            return True
-        # Also check if the relative path matches
+        # Direct relative path comparison
         if staged_file == cobol_path or staged_file == java_path:
             return True
+        
+        # Also try resolving absolute paths for comparison
+        try:
+            staged_abs = (repo_root / staged_file).resolve()
+            cobol_abs = (repo_root / cobol_path).resolve()
+            java_abs = (repo_root / java_path).resolve()
+            if staged_abs == cobol_abs or staged_abs == java_abs:
+                return True
+        except (ValueError, OSError):
+            pass
     
     return False
 
@@ -214,17 +241,20 @@ def gate_command(hook_input: dict) -> None:
     if not is_git_commit_push_merge(command):
         sys.exit(0)
     
+    # Get repository root
+    repo_root = get_repo_root()
+    
     # Load scope and find certificate
     try:
-        scope = load_scope()
-        cert_path = find_certificate(scope)
+        scope = load_scope(repo_root)
+        cert_path = find_certificate(repo_root, scope)
     except (FileNotFoundError, json.JSONDecodeError, KeyError):
         # If scope or certificate lookup fails, allow (fail open)
         sys.exit(0)
     
     if cert_path:
         # Certificate found: replay it
-        exit_code, verdict_line, cert_data = replay_certificate(cert_path)
+        exit_code, verdict_line, cert_data = replay_certificate(repo_root, cert_path)
         
         if exit_code == 0:
             # ALIVE and valid: allow
@@ -237,8 +267,8 @@ def gate_command(hook_input: dict) -> None:
             sys.exit(2)
     else:
         # Certificate missing: check if audited files are staged
-        staged = get_staged_files()
-        if is_audited_file_staged(scope, staged):
+        staged = get_staged_files(repo_root)
+        if is_audited_file_staged(repo_root, scope, staged):
             # Audited files staged: block
             message = "Certificate missing. Run run_differential_check first."
             print(json.dumps({"decision": "block", "reason": message}))
@@ -256,10 +286,13 @@ def stop_command(hook_input: dict) -> None:
     """
     session_id = hook_input.get("session_id", "unknown")
     
+    # Get repository root
+    repo_root = get_repo_root()
+    
     # Load scope and find certificate
     try:
-        scope = load_scope()
-        cert_path = find_certificate(scope)
+        scope = load_scope(repo_root)
+        cert_path = find_certificate(repo_root, scope)
     except (FileNotFoundError, json.JSONDecodeError, KeyError):
         # If scope or certificate lookup fails, allow
         sys.exit(0)
@@ -269,15 +302,15 @@ def stop_command(hook_input: dict) -> None:
     block_message = ""
     
     if cert_path:
-        exit_code, verdict_line, cert_data = replay_certificate(cert_path)
+        exit_code, verdict_line, cert_data = replay_certificate(repo_root, cert_path)
         if exit_code != 0:
             # ZOMBIE or invalid: should block
             should_block = True
             block_message = build_block_message(cert_data)
     else:
         # Certificate missing: check if audited files are staged
-        staged = get_staged_files()
-        if is_audited_file_staged(scope, staged):
+        staged = get_staged_files(repo_root)
+        if is_audited_file_staged(repo_root, scope, staged):
             should_block = True
             block_message = "Certificate missing. Run run_differential_check first."
     
@@ -286,7 +319,7 @@ def stop_command(hook_input: dict) -> None:
         sys.exit(0)
     
     # Should block: check count
-    hooks_dir = Path("build/hooks")
+    hooks_dir = repo_root / "build/hooks"
     hooks_dir.mkdir(parents=True, exist_ok=True)
     
     count_file = hooks_dir / f"{session_id}.count"
@@ -322,22 +355,211 @@ def stop_command(hook_input: dict) -> None:
         sys.exit(0)
 
 
+def precommit_command() -> None:
+    """
+    Pre-commit hook: audit staged content with 500 cases.
+    Exports staged files, runs verify, blocks ZOMBIE.
+    """
+    # Get repository root
+    repo_root = get_repo_root()
+    
+    # Allow Python executable override via environment variable (for tests)
+    python_executable = os.environ.get("CORONER_PYTHON_EXECUTABLE", sys.executable)
+    
+    # Load scope
+    try:
+        scope = load_scope(repo_root)
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Error loading scope: {e}", file=sys.stderr)
+        sys.exit(1)
+    
+    # Get staged files
+    staged = get_staged_files(repo_root)
+    
+    # Check if any scope files are staged
+    scope_files = [
+        scope["cobol"],
+        scope["java"],
+        scope["schema"]
+    ]
+    
+    # Also check copybook directory
+    copybooks_dir = scope["copybooks"]
+    
+    staged_scope_files = []
+    for staged_file in staged:
+        # Normalize paths for comparison (resolve from repo_root)
+        staged_abs = str((repo_root / staged_file).resolve())
+        for scope_file in scope_files:
+            scope_abs = str((repo_root / scope_file).resolve())
+            if staged_abs == scope_abs or staged_file == scope_file:
+                staged_scope_files.append(scope_file)
+                break
+        
+        # Check if staged file is in copybooks directory
+        try:
+            staged_path = repo_root / staged_file
+            copybooks_path = repo_root / copybooks_dir
+            if copybooks_path in staged_path.parents or staged_path.parent == copybooks_path:
+                if copybooks_dir not in staged_scope_files:
+                    staged_scope_files.append(copybooks_dir)
+        except (ValueError, OSError):
+            pass
+    
+    if not staged_scope_files:
+        print("Coroner pre-commit: no audited file staged")
+        sys.exit(0)
+    
+    # Create temporary directory for exported files (in repo_root)
+    temp_dir = repo_root / "build/precommit"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    
+    export_base = temp_dir / "staged"
+    if export_base.exists():
+        shutil.rmtree(export_base)
+    export_base.mkdir()
+    
+    try:
+        # Export staged versions of all scope files
+        cobol_export = export_base / Path(scope["cobol"]).name
+        java_export = export_base / Path(scope["java"]).name
+        schema_export = export_base / Path(scope["schema"]).name
+        copybooks_export = export_base / "copybooks"
+        copybooks_export.mkdir()
+        
+        # Export COBOL (use staged or index version)
+        export_staged_file(repo_root, scope["cobol"], cobol_export)
+        
+        # Export Java (use staged or index version)
+        export_staged_file(repo_root, scope["java"], java_export)
+        
+        # Export schema (use staged or index version)
+        export_staged_file(repo_root, scope["schema"], schema_export)
+        
+        # Export copybooks directory (file by file)
+        copybooks_path = repo_root / scope["copybooks"]
+        if copybooks_path.exists() and copybooks_path.is_dir():
+            for entry in copybooks_path.iterdir():
+                if entry.is_file():
+                    relative = entry.relative_to(copybooks_path)
+                    dest = copybooks_export / relative
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    copybooks_relative = str(Path(scope["copybooks"]) / relative)
+                    export_staged_file(repo_root, copybooks_relative, dest)
+        
+        # Run verify on exported files
+        result = subprocess.run(
+            [
+                python_executable, "-m", "coroner", "verify",
+                "--cobol", str(cobol_export),
+                "--copybooks", str(copybooks_export),
+                "--java", str(java_export),
+                "--schema", str(schema_export),
+                "--cases", "500",
+                "--seed", "42"
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(repo_root)
+        )
+        
+        # Parse output
+        lines = result.stdout.strip().split('\n')
+        verdict_line = lines[0] if lines else ""
+        duration_line = ""
+        
+        for line in lines:
+            if line.startswith("Duration:"):
+                duration_line = line
+                break
+        
+        # Clean up
+        shutil.rmtree(export_base)
+        
+        if result.returncode == 0:
+            # ALIVE
+            if duration_line:
+                print(f"Coroner pre-commit: {verdict_line} ({duration_line})")
+            else:
+                print(f"Coroner pre-commit: {verdict_line}")
+            sys.exit(0)
+        elif result.returncode == 1:
+            # ZOMBIE
+            # Extract run_id from output
+            run_id = None
+            for line in lines:
+                if "runs/" in line:
+                    import re
+                    match = re.search(r'runs/([a-f0-9]+)', line)
+                    if match:
+                        run_id = match.group(1)
+                        break
+            
+            if run_id:
+                print(f"Commit blocked by Coroner: {verdict_line}. See runs/{run_id}/failure_report.json. Fix the Java port, then run run_differential_check again.", file=sys.stderr)
+            else:
+                print(f"Commit blocked by Coroner: {verdict_line}. Fix the Java port, then run run_differential_check again.", file=sys.stderr)
+            sys.exit(1)
+        else:
+            # Error
+            print(f"Coroner pre-commit: check error (exit {result.returncode})", file=sys.stderr)
+            if result.stderr:
+                print(result.stderr, file=sys.stderr)
+            sys.exit(1)
+    
+    except Exception as e:
+        # Clean up on error
+        if export_base.exists():
+            shutil.rmtree(export_base)
+        print(f"Coroner pre-commit: error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def export_staged_file(repo_root: Path, source_path: str, dest_path: Path) -> None:
+    """
+    Export staged version of a file using git show :<path>.
+    If file is not staged, uses index version (also git show :<path>).
+    """
+    # Try to read from git index
+    result = subprocess.run(
+        ["git", "show", f":{source_path}"],
+        capture_output=True,
+        check=False,
+        cwd=str(repo_root)
+    )
+    
+    if result.returncode == 0:
+        # File is in index (staged or committed)
+        dest_path.write_bytes(result.stdout)
+    else:
+        # File not in index, try working tree
+        # This should not happen for scope files, but handle it
+        source_abs = repo_root / source_path
+        if source_abs.exists():
+            dest_path.write_bytes(source_abs.read_bytes())
+        else:
+            raise FileNotFoundError(f"Cannot export {source_path}: not in index or working tree")
+
+
 def main():
     """Main entry point."""
     if len(sys.argv) < 2:
-        print("Usage: python -m coroner.hooks {gate|stop}", file=sys.stderr)
+        print("Usage: python -m coroner.hooks {gate|stop|precommit}", file=sys.stderr)
         sys.exit(1)
     
     command = sys.argv[1]
     
-    # Read hook input from stdin
-    stdin_text = sys.stdin.read()
-    hook_input = parse_hook_input(stdin_text)
-    
-    if command == "gate":
-        gate_command(hook_input)
-    elif command == "stop":
-        stop_command(hook_input)
+    if command == "precommit":
+        precommit_command()
+    elif command in ["gate", "stop"]:
+        # Read hook input from stdin
+        stdin_text = sys.stdin.read()
+        hook_input = parse_hook_input(stdin_text)
+        
+        if command == "gate":
+            gate_command(hook_input)
+        elif command == "stop":
+            stop_command(hook_input)
     else:
         print(f"Unknown command: {command}", file=sys.stderr)
         sys.exit(1)

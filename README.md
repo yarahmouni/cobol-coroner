@@ -84,7 +84,7 @@ Coroner does not block the agent from writing code. It blocks a ZOMBIE migration
 
 The stop hook re-prompts the agent up to 3 times (v2 engine) or once per turn (v3 engine); it does not prevent the agent from finishing.
 
-The Git pre-commit hook runs a fast 500-case check on the demo sample and blocks ZOMBIE commits. The CORONER_PRECOMMIT_JAVA environment variable exists only for tests and the demo; pointing it elsewhere, like using `git commit --no-verify`, bypasses the gate under the owner's responsibility.
+The Git pre-commit hook runs a fast 500-case check on the demo sample staged content and blocks ZOMBIE commits. It audits exactly what will be committed, not the working tree. The `git commit --no-verify` bypass is available to the owner under their responsibility.
 
 ## Kiro skills
 

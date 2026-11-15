@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-# Fast differential check: 500 cases on demo sample, blocks ZOMBIE commits.
+# Fast differential check: 500 cases on demo sample staged content, blocks ZOMBIE commits.
 if [ ! -x .venv/bin/python ]; then
   echo "Error: .venv/bin/python not found. Run: python3.12 -m venv .venv && .venv/bin/pip install -e \".[dev]\""
   exit 1
@@ -10,25 +10,5 @@ fi
 # Pre-commit guard: blocks home paths and unexpected root/scripts files.
 .venv/bin/python scripts/precommit_guard.py
 
-# Capture output and status without tripping set -e.
-if OUTPUT=$(make precommit 2>&1); then
-  STATUS=0
-else
-  STATUS=$?
-fi
-
-if [ $STATUS -eq 0 ]; then
-  VERDICT_LINE=$(echo "$OUTPUT" | grep "^ALIVE:" | head -1)
-  DURATION_LINE=$(echo "$OUTPUT" | grep "^Duration:" | head -1)
-  echo "Coroner pre-commit: $VERDICT_LINE ($DURATION_LINE)"
-  exit 0
-elif echo "$OUTPUT" | grep -q "^ZOMBIE:"; then
-  VERDICT_LINE=$(echo "$OUTPUT" | grep "^ZOMBIE:" | head -1)
-  RUN_ID=$(echo "$OUTPUT" | grep -o 'runs/[a-f0-9]*' | head -1)
-  echo "Commit blocked by Coroner: $VERDICT_LINE. See $RUN_ID/failure_report.json."
-  exit 1
-else
-  echo "Coroner pre-commit: check error (exit $STATUS)"
-  echo "$OUTPUT"
-  exit 1
-fi
+# Staged content check: uses the Python precommit command.
+.venv/bin/python -m coroner.hooks precommit

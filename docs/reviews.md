@@ -374,3 +374,12 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Unreconciled branch exposure in the block message: "not applicable (no group key in the schema)" for credit-fees; measured values come with the trap catalog (priority 8/9).
 - Tests: pytest 193 passed, 22 deselected.
 - Kiro balance: plan 270.36 of 531 used (260.64 left); bonus Trial credits: 0.00/500.
+
+### R-61 2026-11-15: priority 7 (Git pre-commit blocking on staged content)
+- Calls staged and stagedfix (sonnet). .githooks/pre-commit is a thin wrapper (venv check, guard, `python -m coroner.hooks precommit`); the check reads .kiro/coroner-scope.json, does nothing when no scope file is staged, otherwise exports the STAGED version of the scope files and runs the 500-case check (seed 42) on them.
+- BUG fixed: two of the new tests failed and were hidden from the default suite by a "slow" marker; cause: the tests ran the check against the main repository instead of their temporary repository. Fixed (repository taken from the working directory of the hook), marker removed, the 3 tests pass in 9 s. Rule kept: a marker never hides a failing test.
+- Real Git runs in a scratch clone with core.hooksPath (evidence docs/evidence/git-precommit-block-then-allow.md): HALF_EVEN port staged while the working tree held the correct Java: "Commit blocked by Coroner: ZOMBIE: FAIL: business behavior diverged on 21 cases" (exit 1), the case the R-57 limitation would have let through; corrected port with one comment line staged: "Coroner pre-commit: ALIVE: PASS: business behavior preserved on 500 cases (Duration: 3.3 s)", commit created. Re-checked after the fix: still blocked.
+- Kiro wrote a summary file under docs/ (not requested); removed.
+- Tests: pytest 193 passed, 22 deselected (only the 10-seed acceptance tests are slow).
+- Kiro balance: plan 286.87 of 531 used (244.13 left); bonus Trial credits: 0.00/500.
+- The pre-commit guard refused the commit because of an unlisted root file left by Kiro (test_debug_hook.py, a debugging script); the operator removed it and committed again.
