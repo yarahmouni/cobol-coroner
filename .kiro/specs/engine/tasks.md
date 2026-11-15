@@ -110,7 +110,7 @@ _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9_
 
 Done when: `.venv/bin/pytest tests/test_verdict.py tests/test_mcp_stub.py -q` shows all tests passing.
 
-- [ ] 9. Run storage (coroner/store.py)
+- [x] 9. Run storage (coroner/store.py)
   - Implement `compute_run_id(cobol_hash: str, java_hash: str, schema_hash: str, copybook_hashes: list[tuple[str, str]], seed: int, case_count: int, tool_versions: dict) -> str` that returns first 12 hex chars of SHA-256
   - Implement `store_inputs(run_dir: str, inputs_data: dict) -> None` that writes inputs.json with: cobol_source_sha256, java_source_sha256, schema_sha256, copybook_hashes (array), seed, case_count, cobc_version, javac_version, python_version, cases_file_sha256, cases_file_encoding ("utf-8"), cases_file_line_ending ("LF"), random_seed, timestamp (ISO 8601)
   - Implement `store_verdict(run_dir: str, verdict: Verdict) -> None` that atomically writes verdict.json (write to temp, rename)

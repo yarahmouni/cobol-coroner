@@ -276,3 +276,9 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Calls et8 and et8fix (sonnet). Operator check of the exact wording on six cases: ALIVE on N and on 1 case (singular), ZOMBIE on 75 and on 1 case, exit status only "FAIL: return code differs (COBOL 4, Java 0)", both combined; notice "Validated under GnuCOBOL 3.x".
 - Fix: the MCP server still defined its own Verdict and left the engine type unused (R-13); the operator instruction to keep the MCP test unchanged was wrong and was corrected. Now the MCP stub returns the engine Verdict; test updated to the engine fields, still through the real stdio server.
 - Tests: pytest 121 passed.
+
+### R-48 2026-11-15: engine task 9 (run storage)
+- Calls et9 and et9fix (sonnet). run_id from canonical sorted JSON of inputs (timestamp excluded); inputs.json sorted keys; verdict.json atomic (temp file then os.replace).
+- Fix: nothing computed the inputs.json fields (only listed in a docstring). collect_inputs now computes every field: file hashes, copybook hashes sorted, cases file hash with LF check, python/cobc/javac/java versions, coroner_version, comparison_engine_sha256 (D-36), UTC timestamp.
+- Operator check on credit-fees: all fields present with real values; COBOL hash equals hashlib on the file; run_id stable across calls (a26c32ac9519), changes with the seed.
+- Tests: pytest 136 passed. Watch item: suite time rose from 25 s to 63 s (version commands in tests); to trim after the engine is complete.
