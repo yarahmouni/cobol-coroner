@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+
+# Pre-commit guard: blocks home paths and unexpected root/scripts files.
+# The fast differential check (D-10) will be added to this hook later.
+
+.venv/bin/python scripts/precommit_guard.py

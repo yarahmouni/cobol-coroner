@@ -5,6 +5,7 @@ inclusion: always
 # Quality
 
 - Shortest readable code. No abstraction without a second real use. Few dependencies, all compatible with Apache-2.0.
+- Never leave helper or wrapper scripts. Temporary files go under build/ and are never committed. A new file at the repository root or in scripts/ must first be listed in docs/architecture.md (Repository layout); the pre-commit guard enforces it.
 - Business logic lives in `coroner/` modules, never in API routes, MCP handlers or the UI.
 - Fixed random seed everywhere; same inputs give the same verdict.
 - Every module has unit tests. Property-based tests for the normalizer and comparator.

@@ -194,3 +194,10 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 ### R-32 2026-11-15: keep the CRLF parity row in Git
 - `.gitattributes` (`* text=auto eol=lf`) had turned the deliberate CRLF row of parity-cases.csv into LF on commit, so a fresh clone no longer tested CRLF input. Call gitattr (haiku): the fixture is marked `-text`; file renormalized; the committed bytes now keep the CR.
 - Status: clean (fresh-clone check below).
+
+### R-33 2026-11-15: pre-commit guard, no helper scripts, fault-catalog review fixes
+- Owner approved deleting the five wrapper scripts left by Kiro (done). The commit-hours rule stays private, outside the repository.
+- Call guard-faultcat (sonnet): `scripts/precommit_guard.py` + `.githooks/pre-commit` refuse any staged file containing the macOS home prefix and any added file at the root or in scripts/ not listed in docs/architecture.md (new "Repository layout" section); the guard source never contains the prefix literally. Steering quality.md: never leave helper or wrapper scripts. Makefile `hooks` prints the enable command.
+- Verified by the operator: hook enabled (`core.hooksPath .githooks`); a stray root file and a test file with a home path were both refused (exit 1) while the real staged changes passed; `pytest` 39 passed.
+- fault-catalog requirements (owner review, 5 fixes): Req 9 is now the deterministic probable cause plus a one-sentence fix, Coroner never repairs code (D-26); Req 10: certificate is a separate spec, the JUnit source test comes from the minimal-case module (D-25), JUnit XML later; F05 exact rewrite (long cents, truncated); F01 and F03 must be detected on credit-fees; JSON report mandatory (Detection Matrix) plus text; minimal case reused from the engine module, no duplicated logic.
+- Model policy confirmed by the owner: Sonnet for any run or verification; reference outputs only from the COBOL program.

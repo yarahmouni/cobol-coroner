@@ -15,9 +15,10 @@ Per D-18 repositioning, the fault catalog is part of independent regression audi
 2. THE catalog SHALL include fault F02: wrong scale (for example setScale(3) or rounding at scale 2 at a different step than COBOL), never a rounding-mode change.
 3. THE catalog SHALL include fault F03: RoundingMode.DOWN instead of HALF_UP (truncation instead of ROUNDED).
 4. THE catalog SHALL include fault F04: sign loss on negative amounts, specifically using absolute value or dropping the sign during computation.
-5. THE catalog SHALL include fault F05: int or long instead of BigDecimal for amounts, specifically using integer types for fee computation.
+5. THE catalog SHALL include fault F05: int or long instead of BigDecimal for amounts, specifically using integer types for fee computation. The exact rewrite in the base fee computation: replace `<expr>.setScale(2, RoundingMode.HALF_UP)` with `BigDecimal.valueOf(<expr>.movePointRight(2).longValue(), 2)` (amount carried as long cents, fraction truncated). This compiles in CreditFees.java and differs from F03 because the value passes through a long.
 6. EACH mandatory fault SHALL have a documented rewrite rule that is reviewable (not a black-box mutation).
 7. THE rewrite rules SHALL produce code that compiles (syntax-valid Java).
+8. ON the credit-fees sample faults F01 and F03 MUST be detected (at least one detected case each). A run where either F01 or F03 is not detected SHALL be considered a failure.
 
 ### Requirement 2: Optional bonus faults (time permitting)
 **User Story:** As a demo viewer, I want to see Coroner detect additional common errors if time allows.
@@ -51,9 +52,11 @@ Per D-18 repositioning, the fault catalog is part of independent regression audi
 2. THE detection count SHALL be "N cases detected" (where a case is detected when Coroner comparison finds at least one divergent field for that case).
 3. THE report SHALL NOT include any global detection rate, percentage across all faults, or aggregate "X out of Y faults detected".
 4. WHEN zero cases are detected for a fault THE report SHALL state "not detected on N cases" (per no-formal-proof.md, never "proven absent").
-5. THE minimal failing case among the detected cases SHALL be determined deterministically: the one with the smallest absolute PRINCIPAL, then the smallest FEE-RATE, then the lowest CASE-ID.
+5. THE minimal failing case among the detected cases SHALL be determined by reusing the minimal-case module of the engine. The deterministic selection rule that module applies: the one with the smallest absolute PRINCIPAL, then the smallest FEE-RATE, then the lowest CASE-ID.
 6. THE minimal failing case SHALL show the full input row (CASE-ID, PRINCIPAL, FEE-RATE, DURATION-MONTHS, CUSTOMER-SEGMENT, INCOME), the COBOL output, the faulty Java output, and the divergent field name and values.
 7. THE COBOL line numbers executed SHALL be extracted from the GnuCOBOL trace or coverage instrumentation for the minimal failing case.
+8. THE fault catalog SHALL reuse the minimal-case module for selection, report generation, and JUnit source test generation. No duplicated selection logic in the catalog.
+9. THE report format SHALL be JSON (mandatory, written to runs/<run_id>/fault_catalog.json) plus a text rendering of the same data. The JSON SHALL document these fields per fault: id, description, status (injected or not applicable), cases_generated, cases_detected, detection_rate, minimal_case, cobol_lines, probable_cause, fix_sentence. The JSON feeds the Detection Matrix in the UI.
 
 ### Requirement 5: Honest wording per no-formal-proof.md
 **User Story:** As a hackathon judge, I need honest claims that do not overstate what was measured.
@@ -89,23 +92,26 @@ Per D-18 repositioning, the fault catalog is part of independent regression audi
 2. THE report SHALL list the reason (e.g., "F06 not applicable: no BigDecimal.equals() found in source").
 3. THE "not applicable" faults SHALL appear in a separate section of the report, not mixed with detected or undetected faults.
 
-### Requirement 9: No suggested-fix or automatic repair
-**User Story:** As a product owner, I want to defer suggested-fix features until after an owner vote.
+### Requirement 9: Suggested fix without automatic repair
+**User Story:** As a user, I want a deterministic probable cause and a one-sentence fix for each detected fault so I can repair the Java code myself.
 
 #### Acceptance Criteria
-1. THE fault catalog V1 SHALL NOT generate suggested fixes for detected faults.
-2. THE fault catalog V1 SHALL NOT attempt to automatically repair the faulty Java code.
-3. THE report SHALL NOT include a "suggested fix" or "recommended change" section.
-4. IF a suggested-fix feature is added after an owner vote THE decision SHALL be logged in docs/decisions.md first.
+1. FOR EACH detected fault THE report SHALL include a deterministic probable cause taken from the catalog entry.
+2. THE report SHALL state the fix in one sentence (for example "use RoundingMode.HALF_UP" for F01).
+3. THE user applies the fix manually, then re-runs Coroner to verify the result is ALIVE.
+4. Coroner SHALL NEVER write, patch, or repair code automatically.
+5. THE fix sentence SHALL be actionable and specific to the fault (not generic advice).
+6. THE probable cause SHALL be worded as "Probable cause: [fault description from catalog]", labeled "deterministic, from the fault catalog".
 
-### Requirement 10: No certificate or compliance export
-**User Story:** As a product owner, I want to defer certificate features until after an owner vote.
+### Requirement 10: Certificate and JUnit test are separate specs
+**User Story:** As a product owner, I need the Coroner Certificate and minimal failing case JUnit test to be built by other modules.
 
 #### Acceptance Criteria
-1. THE fault catalog V1 SHALL NOT generate a PDF certificate or compliance report.
-2. THE fault catalog V1 SHALL NOT export results to JUnit XML, SARIF, or any standardized format.
-3. THE report SHALL be plain text or JSON only, suitable for terminal display and programmatic access.
-4. IF a certificate or export feature is added after an owner vote THE decision SHALL be logged in docs/decisions.md first.
+1. THE Coroner Certificate is a separate spec in V1, not part of the fault catalog.
+2. THE minimal failing case JUnit 5 source test (ZombieRegressionTest.java) is produced by the minimal-case module of the engine (D-25), not by the fault catalog.
+3. THE fault catalog SHALL reuse the minimal-case module for its minimal failing case selection and JUnit test generation.
+4. THE fault catalog SHALL NOT duplicate the JUnit test generation logic.
+5. A JUnit XML report is a later bonus, not in V1.
 
 ### Requirement 11: Fault catalog integration with Coroner engine
 **User Story:** As a developer, I need the fault catalog to reuse the Coroner engine modules without duplication.

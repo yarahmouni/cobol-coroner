@@ -31,6 +31,24 @@ COBOL + copybooks + Java 17 + schema.json
 - `coroner/mcp`: MCP server, thin layer over the engine.
 - `web/`: one HTML page with htmx.
 
+## Repository layout
+
+### Root files
+- `.dockerignore`
+- `.gitattributes`
+- `.gitignore`
+- `Dockerfile`
+- `LICENSE`
+- `Makefile`
+- `README.md`
+- `pyproject.toml`
+
+### Scripts
+- `scripts/check_cobol_rules.py`
+- `scripts/gen_parity_cases.py`
+- `scripts/gen_rounding_ties.py`
+- `scripts/precommit_guard.py`
+
 ## Security
 - Container: no network, non-root user, read-only filesystem, CPU, memory and time limits.
 - Public mode: bundled samples only. Upload in local mode only, with size limit and strict validation.
