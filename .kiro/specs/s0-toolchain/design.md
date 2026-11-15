@@ -174,15 +174,15 @@ Smoke test PASSED
 ```
 
 **Non-root execution:**
-- Dockerfile creates user `lazarus` with UID 1000
-- All compiled binaries and scripts owned by `lazarus`
-- `USER lazarus` directive before `CMD`
+- Dockerfile creates user `coroner` with UID 1000
+- All compiled binaries and scripts owned by `coroner`
+- `USER coroner` directive before `CMD`
 
 ### Component 3: MCP server stub
 
-**Purpose:** Expose Lazarus functionality to Kiro through the Model Context Protocol.
+**Purpose:** Expose Coroner functionality to Kiro through the Model Context Protocol.
 
-**Location:** `lazarus/mcp/` module
+**Location:** `coroner/mcp/` module
 
 **Interface:**
 
@@ -205,10 +205,10 @@ Tool: `get_verdict`
 **Output schema:**
 ```json
 {
-  "verdict": "VIVANT",
+  "verdict": "ALIVE",
   "divergences": 0,
   "test_cases": 1,
-  "message": "0 divergence found on 1 case (stub)"
+  "message": "PASS: business behavior preserved on 1 case (stub)"
 }
 ```
 
@@ -216,9 +216,9 @@ Tool: `get_verdict`
 ```json
 {
   "mcpServers": {
-    "lazarus": {
+    "coroner": {
       "command": ".venv/bin/python",
-      "args": ["-m", "lazarus.mcp"]
+      "args": ["-m", "coroner.mcp"]
     }
   }
 }
@@ -230,7 +230,7 @@ Tool: `get_verdict`
 - Registers `get_verdict` tool during initialization
 - Returns fixed stub verdict regardless of input
 - Logs all invocations to stderr for debugging
-- Invoked by Kiro as `.venv/bin/python -m lazarus.mcp` from repository root
+- Invoked by Kiro as `.venv/bin/python -m coroner.mcp` from repository root
 
 ## Data Models
 
@@ -260,7 +260,7 @@ If line numbers are missing, fallback strategy: Insert `DISPLAY "MARKER-LINE-007
 ```python
 @dataclass
 class Verdict:
-    verdict: Literal["VIVANT", "ZOMBIE"]
+    verdict: Literal["ALIVE", "ZOMBIE"]
     divergences: int
     test_cases: int
     message: str
@@ -269,10 +269,10 @@ class Verdict:
 Stub returns:
 ```python
 Verdict(
-    verdict="VIVANT",
+    verdict="ALIVE",
     divergences=0,
     test_cases=1,
-    message="0 divergence found on 1 case (stub)"
+    message="PASS: business behavior preserved on 1 case (stub)"
 )
 ```
 
@@ -376,16 +376,16 @@ All errors are logged to stderr. MCP server errors follow MCP error response for
 **Test: Kiro discovers MCP server**
 - Given: `.kiro/settings/mcp.json` configured
 - When: Kiro CLI starts
-- Then: `lazarus` server appears in available tools
+- Then: `coroner` server appears in available tools
 - Then: `get_verdict` tool is listed
 
 **Test: Kiro calls get_verdict**
-- Given: MCP server running via `.venv/bin/python -m lazarus.mcp`
+- Given: MCP server running via `.venv/bin/python -m coroner.mcp`
 - When: Kiro invokes `get_verdict` with `{"project_id": "test"}`
-- Then: receives JSON response with verdict "VIVANT"
+- Then: receives JSON response with verdict "ALIVE"
 - Then: receives divergences = 0
 - Then: receives test_cases = 1
-- Then: message is "0 divergence found on 1 case (stub)"
+- Then: message is "PASS: business behavior preserved on 1 case (stub)"
 
 ### Acceptance criteria validation
 
@@ -397,7 +397,7 @@ All errors are logged to stderr. MCP server errors follow MCP error response for
 **Requirement 2: Docker image**
 - Verified by: `make smoke` exits 0
 - Pass condition: both COBOL and Java programs execute successfully
-- Pass condition: container runs as user `lazarus` (UID 1000)
+- Pass condition: container runs as user `coroner` (UID 1000)
 
 **Requirement 3: MCP smoke test**
 - Verified by: Kiro lists and calls `get_verdict`

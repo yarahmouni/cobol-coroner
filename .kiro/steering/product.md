@@ -13,4 +13,4 @@ COBOL Coroner is the independent regression auditor for COBOL-to-Java migrations
 - All user-facing text, code comments and docs are in English.
 - Never use the em dash character in any file.
 - Every decision is logged in `docs/decisions.md` after a simulated vote, then validated by the owner.
-- Competitors are never named in the public repository. A competitor feature is never copied: a feature judged valuable gets a differentiated version or is skipped, after a simulated vote logged in docs/decisions.md.
+- Other hackathon projects (competitors) are never named in the public repository (see public-repo.md). A competitor feature is never copied: a feature judged valuable gets a differentiated version or is skipped, after a simulated vote logged in docs/decisions.md.

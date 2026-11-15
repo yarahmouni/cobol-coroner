@@ -2,11 +2,11 @@
 
 ## Overview
 
-This spec defines the reference COBOL program for demonstrating the Lazarus zombie detector. The program computes credit file fees with segment discounts and eligibility rules, and deliberately includes the rounding trap that a buggy Java migration would trigger.
+This spec defines the reference COBOL program for demonstrating COBOL Coroner, the independent regression auditor for COBOL-to-Java migrations. The program computes credit file fees with segment discounts and eligibility rules, and deliberately includes the rounding trap that a buggy Java migration would trigger.
 
 The synthetic program represents a realistic banking batch operation: reading credit applications from CSV, computing fees with COBOL ROUNDED arithmetic (nearest away from zero), applying business rules through EVALUATE and IF/ELSE, and writing results with eligibility decisions. It contains no real bank code or data.
 
-The design ensures the program has measurable paragraph coverage and branch coverage (Lazarus definition per D-07), includes at least 20 exact rounding ties to expose the HALF_UP vs HALF_EVEN bug (D-06), and compiles cleanly with GnuCOBOL 3.2 following the coding rules in cobol-semantics.md.
+The design ensures the program has measurable paragraph coverage and branch coverage (Coroner definition per D-07), includes at least 20 exact rounding ties to expose the HALF_UP vs HALF_EVEN bug (D-06), and compiles cleanly with GnuCOBOL 3.2 following the coding rules in cobol-semantics.md.
 
 Per D-06, HALF_EVEN diverges from COBOL ROUNDED only when the exact product ends in .005 (or .015, .025, etc.) and the preceding digit is even. For example: 2.025 with preceding digit 2 (even) rounds to 2.03 in COBOL but 2.02 in HALF_EVEN; 2.035 with preceding digit 3 (odd) rounds to 2.04 in both.
 
@@ -19,7 +19,7 @@ Per D-06, HALF_EVEN diverges from COBOL ROUNDED only when the exact product ends
 - 500.00 x 0.02051 = 10.2550000, odd: both 10.26 (control)
 - -2047.00 x 0.00500 = -10.2350000, odd: both -10.24 (control)
 
-Success criteria: the program compiles without warnings, runs on a fixture of rounding-tie cases, produces expected-output.csv that Lazarus will later verify against a Java version, and the program alone (CREDIT-FEES.cob) stays within 300 to 800 lines (target about 400 lines), plus 1 to 3 copybooks.
+Success criteria: the program compiles without warnings, runs on a fixture of rounding-tie cases, produces expected-output.csv that Coroner will later verify against a Java version, and the program alone (CREDIT-FEES.cob) stays within 300 to 800 lines (target about 400 lines), plus 1 to 3 copybooks.
 
 ## Architecture
 
@@ -87,7 +87,7 @@ Success criteria: the program compiles without warnings, runs on a fixture of ro
 
 ### Component 1: schema.json
 
-**Purpose:** Define the structure and types of input and output CSV columns so Lazarus modules can parse, generate and compare values precisely.
+**Purpose:** Define the structure and types of input and output CSV columns so Coroner modules can parse, generate and compare values precisely.
 
 **Location:** `samples/credit-fees/schema.json`
 
@@ -708,7 +708,7 @@ The `sample-expected` target is documented as a manual step that overwrites the 
 
 ### Component 5: Test fixtures
 
-**Purpose:** Provide test data with known characteristics for validating the COBOL program and later testing Lazarus.
+**Purpose:** Provide test data with known characteristics for validating the COBOL program and later testing Coroner.
 
 **Location:** `samples/credit-fees/fixtures/`
 
@@ -816,7 +816,7 @@ OUTPUT_FILE=samples/credit-fees/fixtures/expected-output.csv \
 build/credit-fees
 ```
 
-This file is the COBOL reference output and will be compared against Java output by Lazarus. It must be manually verified (at least a sample of tie cases matches the oracle) and then committed to the repository using the `make sample-expected` target.
+This file is the COBOL reference output and will be compared against Java output by Coroner. It must be manually verified (at least a sample of tie cases matches the oracle) and then committed to the repository using the `make sample-expected` target.
 
 ## Data Models
 
@@ -842,7 +842,7 @@ This file is the COBOL reference output and will be compared against Java output
 - ELIGIBLE: 'Y' or 'N' (single character, no quotes).
 - REASON-CODE: 3-character string (A00, A01, R01, R02, E01).
 
-**Normalization rules for comparison (used by Lazarus normalizer):**
+**Normalization rules for comparison (used by Coroner normalizer):**
 - Trim leading and trailing spaces from all string fields.
 - For decimal fields: parse as BigDecimal with the scale from schema.json, compare values exactly (no tolerance per D-09).
 - Line endings: normalize to LF before comparison.
@@ -1042,7 +1042,7 @@ File errors (missing environment variable, cannot open input file, or empty inpu
 
 **Requirement 3: Demo trap**
 - Verified by: oracle test proves the fixture has at least 20 exact ties with correct parity distribution; expected-output.csv shows COBOL ROUNDED results.
-- Pass condition: oracle test passes, expected-output.csv committed, ready for Lazarus verification.
+- Pass condition: oracle test passes, expected-output.csv committed, ready for Coroner verification.
 
 **Line count target:**
 - Verified by: `wc -l` on CREDIT-FEES.cob and copybooks.

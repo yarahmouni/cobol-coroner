@@ -124,3 +124,11 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Task 8 Done when: `id` uid=1000(coroner); `cobc --version` 3.2.0; `java -version` 17.0.21; `python3 --version` 3.12.16. All met.
 - Task 11 blocker: `docker run --rm coroner:smoke` fails with "gcc: not found". `cobc -x` needs a C compiler and libc headers at runtime; the final stage must install gcc and libc6-dev (pinned) and the GMP headers if cobc needs them. Fix pending (Kiro out of credits).
 - Status: open.
+
+### R-23 2026-11-15: rename completion (non-code work by the operator, owner exception)
+- Owner approved the operator finishing the text-only rename while Kiro is out of credits; code and the gcc fix stay with Kiro.
+- Edited by the operator: decisions D-02 (name; "IBM" replaced by "commercial tools"), D-07, D-08, D-13 ("AI accelerates. Coroner certifies."); s0-toolchain design.md and tasks.md (paths, user, image tag, server name, ALIVE stub message); cobol-sample design.md (positioning wording).
+- Task 15 unchecked: its evidence was captured before the rename (server under the old name); it must be re-run against server `coroner` when Kiro credits are back.
+- Steering: public-repo.md now says the no-competitor rule covers other hackathon projects only; migration tools whose output is audited (AWS Transform) may be named. product.md aligned.
+- Kept on purpose: "IBM Enterprise COBOL" in README and cobol-semantics.md (a compiler, not a migration tool); the D-19 rationale and the D-20 row (it records the removal of the old verdict label).
+- Check: grep -ri for the old project name and old verdict label returns only the D-19 and D-20 rows. Tests: `pytest` 7 passed.

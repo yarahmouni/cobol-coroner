@@ -42,15 +42,15 @@ Done when: `tests/fixtures/sample_trace.txt` exists, is non-empty, and the resul
 Note: Line numbers present: yes. The trace file contains line number annotations in the format "Line: N" for each executed statement (e.g., Line: 9, Line: 10, Line: 11, Line: 16, Line: 17).
 
 - [x] 5. Implement trace parser
-  - Create `lazarus/parse/__init__.py` (empty or with module exports)
-  - Create `lazarus/parse/trace.py` with `parse_trace(trace_file_path: str) -> set[int]` function
+  - Create `coroner/parse/__init__.py` (empty or with module exports)
+  - Create `coroner/parse/trace.py` with `parse_trace(trace_file_path: str) -> set[int]` function
   - Parse the real trace format from `tests/fixtures/sample_trace.txt`
   - Extract line numbers using regex or text parsing
   - Return deduplicated set of integers
 
 _Requirements: 1.2_
 
-Done when: `from lazarus.parse.trace import parse_trace` succeeds and `parse_trace("tests/fixtures/sample_trace.txt")` returns a non-empty set of integers.
+Done when: `from coroner.parse.trace import parse_trace` succeeds and `parse_trace("tests/fixtures/sample_trace.txt")` returns a non-empty set of integers.
 
 - [x] 6. Write unit tests for trace parser
   - Create `tests/test_trace_parser.py`
@@ -77,19 +77,19 @@ Done when: `javac -d build/ smoke/Toy.java && java -cp build/ Toy` prints versio
   - Pick a Debian slim based image that provides Python 3.12 and JDK 17 (e.g., official python:3.12-slim-<debian release> image) pinned by digest
   - If Debian package for GnuCOBOL is not 3.2.x, build GnuCOBOL 3.2.0 from official release tarball with sha256 checksum verification
   - Install OpenJDK 17
-  - Create non-root user `lazarus` with UID 1000
-  - Copy `lazarus/` directory into the image (needed by run_smoke.sh for parse_trace)
+  - Create non-root user `coroner` with UID 1000
+  - Copy `coroner/` directory into the image (needed by run_smoke.sh for parse_trace)
   - Copy smoke test files
-  - Set USER to lazarus
+  - Set USER to coroner
 
 _Requirements: 2.1, 2.3_
 
-Done when: `docker build -t lazarus:smoke .` succeeds and image contains all three runtimes. `docker run --rm lazarus:smoke id` shows uid=1000(lazarus). `docker run --rm lazarus:smoke cobc --version` shows 3.2.0, `docker run --rm lazarus:smoke java -version` shows 17, and `docker run --rm lazarus:smoke python3 --version` shows 3.12.
+Done when: `docker build -t coroner:smoke .` succeeds and image contains all three runtimes. `docker run --rm coroner:smoke id` shows uid=1000(coroner). `docker run --rm coroner:smoke cobc --version` shows 3.2.0, `docker run --rm coroner:smoke java -version` shows 17, and `docker run --rm coroner:smoke python3 --version` shows 3.12.
 
 - [x] 9. Create smoke test runner script
   - Create `smoke/run_smoke.sh`
   - Compile toy.cob with `-ftraceall` to `build/toy` and run with COB_SET_TRACE=Y
-  - Parse trace file and count line numbers using parse_trace from lazarus/
+  - Parse trace file and count line numbers using parse_trace from coroner/
   - Compile and run Toy.java using build/ for outputs
   - Print summary with PASSED/FAILED status
   - Exit with code 0 if all checks pass, code 1 otherwise
@@ -102,7 +102,7 @@ Done when: `bash smoke/run_smoke.sh` exits 0 on the host (host has cobc 3.2.0, J
 - [ ] 10. Add Makefile targets
   - Create or update `Makefile`
   - Add `test` target: `.venv/bin/pytest tests/ -v`
-  - Add `smoke` target: `docker build -t lazarus:smoke . && docker run --rm lazarus:smoke`
+  - Add `smoke` target: `docker build -t coroner:smoke . && docker run --rm coroner:smoke`
 
 _Requirements: 2.2_
 
@@ -121,22 +121,22 @@ _Requirements: 2.2_
 Done when: `make smoke` completes with exit code 0 and all expected output lines present.
 
 - [x] 12. Create MCP server stub module
-  - Create `lazarus/mcp/__init__.py` with server entry point
+  - Create `coroner/mcp/__init__.py` with server entry point
   - Implement MCP stdio server using official MCP Python SDK
   - Register tool `get_verdict` with input schema (project_id: string)
-  - Return fixed stub response: `{"verdict": "VIVANT", "divergences": 0, "test_cases": 1, "message": "0 divergence found on 1 case (stub)"}`
+  - Return fixed stub response: `{"verdict": "ALIVE", "divergences": 0, "test_cases": 1, "message": "PASS: business behavior preserved on 1 case (stub)"}`
   - Add `if __name__ == "__main__"` block calling server main function
-  - Make module runnable as `python -m lazarus.mcp`
+  - Make module runnable as `python -m coroner.mcp`
 
 _Requirements: 3.1_
 
-Done when: `.venv/bin/python -m lazarus.mcp` starts without error and waits for stdin input. Task 13 tests pass.
+Done when: `.venv/bin/python -m coroner.mcp` starts without error and waits for stdin input. Task 13 tests pass.
 
 - [x] 13. Write unit tests for MCP stub
   - Create `tests/test_mcp_stub.py`
-  - Test: stdio integration test that spawns `.venv/bin/python -m lazarus.mcp` with MCP SDK client
+  - Test: stdio integration test that spawns `.venv/bin/python -m coroner.mcp` with MCP SDK client
   - Test: list tools returns `get_verdict`
-  - Test: calling `get_verdict` with `{"project_id": "test"}` returns all four fields and exact message '0 divergence found on 1 case (stub)'
+  - Test: calling `get_verdict` with `{"project_id": "test"}` returns all four fields and exact message 'PASS: business behavior preserved on 1 case (stub)'
   - Test: calling `get_verdict` without project_id returns an MCP error
 
 _Requirements: 3.1_
@@ -145,25 +145,25 @@ Done when: `.venv/bin/pytest tests/test_mcp_stub.py -q` shows all tests passing.
 
 - [x] 14. Create Kiro MCP configuration
   - Create `.kiro/settings/` directory if missing
-  - Create `.kiro/settings/mcp.json` with `mcpServers.lazarus` entry
+  - Create `.kiro/settings/mcp.json` with `mcpServers.coroner` entry
   - Set command to `.venv/bin/python`
-  - Set args to `["-m", "lazarus.mcp"]`
+  - Set args to `["-m", "coroner.mcp"]`
 
 _Requirements: 3.2_
 
 Done when: `.kiro/settings/mcp.json` exists with valid JSON syntax and correct server configuration.
 
-- [x] 15. Verify Kiro discovers and calls MCP server
-  - Check that `kiro-cli mcp list` (or equivalent command) shows the lazarus server
+- [ ] 15. Verify Kiro discovers and calls MCP server
+  - Check that `kiro-cli mcp list` (or equivalent command) shows the coroner server
   - Call `get_verdict` with project_id test using `kiro-cli chat --no-interactive`
   - Verify response contains the stub verdict
   - Save output as evidence for task 18
 
 _Requirements: 3.2_
 
-Done when: `kiro-cli mcp list` shows the lazarus server, and `kiro-cli chat --no-interactive` asked to call get_verdict with project_id test returns the stub verdict. Output saved as evidence for task 18.
+Done when: `kiro-cli mcp list` shows the coroner server, and `kiro-cli chat --no-interactive` asked to call get_verdict with project_id test returns the stub verdict. Output saved as evidence for task 18.
 
-Note: Verified on 2026-11-15 with kiro-cli 3.3.0. `kiro-cli mcp list` shows server 'lazarus' with command .venv/bin/python from workspace .kiro/settings/mcp.json. `kiro-cli chat --no-interactive` with agent lazarus-builder called tool '@lazarus/get_verdict' with project_id 'test' and received {"verdict": "VIVANT", "divergences": 0, "test_cases": 1, "message": "0 divergence found on 1 case (stub)"}, isError false.
+Note: First verified on 2026-11-15 with kiro-cli 3.3.0, before the D-19 rename (server, package and agent then used the old project name): Kiro listed the MCP server from .kiro/settings/mcp.json, called its get_verdict tool with project_id 'test' and received the stub verdict, isError false. Must be re-run with server 'coroner' (verdict ALIVE, message 'PASS: business behavior preserved on 1 case (stub)') when Kiro credits are available.
 
 - [x] 16. Create GitHub Actions workflow
   - Create `.github/workflows/test.yml`
