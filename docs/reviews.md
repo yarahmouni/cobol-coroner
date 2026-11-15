@@ -144,3 +144,14 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Call a-gcc-makefile (claude-haiku-4.5, 0.81 credits): runtime stage adds gcc=4:12.2.0-3 and libc6-dev=2.36-9+deb12u14 with apt list cleanup; LD_LIBRARY_PATH warning removed; Makefile targets smoke, demo, zombie, serve (the last three exit 2 with "not available yet" until S1/S2).
 - Verified by the operator: `make smoke` exit 0 (toy executed, 5 trace line numbers, Java 17.0.21, Smoke test PASSED); `make demo|zombie|serve` exit 2 with the message; `make test` 7 passed; image runs as uid=1000(coroner), 893 MB (the 674 MB in the task 8 note is the size before gcc).
 - Status: clean. S0 acceptance "make smoke green": met.
+
+### R-26 2026-11-15: cobol-sample tasks.md and tasks 1 to 8
+- Credits per call (KIRO PRO): t15 re-check (haiku) about 0.06; cs-tasks (sonnet) 1.54; cs-t1-3 (sonnet) 7.50; cs-t4-5 (sonnet) 5.95; cs-t6-8 (sonnet) 5.69. Total used so far: 21.55 of 531.
+- Task 15 re-check against server `coroner`: the log shows a real `@coroner/get_verdict` call returning ALIVE. Haiku also listed three tools that do not exist (taken from architecture.md, planned for S2): a tool listing must come from the MCP server, not from the docs.
+- tasks.md fixes sent (3): task 5 and task 8 Done when made objective; task 6 checks EVERY tie row against the oracle, not a manual sample.
+- CREDIT-FEES.cob (390 lines, 3 copybooks): compiles with `-Wall`, empty stderr. Operator run on 17 hand-made cases: ties away from zero (+12.35, -12.35), odd control 10.24, every E01 cause, overflow E01, A01 minimum fee, R01/R02 priority, S discount 19.00, no state leak, missing env 16. All correct.
+- BUG 1 (fixed): empty input returned 16 with libcob "implicit CLOSE" warnings instead of header only and 0.
+- BUG 2 (introduced by the fix of bug 1, fixed): empty input looped forever (read past end of file after READ-HEADER); found by the operator, process killed after 10 minutes. Now an EOF switch; every COBOL run in the tests has a timeout.
+- Verified by the operator: empty input exit 0 with header only; rounding-ties run is byte-identical to expected-output.csv; independent oracle: 30/30 rows equal ROUND_HALF_UP, 26 would diverge under HALF_EVEN (8 negative), 4 odd controls; rules check 0 GO TO, 33 IF / 33 ELSE, 1 EVALUATE / 1 WHEN OTHER; `pytest` 25 passed.
+- Note for CI: the COBOL tests skip on the CI runner (no GnuCOBOL 3.2 there; Debian/Ubuntu packages are 3.1.2). Running them in CI needs the coroner image; proposed for S1.
+- Status: clean. S0 acceptance "cobc compiles the sample": met.

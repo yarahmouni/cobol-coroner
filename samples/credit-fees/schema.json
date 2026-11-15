@@ -1,0 +1,84 @@
+{
+  "program": "CREDIT-FEES",
+  "description": "Synthetic credit file fee computation with eligibility check",
+  "input": {
+    "file": "input.csv",
+    "columns": [
+      {
+        "name": "CASE-ID",
+        "type": "string",
+        "pic": "X(10)",
+        "description": "Unique case identifier"
+      },
+      {
+        "name": "PRINCIPAL",
+        "type": "decimal",
+        "pic": "S9(9)V99",
+        "scale": 2,
+        "description": "Credit principal amount, may be negative"
+      },
+      {
+        "name": "FEE-RATE",
+        "type": "decimal",
+        "pic": "V9(5)",
+        "scale": 5,
+        "description": "Fee rate as decimal (e.g., 0.02500 for 2.5%)"
+      },
+      {
+        "name": "DURATION-MONTHS",
+        "type": "integer",
+        "pic": "9(3)",
+        "description": "Credit duration in months"
+      },
+      {
+        "name": "CUSTOMER-SEGMENT",
+        "type": "string",
+        "pic": "X(1)",
+        "description": "Customer segment: P, S, B, or other"
+      },
+      {
+        "name": "INCOME",
+        "type": "decimal",
+        "pic": "9(9)V99",
+        "scale": 2,
+        "description": "Annual income, unsigned"
+      }
+    ]
+  },
+  "output": {
+    "file": "output.csv",
+    "columns": [
+      {
+        "name": "CASE-ID",
+        "type": "string",
+        "pic": "X(10)",
+        "description": "Case identifier from input"
+      },
+      {
+        "name": "FEE-AMOUNT",
+        "type": "decimal",
+        "pic": "+9(7).99",
+        "scale": 2,
+        "description": "Computed fee with leading sign and decimal point (e.g., +0000002.03 or -0000002.03)"
+      },
+      {
+        "name": "ELIGIBLE",
+        "type": "string",
+        "pic": "X(1)",
+        "description": "Eligibility: Y or N"
+      },
+      {
+        "name": "REASON-CODE",
+        "type": "string",
+        "pic": "X(3)",
+        "description": "Reason code: A00 (eligible, normal), A01 (eligible, minimum fee applied), R01 (not eligible, income), R02 (not eligible, duration), E01 (invalid record)"
+      }
+    ]
+  },
+  "internal_precision": {
+    "FEE-AMOUNT": {
+      "pic": "S9(7)V99 COMP-3",
+      "description": "Internal computation uses 9 digits, scale 2"
+    }
+  }
+}
