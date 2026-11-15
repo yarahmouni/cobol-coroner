@@ -292,3 +292,10 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 ### R-50 2026-11-15: owner consolidated brief, decisions D-38 to D-45
 - The brief replaces the earlier decision messages. D-30 to D-37 were already logged with the same content. Logged: D-38 coroner-gate and CI, D-39 UI, D-40 Kiro demo with real transcript, D-41 v6-scan, D-42 V6 differential demo, D-43 Given/When/Then card, D-44 hash-chained audit log; D-45 records the rejected items and the priority order with the 2026-11-28 freeze (operator numbering: the rejected list needed its own row).
 - Call d38-45 (haiku).
+
+### R-51 2026-11-15: engine task 11 (JUnit source test)
+- Calls et11 and et11fix (sonnet).
+- Operator-verified jar: junit-platform-console-standalone 6.1.3 (published 2026-08-07, Java 17), SHA-256 e62b96ac475dbcde8599ea905d088f65d90778f86e259b856a49fa5c4ea256ec, equal to the .sha256 and .sha1 published by Maven Central; launcher runs on JDK 17.0.21. `make junit-jars` downloads it into build/junit/ and checks the hash (scripts/download_junit.py, listed in the repository layout).
+- BUGs fixed: the key end-to-end test was hard-skipped with the false reason "tested manually"; root cause found by the operator: the generated ZombieRegressionTest.java started the program with a hard-coded classpath "java". Now the classpath is a parameter (-Dcoroner.java.classpath or CORONER_JAVA_CLASSPATH). The test now really runs: the generated test for GEN-001213 fails against the HALF_EVEN classes and passes against the correct ones.
+- Tests: pytest 150 passed, no unconditional skip left.
+- Kiro balance after this task: plan 164.77 of 531 used (366.23 left); bonus Trial credits: 0.00/500 (Kiroween credits not yet visible). Balances were reported in the operator replies after R-35; from this entry on they are recorded in every entry.

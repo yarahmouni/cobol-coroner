@@ -45,6 +45,7 @@ COBOL + copybooks + Java 17 + schema.json
 
 ### Scripts
 - `scripts/check_cobol_rules.py`
+- `scripts/download_junit.py`
 - `scripts/gen_parity_cases.py`
 - `scripts/gen_rounding_ties.py`
 - `scripts/precommit_guard.py`

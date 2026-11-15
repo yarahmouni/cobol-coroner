@@ -134,7 +134,7 @@ _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7_
 
 Done when: `.venv/bin/pytest tests/test_diag.py -q` shows all tests passing or skipped.
 
-- [ ] 11. JUnit test generation and jar management (coroner/diag/junit.py)
+- [x] 11. JUnit test generation and jar management (coroner/diag/junit.py)
   - Implement `generate_junit_test(minimal_case: CaseResult, input_row: dict, expected_output: dict, java_class: str, schema: Schema, output_path: str) -> None` that writes ZombieRegressionTest.java
   - Template: JUnit 5 class with one @Test method, runs Java as subprocess (ProcessBuilder with ["java", "-cp", classpath, java_class], env INPUT_FILE and OUTPUT_FILE, timeout 10s), reads output row, asserts divergent field equals COBOL value
   - Create Makefile target `junit-jars` that downloads junit-jupiter-api and junit-platform-console-standalone at pinned versions into build/junit/, verifies SHA-256 checksums, never commits jars

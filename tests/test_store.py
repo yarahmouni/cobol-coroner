@@ -224,7 +224,7 @@ def test_store_comparison_with_divergences(tmp_path):
             case_id="GEN-00002",
             divergent=True,
             divergent_fields=[
-                ("FEE", "12.35", "12.36")
+                ("FEE-AMOUNT", "12.35", "12.36")
             ]
         )
     ]
@@ -253,7 +253,7 @@ def test_store_comparison_with_divergences(tmp_path):
     assert loaded["cases"][1]["case_id"] == "GEN-00002"
     assert loaded["cases"][1]["divergent"] is True
     assert len(loaded["cases"][1]["divergent_fields"]) == 1
-    assert loaded["cases"][1]["divergent_fields"][0]["field_name"] == "FEE"
+    assert loaded["cases"][1]["divergent_fields"][0]["field_name"] == "FEE-AMOUNT"
     assert loaded["cases"][1]["divergent_fields"][0]["cobol_value"] == "12.35"
     assert loaded["cases"][1]["divergent_fields"][0]["java_value"] == "12.36"
 

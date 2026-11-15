@@ -1,4 +1,4 @@
-.PHONY: test smoke demo zombie serve java-sample hooks
+.PHONY: test smoke demo zombie serve java-sample hooks junit-jars
 
 test:
 	.venv/bin/pytest -q
@@ -22,3 +22,6 @@ java-sample:
 
 hooks:
 	@echo "git config core.hooksPath .githooks"
+
+junit-jars:
+	@.venv/bin/python scripts/download_junit.py
