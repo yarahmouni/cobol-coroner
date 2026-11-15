@@ -175,3 +175,10 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Checked: rows D-01 to D-28 without collision, text matches the owner validation, no em dash.
 - The owner's commit-hours rule is applied by the operator from now on; its row is held until the owner confirms it may be published (public-repo.md).
 - Two untracked helper scripts left by Kiro deleted with owner approval.
+
+### R-30 2026-11-15: java-credit-fees design.md
+- Call java-design (sonnet, 2.61 credits); call java-design-fix (sonnet, 7.44 credits).
+- Parity points given to Kiro from the COBOL code: by-value decimal checks, NUMVAL text form, field split, PIC X(200) record cut and CR removal, CASE-ID raw 20 / valid 10 / output cut to 10, segment trailing trim, edited sign output, negative zero, range checks, header, exit codes.
+- Fixes sent (8): BUG `BigDecimal.equals` compares scale, so "10.5" would have become E01 (now `setScale(n, DOWN).compareTo(value) == 0`); BUG textual scale checks rejected "10.500", valid by value (with a false claim about its scale); DURATION "12.0" valid by value; " B" segment is E01 with trailing trim (the design said valid); numeric regex marked provisional until the parity test; formatting by setScale(2).toPlainString with zero padding (cobol-semantics.md) instead of String.format, stream-of-thought lines removed; no AtomicInteger; overflow note after discount.
+- The COBOL output on the parity fixture is the specification for every uncertain point (".5", "5.", "+", negative zero).
+- Status: clean.
