@@ -333,3 +333,12 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 ### R-56 2026-11-15: engine task 15 (documentation), engine spec complete
 - Call et15 (haiku, 0.57 credits): README Quick start, CLI, exit codes, run files with the measured example outputs only; branch coverage limitation stated; architecture.md modules updated, repository layout unchanged.
 - Kiro balance: plan 196.49 of 531 used (334.51 left); bonus 0.00 of 500 used.
+
+### R-57 2026-11-15: pre-commit fast mode (priority 1 complete)
+- Calls fast and fastfix (sonnet). New spec .kiro/specs/precommit-fast/ (requirements, design, tasks); .githooks/pre-commit runs the guard, then `coroner verify` on the demo sample with 500 cases and seed 42; `make precommit` runs the same check.
+- BUGs fixed (operator runs): on a ZOMBIE the hook blocked but printed nothing (`set -e` exited on the failing command substitution); the time shown was fabricated precision ("N.0 s" from whole seconds), now the CLI's measured Duration line; the block message no longer suggests --no-verify (README mentions it honestly with CORONER_PRECOMMIT_JAVA as test-only overrides).
+- Operator runs: ALIVE "Coroner pre-commit: ALIVE: PASS: business behavior preserved on 500 cases (Duration: 4.0 s)" exit 0; with the HALF_EVEN variant "Commit blocked by Coroner: ZOMBIE: FAIL: business behavior diverged on 21 cases. See runs/aa7e43333e51/failure_report.json." exit 1. Under the 20 s target.
+- Known limitation, for priority 7: the hook checks the working-tree Java, not the staged content.
+- Priority 1 (differential engine, make demo, make zombie, 10-seed acceptance, pre-commit fast mode): done.
+- Tests: pytest 162 passed.
+- Kiro balance: plan 203.22 of 531 used (327.78 left); bonus Trial credits: 0.00/500.

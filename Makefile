@@ -1,4 +1,4 @@
-.PHONY: test smoke demo zombie serve java-sample hooks junit-jars acceptance
+.PHONY: test smoke demo zombie serve java-sample hooks junit-jars acceptance precommit
 
 test:
 	.venv/bin/pytest -q
@@ -30,3 +30,7 @@ hooks:
 
 junit-jars:
 	@.venv/bin/python scripts/download_junit.py
+
+precommit:
+	@JAVA_FILE=$${CORONER_PRECOMMIT_JAVA:-samples/credit-fees/java/CreditFees.java}; \
+	.venv/bin/python -m coroner verify --cobol samples/credit-fees/CREDIT-FEES.cob --copybooks samples/credit-fees/copybooks --java "$$JAVA_FILE" --schema samples/credit-fees/schema.json --cases 500 --seed 42; exit $$?

@@ -80,6 +80,8 @@ Note: Branch coverage counts only the branches reached by generated valid inputs
 
 A Kiro agent ports the COBOL program, Coroner audits the port through MCP, a Kiro Stop hook and a Git pre-commit hook block a ZOMBIE verdict, a Jenkins or GitHub Actions gate enforces it, and the replayable certificate records the result (in progress).
 
+The Git pre-commit hook runs a fast 500-case check on the demo sample and blocks ZOMBIE commits. The CORONER_PRECOMMIT_JAVA environment variable exists only for tests and the demo; pointing it elsewhere, like using `git commit --no-verify`, bypasses the gate under the owner's responsibility.
+
 ## Status
 
 Work in progress for Kiroween 2026 (category: Resurrection). See `docs/sprints.md`.
