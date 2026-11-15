@@ -118,3 +118,9 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Dockerfile review (task 8, still open): Kiro's GnuCOBOL sha256 was invented (its download had failed); the operator downloaded gnucobol-3.2.tar.xz and computed 3bb48af46ced4779facf41fdc2ee60e4ccb86eaa99d010b36685315df39c2ee2, now in the Dockerfile. Pin libdb5.3 corrected to 5.3.28+dfsg2-1 (checked with apt-cache in the pinned base image). Debian bookworm only has gnucobol3 3.1.2, so the source build is justified. Image not built yet.
 - Docs (Kiro, verified): README (title, subtitle, description, slogan, ALIVE/ZOMBIE sub-labels), product.md (D-18 rules), no-formal-proof.md, quality.md, architecture.md, sprints.md, s0-checklist.md, s0 requirements, part of s0 design; D-18, D-19, D-20 logged.
 - Not done: Kiro hit "monthly usage limit has been reached" (50/50 credits, reset 2026-12-01) before finishing decisions D-02/D-07/D-08/D-13 wording, the rest of s0-toolchain design.md and tasks.md, and cobol-sample design.md.
+
+### R-22 2026-11-15: Docker image build check (task 8, operator test run)
+- `docker build -t coroner:smoke .`: success (674 MB), one warning (undefined `$LD_LIBRARY_PATH` in ENV, line 45).
+- Task 8 Done when: `id` uid=1000(coroner); `cobc --version` 3.2.0; `java -version` 17.0.21; `python3 --version` 3.12.16. All met.
+- Task 11 blocker: `docker run --rm coroner:smoke` fails with "gcc: not found". `cobc -x` needs a C compiler and libc headers at runtime; the final stage must install gcc and libc6-dev (pinned) and the GMP headers if cobc needs them. Fix pending (Kiro out of credits).
+- Status: open.
