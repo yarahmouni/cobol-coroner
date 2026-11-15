@@ -1,4 +1,4 @@
-.PHONY: test smoke demo zombie serve
+.PHONY: test smoke demo zombie serve java-sample
 
 test:
 	.venv/bin/pytest -q
@@ -14,3 +14,8 @@ zombie:
 
 serve:
 	@echo "serve: not available yet (planned for S2)" >&2; exit 2
+
+java-sample:
+	@mkdir -p build/java
+	javac -d build/java samples/credit-fees/java/CreditFees.java
+	INPUT_FILE=samples/credit-fees/fixtures/rounding-ties.csv OUTPUT_FILE=build/java-rounding-ties-output.csv java -cp build/java CreditFees

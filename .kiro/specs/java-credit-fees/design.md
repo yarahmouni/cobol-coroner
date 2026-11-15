@@ -70,7 +70,7 @@ Environment variables INPUT_FILE, OUTPUT_FILE
 - Input line length: COBOL reads PIC X(200), characters beyond 200 are cut. Java reads the line, truncates to 200 characters, removes a trailing CR if present (CRLF input).
 - Field split: `String.split(",", -1)` to keep trailing empty fields; more than 6 or fewer than 6 fields is E01.
 - Numeric validation is BY VALUE: parse the text with BigDecimal constructor, check the value fits the target PIC with `value.setScale(targetScale, RoundingMode.DOWN).compareTo(value) == 0` (BigDecimal.equals compares scale, which is wrong). For example, "10.5" is valid for S9(9)V99 because 10.5 truncated to scale 2 equals 10.5 (no loss), "10.505" is E01 because 10.50 does not equal 10.505.
-- Accepted numeric text format: after trimming leading and trailing spaces, match the regex `^[+-]?\\d+(\\.\\d+)?$` (optional leading sign, digits, optional decimal point and decimals, no exponent, no trailing signs). Blank (all spaces or empty) is E01. Exponents ("1E2") and non-canonical formats (trailing signs, CR/DB, embedded spaces, parentheses) are E01. The regex is provisional: COBOL NUMVAL may accept ".5", "5." and leading '+'; the parity test decides, and the regex is adjusted to match the COBOL output.
+- Accepted numeric text format: after trimming leading and trailing spaces, match the regex `^[+-]?(\\d+\\.?\\d*|\\.\\d+)$` (optional leading sign, then either digits with optional decimal point and optional decimals, or decimal point with required decimals; no exponent, no trailing signs). Blank (all spaces or empty) is E01. Exponents ("1E2") and non-canonical formats (trailing signs, CR/DB, embedded spaces, parentheses) are E01. Parity test confirmed COBOL accepts "10.500", "+100.00", "12.5", "5.", ".50", ".01000", and spaces around numbers.
 - CASE-ID: raw field up to 20 characters from UNSTRING, trim trailing spaces only, invalid if the trimmed length is greater than 10 or if blank (all spaces). Output CASE-ID is the trailing-trimmed value cut to 10 characters, also on E01 rows.
 - CUSTOMER-SEGMENT: trim trailing spaces only, invalid if the trimmed length is greater than 1. Empty (after trimming trailing spaces only) is valid and takes the no-discount branch.
 - FEE-AMOUNT output: format = sign ('+' when signum >= 0, '-' when negative) followed by the absolute value with setScale(2) and toPlainString, left-padded with zeros to 10 characters (7 integer digits, point, 2 decimals), total 11 characters. BigDecimal has no negative zero, so a fee rounding to 0.00 prints '+'; the parity test confirms COBOL does the same.
@@ -273,10 +273,10 @@ return result
 **Parity point 2: Accepted numeric text format**
 - COBOL NUMVAL accepts leading and trailing spaces, an optional leading sign. It does not accept exponents, trailing signs, CR/DB suffixes, embedded spaces, or parentheses for negatives.
 - Java BigDecimal constructor accepts exponents ("1E2"), which NUMVAL rejects.
-- Define the accepted format: after trimming leading and trailing spaces, the text must match `^[+-]?\\d+(\\.\\d+)?$` (optional leading sign, digits, optional decimal point and decimals, no exponent, no trailing sign).
+- Define the accepted format: after trimming leading and trailing spaces, the text must match `^[+-]?(\\d+\\.?\\d*|\\.\\d+)$` (optional leading sign, then either digits with optional decimal point and optional decimals, or decimal point with required decimals; no exponent, no trailing sign).
 - Blank (all spaces or empty string) is E01.
 - Treat anything else as E01.
-- The parity test will include an exponent case ("1E2"), which COBOL rejects; Java must also reject it.
+- The parity test confirmed COBOL accepts: "10.500", "+100.00", "12.5", "5.", ".50", ".01000", spaces around numbers. COBOL rejects: "1E2" (exponent), "10.505" (doesn't fit scale).
 
 **Helper method:**
 ```java
@@ -284,7 +284,10 @@ private static BigDecimal parseNumeric(String text) {
     if (text == null) return null;
     String trimmed = text.trim();
     if (trimmed.isEmpty()) return null;
-    if (!trimmed.matches("^[+-]?\\d+(\\.\\d+)?$")) return null;
+    // Final regex after parity test: accepts leading +/-, digits, optional decimal point with optional digits
+    // Accepts: "10.500", "+100.00", "12.5", "5.", " 100.00 " (after trim)
+    // Rejects: "1E2" (exponent), blank
+    if (!trimmed.matches("^[+-]?\\d+\\.?\\d*$")) return null;
     try {
         return new BigDecimal(trimmed);
     } catch (NumberFormatException e) {
