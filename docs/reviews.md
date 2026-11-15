@@ -263,3 +263,6 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Calls et6 and et6fix (sonnet). Reference flags `cobc -x -Wall -I`, coverage adds only -ftraceall, Java main class read from source, batch runs, single-case re-run, timeouts kill the process, exact OS exit status (D-31).
 - BUG fixed (operator test inside coroner:smoke): the reduced subprocess environment dropped LD_LIBRARY_PATH, so COBOL binaries failed in the Docker image with "libcob.so.4: cannot open shared object file" (exit 127); invisible on macOS where Homebrew puts libcob in a default path. Now one helper builds the environment for every call and passes through LD_LIBRARY_PATH, COB_LIBRARY_PATH, COB_CONFIG_DIR, COB_COPY_DIR, JAVA_HOME when set; unit test proves an unrelated secret variable is not passed.
 - Operator check: run inside the image returns 0; pytest 97 passed.
+
+### R-45 2026-11-15: decisions D-32 to D-37 logged
+- Call d32-37 (haiku). Rows D-01 to D-37 without collision. Interactions recorded: D-35 (exactly 6 traps) supersedes the bonus traps of D-29; D-36 keeps the run form of `coroner verify` and treats a single .json argument as a certificate replay; D-34 applies to programs whose schema declares a group key and a subtotal; D-37 supersedes the PreToolUse wording of D-10. No hackathon project named.
