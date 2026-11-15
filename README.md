@@ -29,6 +29,7 @@ Work in progress for Kiroween 2026 (category: Resurrection). See `docs/sprints.m
 - Not a converter.
 - Not a formal proof of equivalence. An ALIVE verdict means "business behavior preserved on N cases", nothing more.
 - Validated under GnuCOBOL 3.x only, not IBM Enterprise COBOL.
+- Return codes are compared as OS exit statuses, which are limited to 0 to 255 (a COBOL RETURN-CODE outside that range is reduced by the operating system).
 
 ## Out of scope (V1)
 

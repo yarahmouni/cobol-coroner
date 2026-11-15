@@ -44,11 +44,11 @@ Dependencies: Hypothesis is added to the dev dependencies at a pinned version (q
 1. THE coroner/gen module SHALL generate cases from the schema (source of truth for input field domains) and the COBOL program (numeric constants, thresholds, paragraph/branch map) using a fixed seed (default seed documented, overridable via CLI).
 2. THE same seed SHALL produce the same cases byte for byte (D-08, per quality.md).
 3. THE module SHALL generate targeted cases: limits (minimum and maximum values for each PIC), boundaries around thresholds found in the schema or as numeric constants in the COBOL source (e.g., values just below and just above 10.00 if 10.00 appears as a constant), branch-driving values (values that force each IF condition true and false), exact rounding ties at scale 2 with even and odd preceding digits (e.g., 12.345, 11.345), and negative values for signed fields.
-4. THE module SHALL generate Hypothesis random cases using the same fixed seed, covering the full range of each input field.
+4. THE module SHALL use random.Random(seed) and derive every draw from random() only (no randrange, choice, shuffle or other helpers). Hypothesis is not used for generation (D-30).
 5. THE share of exact rounding ties SHALL be configurable so that the HALF_EVEN legacy demo variant (D-06) produced by the catalog tooling (D-29) diverges on about 100 of 2,000 cases. The default configuration SHALL target approximately 5% rounding ties.
 6. GENERATED inputs SHALL use canonical numeric text format: optional leading '-', digits, optional '.', more digits (e.g., "123.45", "-0.50", "100"). This is the domain where Java parity is specified (per java-credit-fees requirement 5).
 7. THE module SHALL NOT generate numeric values with leading '+', scientific notation (e.g., "1E2"), or trailing/leading spaces in numeric fields. These forms are handled by the COBOL and Java parsers but are not canonical for generation.
-8. CASE-ID is the first schema input column. THE case generator SHALL write all generated cases to a CSV file in `runs/<run_id>/generated_cases.csv` with columns matching the schema input columns. Generated CASE-ID values are "GEN-00001", "GEN-00002", ... and must fit the PIC clause in schema.json (for credit-fees: X(10)).
+8. CASE-ID is the first schema input column. THE case generator SHALL write all generated cases to a CSV file in `runs/<run_id>/generated_cases.csv` with columns matching the schema input columns. Generated CASE-ID values are "GEN-00001", "GEN-00002", ... and must fit the PIC clause in schema.json (for credit-fees: X(10)). The generated_cases.csv file is the authoritative input for replay, written UTF-8 with LF line endings.
 9. WHEN the schema or COBOL source cannot be parsed THE module SHALL report an error and exit with code 2.
 
 ### Requirement 4: Execution with separate builds (coroner/run)
@@ -73,7 +73,7 @@ Dependencies: Hypothesis is added to the dev dependencies at a pinned version (q
 #### Acceptance Criteria
 1. THE coroner/compare module SHALL normalize both COBOL and Java outputs per comparison-rules.md: no numeric tolerance, decimal values normalized to the scale defined in schema.json, strings compared exactly after trimming trailing spaces, line endings normalized to LF, columns matched by name (never by position).
 2. THE first column SHALL be the case id. Row counts in COBOL and Java outputs SHALL be equal; if not, the comparison SHALL report a row count mismatch and consider the case divergent.
-3. THE COBOL and Java run return codes are compared. A mismatch is a run-level divergence that makes the verdict ZOMBIE and is listed first in the report. When a case is re-run alone (minimal case, failure report), its own return codes are compared too. NOTE: comparison-rules.md says return codes are compared for every case; in batch mode this applies per run and per re-run case; owner validation pending.
+3. THE COBOL and Java run return codes are compared per run, and per case whenever a single case is re-run (minimal case, failure report). A mismatch is a run-level divergence that makes the verdict ZOMBIE. The verdict sub-label wording is "FAIL: return code differs (COBOL x, Java y)" (D-31).
 4. FOR EACH case THE module SHALL compare each output column by name. If a column value differs after normalization, the case is divergent.
 5. THE module SHALL output per case: case id, divergent (boolean), list of divergent fields with (field name, COBOL value, Java value). Return codes are listed per run and per re-run case (consistent with Requirement 5.3).
 6. THE comparison result SHALL be written to `runs/<run_id>/comparison_results.json` as a JSON array of case results.
@@ -88,7 +88,7 @@ Dependencies: Hypothesis is added to the dev dependencies at a pinned version (q
 1. THE verdict SHALL be ALIVE when 0 divergences are found on N cases (D-20).
 2. THE verdict SHALL be ZOMBIE when at least 1 divergence is found on N cases (D-20).
 3. THE ALIVE sub-label SHALL be "PASS: business behavior preserved on N cases" (per no-formal-proof.md). The detail line MAY also show "0 divergence found on N cases".
-4. THE ZOMBIE sub-label SHALL be "FAIL: business behavior diverged on M cases" where M is the number of cases with at least one divergent field (per no-formal-proof.md).
+4. THE ZOMBIE sub-label SHALL be "FAIL: business behavior diverged on M cases" where M is the number of cases with at least one divergent field (per no-formal-proof.md). When the exit statuses differ, both divergences are shown: "FAIL: business behavior diverged on M cases; return code differs (COBOL x, Java y)". When there are only exit status differences and no field divergences (M=0), the sub-label is "FAIL: return code differs (COBOL x, Java y)" (D-31).
 5. THE verdict output SHALL include the wording "Validated under GnuCOBOL 3.x" (per no-formal-proof.md).
 6. THE Verdict type SHALL be moved from `coroner/mcp/server.py` into the engine module (per review R-13: no business logic in MCP handlers).
 7. THE Verdict type SHALL be a dataclass with fields: status (ALIVE or ZOMBIE), sub_label (string), cases_total (int), cases_divergent (int), validation_notice (string, always "Validated under GnuCOBOL 3.x").
@@ -116,7 +116,7 @@ Dependencies: Hypothesis is added to the dev dependencies at a pinned version (q
 #### Acceptance Criteria
 1. THE engine SHALL write all run data to `runs/<run_id>/` where run_id is the first 12 hex characters of the SHA-256 of (input file hashes, seed, case count, tool versions). The same inputs give the same run_id and the directory is rewritten. The timestamp is stored in inputs.json but is not part of the run_id.
 2. THE run directory SHALL contain: `inputs.json` (SHA-256 hash of each input file, seed, tool versions from `cobc --version`, `javac -version`, `python --version`), `generated_cases.csv`, `comparison_results.json`, `verdict.json`, `coverage_report.json`, and if ZOMBIE `failure_report.json` and `ZombieRegressionTest.java`.
-3. THE `inputs.json` file SHALL include: cobol_source_sha256, java_source_sha256, schema_sha256, copybook_hashes (array of {name, sha256} for each copybook), seed, cobc_version, javac_version, python_version, timestamp.
+3. THE `inputs.json` file SHALL include: cobol_source_sha256, java_source_sha256, schema_sha256, copybook_hashes (array of {name, sha256} for each copybook), seed, cobc_version, javac_version, python_version, cases_file_sha256, cases_file_encoding ("utf-8"), cases_file_line_ending ("LF"), random_seed, timestamp. The additional fields (D-30, D-24) are for the Coroner Certificate reproducibility.
 4. THE runs/ directory SHALL be created if it does not exist. Old runs SHALL NOT be deleted automatically (user manages disk space).
 5. THE engine SHALL ensure runs/<run_id>/ is fully written before returning a verdict. If the run fails partway through, partial results MAY be left in the directory with a `run_error.txt` file explaining the failure.
 6. THE Coroner Certificate spec (D-24, separate spec) will read the inputs.json, verdict.json, and comparison_results.json files to render a certificate. This requirement only ensures the data is stored correctly.

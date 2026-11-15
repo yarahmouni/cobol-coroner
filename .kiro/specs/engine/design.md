@@ -42,7 +42,7 @@ Compare outputs (coroner/compare)
   - Parse COBOL and Java CSVs
   - Normalize per schema (decimal scale, string trim, LF)
   - Compare field by field, no numeric tolerance
-  - Return codes per run (owner validation pending)
+  - Return codes per run and per re-run case (D-31)
   - Write runs/<run_id>/comparison_results.json
     |
     v
@@ -201,29 +201,28 @@ def generate_cases(
    - Rounding ties: constructed from PRODUCTS of decimal input columns, not from single values. For a pair of decimal input columns (a with scale sa, b with scale sb) whose product is computed at a higher scale than the output scale (2), choose b as a power of ten within its domain (for example 0.01000 with scale 5) and a whose digits put an exact 5 at the third decimal of the product. Example: 1234.50 x 0.01000 = 12.3450000 (preceding digit 4, even). Only ties with an EVEN preceding digit diverge under HALF_EVEN (D-06). For tie_share=0.05 and num_cases=2000, generate about 100 tie cases: about 50 with even preceding digits (25 positive, 25 negative) that stay visible in the output (absolute value at least the largest positive threshold found among constants, for credit-fees 10.00, or negative), plus about 50 with odd preceding digits as controls. Calibration target (acceptance test): the HALF_EVEN variant diverges on 80 to 120 of 2,000 cases with default seed 42. This is a calibration target for the generator, not a guarantee.
 
 2. **Random cases:**
-   - Owner decision needed: check if Hypothesis can generate deterministically outside @given (st.register_random with seed).
-   - If yes: use Hypothesis strategies for each column, generate random cases.
-   - If no: use random.Random(seed) for uniform random values in PIC ranges.
+   - Use random.Random(seed) for uniform random values in PIC ranges. Every draw derives from random() only (no randrange, choice, shuffle or other helpers). This ensures determinism across Python versions (D-30). Hypothesis is reserved for property-based tests in coroner/compare (normalization properties). Helper functions:
+
+```python
+def draw_int(rng: random.Random, lo: int, hi: int) -> int:
+    """Integer in [lo, hi] from one rng.random() draw (D-30)."""
+    return lo + int(rng.random() * (hi - lo + 1))
+
+def draw_decimal(rng: random.Random, lo: Decimal, hi: Decimal, scale: int) -> Decimal:
+    """Decimal in [lo, hi] at the given scale from one rng.random() draw."""
+    step = Decimal(1).scaleb(-scale)
+    n = int((hi - lo) / step)
+    return lo + step * draw_int(rng, 0, n)
+```
+
+   - Since rng.random() is in [0.0, 1.0), draw_int never exceeds hi.
+   - randrange, choice and shuffle are not used.
 
 3. **Case ID:** "GEN-00001", "GEN-00002", ..., zero-padded to fit schema PIC.
 
 4. **Canonical format:** decimal as "-123.45" (optional sign, digits, optional decimal point and decimals), no leading '+', no exponent, no spaces. Strings without quotes.
 
 5. **Write CSV:** header row from schema.input_columns, then all case rows. LF line endings.
-
-**Owner decision needed:**
-
-> **Hypothesis deterministic generation outside tests**
->
-> Hypothesis provides `st.register_random(Random(seed))` to make strategies deterministic. However, this is designed for use within `@given`, and the documentation does not guarantee reproducibility across Hypothesis versions when used outside test functions.
->
-> **Option A:** Use Hypothesis with `st.register_random` for random cases. Risk: case generation might change across Hypothesis versions, breaking determinism.
->
-> **Option B:** Use `random.Random(seed)` for random cases at runtime. Reserve Hypothesis for property-based tests in coroner/compare (normalization properties). Trade-off: simpler, guaranteed deterministic, but loses Hypothesis shrinking and advanced strategies.
->
-> **Recommendation:** Option B for runtime generation, Hypothesis only for tests. This aligns with quality.md (shortest readable code, no abstraction without a second use).
->
-> The design supports both: `generate_cases` will use a pluggable random source, controlled by a flag or config.
 
 ### Component 5: Compilation and execution (coroner/run/__init__.py)
 
@@ -310,7 +309,7 @@ def compare_outputs(
    - For each case, compare all output columns by name.
    - If column missing in one output: divergent, value "missing".
    - If normalized values differ: divergent.
-4. **Return codes:** Per Requirement 5.3, mark run-level return-code mismatch as divergent. NOTE: comparison-rules.md says "for every case"; in batch mode this is per run; owner validation pending.
+4. **Return codes:** Per Requirement 5.3 and D-31, compare the exact OS exit status (0 to 255) of both runs per run, and per case whenever a single case is re-run (minimal case, failure report). A mismatch makes the verdict ZOMBIE with the sub-label "FAIL: return code differs (COBOL x, Java y)".
 5. **Property-based tests:** Hypothesis tests for normalization properties: normalization never changes the numeric value (parse before and after must be equal when both valid); any value with extra non-zero decimals beyond schema scale is reported divergent; idempotent for strings.
 
 ### Component 7: Verdict (coroner/verdict.py)
@@ -335,9 +334,8 @@ def compute_verdict(comparison: ComparisonResult) -> Verdict:
 **Behavior:**
 - ALIVE: `cases_divergent == 0` and `run_return_codes[0] == run_return_codes[1]`, sub_label = "PASS: business behavior preserved on {cases_total} cases"
 - ZOMBIE with case divergences: `cases_divergent > 0`, sub_label = "FAIL: business behavior diverged on {cases_divergent} cases"
-- ZOMBIE with only return code mismatch: `cases_divergent == 0` and return codes differ, sub_label = "FAIL: business behavior diverged on 0 cases; return code COBOL {cobol_rc}, Java {java_rc}"
-- ZOMBIE with both: sub_label = "FAIL: business behavior diverged on {cases_divergent} cases; return code COBOL {cobol_rc}, Java {java_rc}"
-- NOTE: owner validation pending on Requirement 5.3 interpretation (run-level vs per-case return codes).
+- ZOMBIE with only return code mismatch: `cases_divergent == 0` and return codes differ, sub_label = "FAIL: return code differs (COBOL {cobol_rc}, Java {java_rc})" (D-31)
+- ZOMBIE with both: sub_label = "FAIL: business behavior diverged on {cases_divergent} cases; return code differs (COBOL {cobol_rc}, Java {java_rc})" (D-31)
 - MCP server imports Verdict from here, no logic in MCP handler.
 
 ### Component 8: Run storage (coroner/store.py)
@@ -374,6 +372,7 @@ def store_comparison(run_dir: str, comparison: ComparisonResult) -> None:
 - If ZOMBIE: write failure_report.json, ZombieRegressionTest.java.
 - Write verdict.json last (atomic: write to temp file, rename).
 - Tool versions: `subprocess.run(["cobc", "--version"], ...)` etc.
+- inputs.json includes cases_file_sha256, cases_file_encoding ("utf-8"), cases_file_line_ending ("LF"), python_version and random_seed for the Coroner Certificate (D-24, D-30).
 
 ### Component 9: Coverage report (coroner/diag/coverage.py)
 
@@ -1008,6 +1007,4 @@ These targets replace the S0 placeholders ("not available yet" exit 2).
 
 ## Open Questions for Owner
 
-1. **Hypothesis deterministic generation:** Use Hypothesis with `st.register_random` (risk: version changes) or `random.Random(seed)` (guaranteed deterministic)? Recommendation: random.Random for runtime, Hypothesis for tests only.
-
-2. **Return code comparison:** Requirement 5.3 says run-level return codes are compared. The design compares run-level return codes (one per program in batch mode) and flags a mismatch as divergent. For single-case re-runs (minimal case, failure report), case-specific return codes are compared. Is this interpretation correct?
+None (D-30 and D-31 decided).

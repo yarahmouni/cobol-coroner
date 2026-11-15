@@ -222,3 +222,9 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Fixes sent (8): BUG decimal normalization used quantize (rounding), which would hide a divergence such as Java 12.355 vs COBOL 12.36 (D-09): now pad only, extra non-zero decimals are divergent, plus Hypothesis properties; tie construction from products of input pairs with the correct even-digit arithmetic and a measured calibration target (80 to 120 HALF_EVEN divergences on 2,000 cases), not a guess; a return-code-only mismatch no longer prints "diverged on 0 cases"; branch map includes EVALUATE arms and uses first statements; parser scope stated, unsupported constructs give "not measured"; Decimal ordering for the minimal case; streaming trace parser and per-step timings; two owner questions kept.
 - Open for the owner: Hypothesis at runtime vs random.Random(seed); return codes per run in batch mode.
 - Status: clean.
+
+### R-37 2026-11-15: D-30 and D-31 applied
+- Calls: d30-31 (haiku, 2.11 credits), d30-31b (haiku, 0.27 credits).
+- D-30 and D-31 logged; quality.md (random.Random(seed).random() only, Hypothesis for property tests only); comparison-rules.md (exact OS exit status 0 to 255, per run and per re-run case, "FAIL: return code differs (COBOL x, Java y)"); README note on the 0 to 255 limit; engine requirements and design updated (draw helpers from random() only, inputs.json gains cases_file_sha256, cases_file_encoding, cases_file_line_ending, python_version, random_seed; open questions closed).
+- Fix sent: a leftover "owner validation pending" in the design flow, and the draw helpers the first call omitted. Operator check: draw_int over 100,000 draws stays within [lo, hi].
+- Status: clean.
