@@ -20,6 +20,60 @@ Coroner runs both programs on the same generated test cases, compares the output
 - **ALIVE**: PASS: business behavior preserved on N cases (0 divergence found).
 - **ZOMBIE**: FAIL: business behavior diverged on M cases, with the failing case, the COBOL output, the Java output, the divergent field and the COBOL lines executed.
 
+## Quick start
+
+Prerequisites: GnuCOBOL 3.2, JDK 17, Python 3.12.
+
+```bash
+python3.12 -m venv .venv
+.venv/bin/pip install -e ".[dev]"
+make test
+make demo
+make zombie
+make acceptance
+make junit-jars
+```
+
+CLI form:
+
+```bash
+python -m coroner verify --cobol COBOL_FILE --copybooks COPYBOOK_DIR --java JAVA_FILE --schema SCHEMA_JSON [--cases N] [--seed S] [--timings]
+```
+
+Exit codes: 0 = ALIVE, 1 = ZOMBIE, 2 = error.
+
+## What a run writes
+
+Every run stores artifacts in `runs/<run_id>/`:
+
+- `inputs.json`: input hashes, seed, tool versions, case count
+- `generated_cases.csv`: synthetic test cases
+- `comparison_results.json`: COBOL and Java outputs aligned by case
+- `coverage_report.json`: paragraph and branch coverage
+- `verdict.json`: the final verdict with sub-label
+- `failure_report.json`: (ZOMBIE only) minimal case details and executed lines
+- `ZombieRegressionTest.java`: (ZOMBIE only) JUnit 5 test that reproduces the divergence
+
+Example output from the dev machine with correct Java and 2,000 cases:
+
+```
+ALIVE: PASS: business behavior preserved on 2000 cases
+Paragraph coverage 12/12
+Branch coverage (Coroner definition) 42/70
+Validated under GnuCOBOL 3.x
+```
+
+With the HALF_EVEN variant (a rounding bug):
+
+```
+ZOMBIE: FAIL: business behavior diverged on 86 cases
+Paragraph coverage 12/12
+Branch coverage (Coroner definition) 42/70
+Validated under GnuCOBOL 3.x
+```
+
+Note: Branch coverage counts only the branches reached by generated valid inputs. Input-validation error paths are not generated.
+
 ## The full chain
 
 > Kiro translates. Coroner certifies. Git and Jenkins enforce the verdict.

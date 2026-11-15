@@ -189,7 +189,7 @@ _Requirements: 10.3, 10.4, 10.5, 10.6, 10.7, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6,
 
 Done when: `make acceptance` runs all parametrized tests without hanging, exits 0 when all pass, and timing test shows wall-clock under 60 seconds per verify.
 
-- [ ] 15. Documentation (docs/architecture.md, README.md)
+- [x] 15. Documentation (docs/architecture.md, README.md)
   - Update docs/architecture.md Component 1 (high-level architecture): document the CLI command `python -m coroner verify --cobol PATH --copybooks PATH --java PATH --schema PATH [--cases N] [--seed S]`
   - Document Makefile targets: `demo` (correct Java, expect ALIVE), `zombie` (HALF_EVEN variant, expect ZOMBIE), `test` (unit + E2E), `acceptance` (slow, 10 seeds)
   - Document runs/<run_id>/ directory structure: inputs.json, generated_cases.csv, comparison_results.json, verdict.json, coverage_report.json, failure_report.json (ZOMBIE only), ZombieRegressionTest.java (ZOMBIE only)

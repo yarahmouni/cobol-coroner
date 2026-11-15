@@ -329,3 +329,7 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Slow marker excluded from plain pytest: pytest 159 passed, 22 deselected.
 - S1 acceptance (sprints.md): met.
 - Kiro balance: plan 195.92 of 531 used (335.08 left); bonus Trial credits: 0.00/500.
+
+### R-56 2026-11-15: engine task 15 (documentation), engine spec complete
+- Call et15 (haiku, 0.57 credits): README Quick start, CLI, exit codes, run files with the measured example outputs only; branch coverage limitation stated; architecture.md modules updated, repository layout unchanged.
+- Kiro balance: plan 196.49 of 531 used (334.51 left); bonus 0.00 of 500 used.

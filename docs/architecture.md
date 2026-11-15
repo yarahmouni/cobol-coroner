@@ -22,14 +22,16 @@ COBOL + copybooks + Java 17 + schema.json
 ```
 
 ## Modules
-- `coroner/parse`: copybooks and branch map. No business logic elsewhere.
-- `coroner/gen`: targeted cases (limits, boundaries, branches, rounding ties) and Hypothesis random cases, fixed seed.
+- `coroner/parse`: schema, copybook and trace parsing. No business logic elsewhere.
+- `coroner/gen`: targeted case generation (limits, boundaries, branches, rounding ties) and Hypothesis random cases with fixed seed.
 - `coroner/run`: subprocess runners with timeouts; COBOL reference binary never instrumented.
-- `coroner/compare`: normalization from `schema.json`, exact comparison, return codes, row counts.
-- `coroner/diag`: failure report and coverage report.
-- `coroner/api`: FastAPI routes only, no logic.
-- `coroner/mcp`: MCP server, thin layer over the engine.
-- `web/`: one HTML page with htmx.
+- `coroner/compare`: normalization from schema.json, exact comparison, return codes, row counts.
+- `coroner/verdict.py`: verdict type definition and computation (ALIVE, ZOMBIE).
+- `coroner/store.py`: run storage, inputs.json, verdict.json, comparison results to runs/<run_id>/.
+- `coroner/diag`: coverage report, minimal case selection, failure report, JUnit test generation.
+- `coroner/catalog/legacy_variant.py`: HALF_EVEN variant generation for test purposes.
+- `coroner/cli.py`: command-line interface and pipeline orchestration.
+- `coroner/mcp`: MCP server with thin layer over the engine.
 
 ## Repository layout
 
