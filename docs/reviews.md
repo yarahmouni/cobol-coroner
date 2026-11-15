@@ -363,3 +363,14 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Note: tool results are JSON text, not MCP structured content (acceptable for Kiro).
 - Tests: pytest 182 passed, 22 deselected. tests/test_mcp_stub.py removed by the operator (it tested the removed stub tool; replaced by tests/test_mcp_server.py).
 - Kiro balance: plan 249.14 of 531 used (281.86 left); bonus Trial credits: 0.00/500.
+
+### R-60 2026-11-15: D-50 logged, hook verification, priority 6 (Kiro delivery gate)
+- D-50 logged (owner named it D-49; D-49 was taken). kiro-cli is already the latest version (3.3.0, `kiro-cli update --check`).
+- Real hook verification (13 runs, evidence docs/evidence/kiro-hooks-verification.md): the stop hook with a block JSON keeps the agent going on v2 without delivering the reason, and delivers the reason but blocks only once per turn on v3; exit 2 alone blocks a shell command on v2 but not on v3; only stdout {"decision":"block","reason":...} plus exit 2 blocked on both engines. No PostTaskExec event exists in this version.
+- Operator reading of D-50: Stop does not keep the agent working until ALIVE, so the delivery-gate fallback is the blocker; the stop hook stays only as a capped v3 remediation prompt. Public wording: "Coroner does not block the agent from writing code. It blocks a ZOMBIE migration from being committed or pushed." (README, product.md); never "prevents the agent from finishing".
+- Calls hooks and gatefix (sonnet): spec .kiro/specs/kiro-hooks/, coroner/hooks.py (gate acts only on git commit, push, merge; certificate of the scope in .kiro/coroner-scope.json found by file hashes and replayed; missing certificate blocks only when audited files are staged; stop hook capped at 3 per session with a failure file), coroner-auditor agent hooks for shell and execute_bash.
+- Real Kiro run (evidence docs/evidence/kiro-gate-block-then-allow.md, scratch clone): staged HALF_EVEN port, ZOMBIE 86 divergences; commit blocked by the gate; agent used get_verdict and get_failure_report, fixed HALF_EVEN to HALF_UP, run_differential_check ALIVE on 2,000 cases, commit retried and allowed. Finding fixed after the run: the reason was not shown to the agent (v2 shows stderr only); the gate now also prints it on stderr. A first attempt in a clone where the fix equaled HEAD ended in "nothing to commit"; the demo setup was corrected (port as a new file).
+- Kiro wrote its own summary into docs/evidence/ (not a recorded run); the operator removed it: evidence files only hold real recorded runs.
+- Unreconciled branch exposure in the block message: "not applicable (no group key in the schema)" for credit-fees; measured values come with the trap catalog (priority 8/9).
+- Tests: pytest 193 passed, 22 deselected.
+- Kiro balance: plan 270.36 of 531 used (260.64 left); bonus Trial credits: 0.00/500.

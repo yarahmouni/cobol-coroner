@@ -1,0 +1,6 @@
+{
+  "cobol": "samples/credit-fees/CREDIT-FEES.cob",
+  "copybooks": "samples/credit-fees/copybooks",
+  "java": "samples/credit-fees/java/CreditFees.java",
+  "schema": "samples/credit-fees/schema.json"
+}
