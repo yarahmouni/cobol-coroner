@@ -342,3 +342,14 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Priority 1 (differential engine, make demo, make zombie, 10-seed acceptance, pre-commit fast mode): done.
 - Tests: pytest 162 passed.
 - Kiro balance: plan 203.22 of 531 used (327.78 left); bonus Trial credits: 0.00/500.
+
+### R-58 2026-11-15: replayable Coroner Certificate (priority 2)
+- Call cert (sonnet): spec .kiro/specs/certificate/ (requirements, design, tasks) and coroner/certificate.py; `coroner verify` writes runs/<run_id>/certificate.json (all D-30/D-36 fields, file paths, verdict, counts, coverage, minimal case, certificate_sha256 over the canonical JSON); `python -m coroner verify <certificate.json>` replays offline on the stored cases file. Exit codes 0 valid ALIVE, 1 valid ZOMBIE, 3 invalid, 2 error.
+- Operator checks on real runs (2,000 cases, seed 42):
+  - demo certificate: "Certificate: VALID", ALIVE, Cases 2000, Divergences 0, coverage 12/12 and 42/70, exit 0;
+  - zombie certificate: VALID, ZOMBIE, Divergences 86, exit 1;
+  - forgeries on copies: status edited without rehash gives "INVALID: certificate content was modified" (exit 3); status edited to ALIVE with a recomputed certificate hash gives "INVALID: replay mismatch (status: expected ALIVE, got ZOMBIE)" (exit 3); Java path swapped to another file with a recomputed hash gives "INVALID: Java file hash mismatch".
+- Wording checked: statement says reproducible run record and not a formal proof; no forbidden terms.
+- Watch items: run_id does not include the generator version or tie_share (a generator change can reuse a run directory; the certificate still pins the cases file hash); demo duration rose to 10.6 s with certificate writing; pytest suite now 254 s (replay tests), to trim.
+- Tests: pytest 172 passed, 22 deselected.
+- Kiro balance: plan 216.69 of 531 used (314.31 left); bonus Trial credits: 0.00/500.

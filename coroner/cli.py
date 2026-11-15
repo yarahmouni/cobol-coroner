@@ -281,6 +281,14 @@ def verify_command(cobol: str, copybooks: str, java: str, schema: str,
         import shutil
         shutil.copy(cases_csv_path, f"{run_dir}/generated_cases.csv")
         
+        # Generate certificate
+        try:
+            from coroner.certificate import generate_certificate
+            generate_certificate(run_id, cobol, copybooks, java, schema)
+        except Exception as e:
+            # Warn but don't fail the run
+            print(f"Warning: certificate generation failed: {e}", file=sys.stderr)
+        
         record_step("Store results", step_start)
         
         # Print output
@@ -311,10 +319,11 @@ def main():
     
     # verify command
     verify_parser = subparsers.add_parser("verify", help="Verify a migration")
-    verify_parser.add_argument("--cobol", required=True, help="Path to COBOL source file")
-    verify_parser.add_argument("--copybooks", required=True, help="Path to copybooks directory")
-    verify_parser.add_argument("--java", required=True, help="Path to Java source file")
-    verify_parser.add_argument("--schema", required=True, help="Path to schema.json")
+    verify_parser.add_argument("certificate", nargs="?", help="Path to certificate.json for replay")
+    verify_parser.add_argument("--cobol", help="Path to COBOL source file")
+    verify_parser.add_argument("--copybooks", help="Path to copybooks directory")
+    verify_parser.add_argument("--java", help="Path to Java source file")
+    verify_parser.add_argument("--schema", help="Path to schema.json")
     verify_parser.add_argument("--cases", type=int, default=2000, help="Number of test cases (default: 2000)")
     verify_parser.add_argument("--seed", type=int, default=42, help="Random seed (default: 42)")
     verify_parser.add_argument("--tie-share", type=float, default=0.06, help="Fraction of cases that are rounding ties (default: 0.06)")
@@ -324,13 +333,41 @@ def main():
     
     if args.command == "verify":
         # Check for certificate replay (D-36)
-        if args.cobol.endswith('.json') and not any([
-            args.copybooks != "verify",  # Only cobol arg provided
-            args.java != "verify",
-            args.schema != "verify"
-        ]):
-            # Single .json argument pattern
-            print("Error: certificate replay is not implemented yet", file=sys.stderr)
+        if args.certificate and args.certificate.endswith('.json') and not args.cobol:
+            # Certificate replay mode
+            from coroner.certificate import replay_certificate
+            
+            try:
+                result = replay_certificate(args.certificate)
+                
+                # Print warnings to stderr
+                for warning in result.warnings:
+                    print(f"Warning: {warning}", file=sys.stderr)
+                
+                # Print result
+                if result.valid:
+                    print("Certificate: VALID")
+                    print(f"{result.verdict.status}: {result.verdict.sub_label}")
+                    print(f"Cases: {result.cases_total}")
+                    print(f"Divergences: {result.cases_divergent}")
+                    print(f"Paragraph coverage {result.paragraph_coverage_reached}/{result.paragraph_coverage_total}")
+                    print(f"Branch coverage (Coroner definition) {result.branch_coverage_reached}/{result.branch_coverage_total}")
+                    print(f"Replayed offline from {result.cases_file}")
+                    
+                    # Exit code: 0 for ALIVE, 1 for ZOMBIE
+                    return 0 if result.verdict.status == "ALIVE" else 1
+                else:
+                    print(f"Certificate: INVALID: {result.reason}")
+                    return 3
+                    
+            except Exception as e:
+                print(f"Error: {e}", file=sys.stderr)
+                return 2
+        
+        # Run mode
+        if not all([args.cobol, args.copybooks, args.java, args.schema]):
+            print("Error: --cobol, --copybooks, --java, and --schema are required for run mode", file=sys.stderr)
+            parser.print_help()
             return 2
         
         exit_code = verify_command(
