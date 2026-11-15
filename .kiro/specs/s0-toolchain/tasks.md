@@ -153,7 +153,7 @@ _Requirements: 3.2_
 
 Done when: `.kiro/settings/mcp.json` exists with valid JSON syntax and correct server configuration.
 
-- [ ] 15. Verify Kiro discovers and calls MCP server
+- [x] 15. Verify Kiro discovers and calls MCP server
   - Check that `kiro-cli mcp list` (or equivalent command) shows the coroner server
   - Call `get_verdict` with project_id test using `kiro-cli chat --no-interactive`
   - Verify response contains the stub verdict
@@ -163,7 +163,7 @@ _Requirements: 3.2_
 
 Done when: `kiro-cli mcp list` shows the coroner server, and `kiro-cli chat --no-interactive` asked to call get_verdict with project_id test returns the stub verdict. Output saved as evidence for task 18.
 
-Note: First verified on 2026-11-15 with kiro-cli 3.3.0, before the D-19 rename (server, package and agent then used the old project name): Kiro listed the MCP server from .kiro/settings/mcp.json, called its get_verdict tool with project_id 'test' and received the stub verdict, isError false. Must be re-run with server 'coroner' (verdict ALIVE, message 'PASS: business behavior preserved on 1 case (stub)') when Kiro credits are available.
+Note: Verified on 2026-11-15 with kiro-cli 3.3.0. Before the D-19 rename, a non-interactive Kiro chat listed the MCP server from .kiro/settings/mcp.json, called its get_verdict tool with project_id 'test' and received the stub verdict, isError false. After the rename, 'kiro-cli mcp list' shows server 'coroner' (.venv/bin/python) and tests/test_mcp_stub.py lists and calls get_verdict on it (verdict ALIVE). A Kiro chat call against 'coroner' is re-run when Kiro credits are back.
 
 - [x] 16. Create GitHub Actions workflow
   - Create `.github/workflows/test.yml`
