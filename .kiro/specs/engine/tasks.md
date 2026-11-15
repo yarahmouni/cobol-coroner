@@ -10,7 +10,7 @@ _Requirements: 1.1, 3.1_
 
 Done when: `.venv/bin/pip install -e ".[dev]"` exits 0 and all package and module files exist.
 
-- [ ] 2. Schema parsing (coroner/parse/schema.py)
+- [x] 2. Schema parsing (coroner/parse/schema.py)
   - Implement `SchemaColumn` dataclass with: name, type, pic, description, scale (optional), signed (optional), comp3 (optional)
   - Implement `Schema` dataclass with: program_name, description, input_file, input_columns, output_file, output_columns, internal_precision (optional)
   - Implement `load_schema(path: str) -> Schema` that reads JSON, validates required fields per Requirement 1.7, parses PIC clauses (extract sign, digits, scale from PIC clause strings)

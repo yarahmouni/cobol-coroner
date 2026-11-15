@@ -237,3 +237,7 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Call et1 (sonnet): hypothesis 6.170.14 installed; package skeleton per the design.
 - Scope slip accepted: Kiro also rewrote coroner/parse/trace.py cosmetically and dropped the package-level re-export (nothing imports it; smoke and S0 tests pass).
 - Tests: pytest 39 passed; smoke PASSED.
+
+### R-40 2026-11-15: engine task 2 (schema loading)
+- Call et2 (sonnet). Operator check: parse_pic correct on S9(9)V99, V9(5), 9(3), X(1), 9(9)V99, +9(7).99, S9V9, 99V9(3); credit-fees schema gives the right types, signs and scales; invalid JSON and missing fields raise clear errors. Kiro correctly followed the real schema (6 input columns) where the task text was wrong.
+- Tests: pytest 52 passed.
