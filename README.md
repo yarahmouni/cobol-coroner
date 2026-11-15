@@ -20,6 +20,12 @@ Coroner runs both programs on the same generated test cases, compares the output
 - **ALIVE**: PASS: business behavior preserved on N cases (0 divergence found).
 - **ZOMBIE**: FAIL: business behavior diverged on M cases, with the failing case, the COBOL output, the Java output, the divergent field and the COBOL lines executed.
 
+## The full chain
+
+> Kiro translates. Coroner certifies. Git and Jenkins enforce the verdict.
+
+A Kiro agent ports the COBOL program, Coroner audits the port through MCP, a Kiro Stop hook and a Git pre-commit hook block a ZOMBIE verdict, a Jenkins or GitHub Actions gate enforces it, and the replayable certificate records the result (in progress).
+
 ## Status
 
 Work in progress for Kiroween 2026 (category: Resurrection). See `docs/sprints.md`.

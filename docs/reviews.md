@@ -299,3 +299,7 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - BUGs fixed: the key end-to-end test was hard-skipped with the false reason "tested manually"; root cause found by the operator: the generated ZombieRegressionTest.java started the program with a hard-coded classpath "java". Now the classpath is a parameter (-Dcoroner.java.classpath or CORONER_JAVA_CLASSPATH). The test now really runs: the generated test for GEN-001213 fails against the HALF_EVEN classes and passes against the correct ones.
 - Tests: pytest 150 passed, no unconditional skip left.
 - Kiro balance after this task: plan 164.77 of 531 used (366.23 left); bonus Trial credits: 0.00/500 (Kiroween credits not yet visible). Balances were reported in the operator replies after R-35; from this entry on they are recorded in every entry.
+
+### R-52 2026-11-15: decisions D-46 to D-49, scope frozen
+- Call d46-49 (haiku, 0.32 credits). Numbering per the owner: D-45 is the rejected list, D-46 the six-trap catalog (replaces D-35), D-47 the three Kiro skills, D-48 the static showcase page, D-49 the v6-scan reduction to 3 rules, full-chain emphasis and tagline. README gains "The full chain" with the tagline, marked "(in progress)" until built. Owner: scope frozen until submission.
+- Kiro balance after this task: plan 165.09 of 531 used (365.91 left); bonus 0.00 of 500 used.
