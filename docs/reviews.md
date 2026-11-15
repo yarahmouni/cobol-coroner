@@ -251,3 +251,10 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - BUG fixed: an arm starting with a nested IF was marked by the next non-IF statement, so 14 marker lines were shared by two branches and outer arms were only counted when their inner true arm ran. Now a nested IF/EVALUATE is the first statement of the arm; tests: no shared marker, CHECK-ELIGIBILITY outer ELSE 362 and inner true 363.
 - Also done: parse_trace_counts streams the file.
 - Operator check: 70 branches, no shared markers, no marker on ELSE/END-IF/WHEN lines; pytest 66 passed.
+
+### R-43 2026-11-15: engine task 5 (case generator)
+- Calls et5 and et5fix (sonnet). Operator checks on credit-fees, seed 42, 2,000 cases: same seed byte-identical, other seed differs, UTF-8 LF, header = schema columns, every numeric field canonical, segments "", B, P, S, Z, no forbidden random helpers.
+- BUG fixed (found by running the real programs): 1,809 of 2,000 cases were E01, all arithmetic overflows, because random values were uniform over the full PIC range. Now drawn by magnitude (digit count, then digits). After the fix: 36 E01 (1.8 percent), 285 A00, 83 A01, 1,593 R01, 3 R02; new tests run the COBOL program and assert E01 at most 10 percent and every reason code present.
+- Parity: correct Java byte-identical to COBOL on the 2,000 generated cases; a throwaway HALF_EVEN build diverges on 75 (calibration to 80 to 120 in task 14).
+- Accepted for now: the eligibility mix is skewed (R01 80 percent, R02 3 cases); every branch is still reached and fees are printed for R01/R02 rows.
+- Tests: pytest 83 passed.

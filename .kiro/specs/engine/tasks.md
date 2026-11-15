@@ -47,7 +47,7 @@ _Requirements: 2.4, 2.7, 2.8_
 
 Done when: `.venv/bin/pytest tests/test_copybook.py -q` shows all tests passing, and parse_cobol_structure on samples/credit-fees/CREDIT-FEES.cob returns 33+ branches with types IF_TRUE/IF_ELSE and 4 EVALUATE_WHEN branches.
 
-- [ ] 5. Case generation (coroner/gen/__init__.py)
+- [x] 5. Case generation (coroner/gen/__init__.py)
   - Implement `generate_cases(schema: Schema, cobol_structure: dict, seed: int, num_cases: int, tie_share: float = 0.05) -> str` that returns path to generated_cases.csv
   - Use `random.Random(seed)` for all random draws; every draw must derive from `random()` only (no randrange, choice, shuffle, sample, uniform, randint)
   - Generate targeted cases: limits (min/max for each PIC), boundaries around constants (C - 0.01, C, C + 0.01), branch-driving values (thresholds +/- delta), rounding ties (product ties with even and odd preceding digits, about 5% of num_cases)
