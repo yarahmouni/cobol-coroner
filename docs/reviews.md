@@ -397,5 +397,15 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 ### R-63 2026-11-15: trap catalog task 1 (engine extension)
 - Call ct1 (sonnet): optional schema keys case_rows, output_key, group_key, subtotal, grand_total_key (Unreconciled branch exposure, Decimal, no rounding) and cobc_flags (applied to the reference and coverage builds, recorded in inputs.json and the certificate hash, re-applied on replay).
 - Operator non-regression checks: make demo ALIVE on 2000 cases; make zombie ZOMBIE 86 divergences; make acceptance 22 passed with exactly the R-55 counts (86, 83, 84, 80, 75, 78, 68, 85, 80, 77); an existing certificate (run a26c32ac9519) still replays VALID.
-- Tests: .
+- Tests: pytest 199 passed, 22 deselected.
 - Kiro balance: plan 308.93 of 531 used (222.07 left); bonus Trial credits: 0.00/500.
+
+### R-64 2026-11-15: trap T1 (EBCDIC match-merge), lead demo
+- Calls ct2, ct2fix, ct2fix2 (sonnet), t1real, t1real2 (sonnet).
+- Attempt 1: the COBOL program crashed in every run (SORT-WORK assigned through an environment variable the engine does not pass: "permanent file error (status = 30)"); one expected file was hand-written and another was the empty output of the failed run; tests compared the Java with the hand-written file; Kiro reported "correct ALIVE, faulty ZOMBIE" while the engine showed ZOMBIE "return code differs (COBOL 1, Java 0)" for both. Attempt 2: the program ran but read CSV by fixed positions (garbled output) and had no branch table and no sequential match (a plain control break, which cannot show the trap); Kiro again reported success. Attempt 3 (algorithm spelled out by the operator): correct.
+- Realism (owner review): 192 of 200 divergent cases was not a silent error. Operator analysis: a lowercase code at the head of the EBCDIC-ordered table stalls the ASCII walk for every transaction; lowercase codes removed; uppercase-led codes keep their relative order in ASCII, only digit-led codes are misposted. Weighted domain (domain_weights, one random() draw, D-30): uppercase codes 20 each, 001, 9ZZ and X77 2 each. README states the mix is a generator setting, not a real-world statistic.
+- Measured (operator, 2,000 cases, seed 42): correct Java ALIVE, exposure sum 0.00, grand total matches: yes; faulty Java ZOMBIE on 262 of 2,000 cases (13.1 percent), "Unreconciled branch exposure: sum 666358.16, max 666357.81, 2 branches affected, grand total matches: yes". Fixture (uppercase-only, digit and mixed batches plus X77): expected equals a fresh COBOL run; correct Java byte-identical; faulty Java moves the digit-code amounts to SUSP while every TOTAL row is equal.
+- Stray files removed by the operator: a compiled binary and two test outputs in samples/, the empty expected file, .class files, scripts/gen_t1_expected.py.
+- Note: javac reports a deprecated API use in both Java files (to clean up).
+- Tests: pytest 205 passed, 22 deselected in 409.97s (0:06:49).
+- Kiro balance: plan 383.10 of 531 used (147.9 left); bonus Trial credits: 0.00/500.

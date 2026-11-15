@@ -1,0 +1,64 @@
+{
+  "program": "MATCH-MERGE",
+  "description": "Trap 1: EBCDIC vs ASCII collating order in sequential match",
+  "input": {
+    "file": "input.csv",
+    "columns": [
+      {
+        "name": "CASE-ID",
+        "type": "string",
+        "pic": "X(10)",
+        "description": "Transaction batch identifier"
+      },
+      {
+        "name": "BRANCH",
+        "type": "string",
+        "pic": "X(3)",
+        "domain": ["A01", "B02", "C03", "D04", "E05", "F06", "Z99", "001", "9ZZ", "X77"],
+        "domain_weights": [20, 20, 20, 20, 20, 20, 20, 2, 2, 2],
+        "description": "Branch code"
+      },
+      {
+        "name": "AMOUNT",
+        "type": "decimal",
+        "pic": "S9(7)V99",
+        "sign": true,
+        "scale": 2,
+        "description": "Transaction amount"
+      }
+    ]
+  },
+  "output": {
+    "file": "output.csv",
+    "columns": [
+      {
+        "name": "CASE-ID",
+        "type": "string",
+        "pic": "X(10)",
+        "description": "Transaction batch identifier"
+      },
+      {
+        "name": "BRANCH",
+        "type": "string",
+        "pic": "X(5)",
+        "description": "Branch code, SUSP or TOTAL"
+      },
+      {
+        "name": "SUBTOTAL",
+        "type": "decimal",
+        "pic": "+9(7).99",
+        "sign": true,
+        "scale": 2,
+        "description": "Branch subtotal or grand total"
+      }
+    ]
+  },
+  "case_rows": {
+    "min": 2,
+    "max": 8
+  },
+  "output_key": ["CASE-ID", "BRANCH"],
+  "group_key": "BRANCH",
+  "subtotal": "SUBTOTAL",
+  "grand_total_key": "TOTAL"
+}

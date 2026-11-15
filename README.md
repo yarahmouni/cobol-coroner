@@ -93,6 +93,10 @@ Three skills guide the coroner-auditor agent:
 - `cobol-semantics-safety`: COBOL semantic rules a Java port must preserve (rounding to HALF_UP, truncation to DOWN, BigDecimal with explicit scale, sign handling, EBCDIC collating sequence).
 - `coroner-audit-workflow`: End-to-end workflow from run_differential_check to certificate verification.
 
+## Trap catalog
+
+The branch-code mix of T1 is a generator setting (schema.json domain_weights), not a real-world statistic.
+
 ## Status
 
 Work in progress for Kiroween 2026 (category: Resurrection). See `docs/sprints.md`.

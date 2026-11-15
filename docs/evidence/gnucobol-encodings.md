@@ -30,3 +30,4 @@ The engine compiles without -fsign, so trap programs use the default convention.
 
 ## Invalid numeric data under REDEFINES (trap 5)
 - "12A45" in PIC X(5) redefined as PIC 9(5): IS NUMERIC is false; `COMPUTE RES = BAD-NUM + 1` gives 12146 with no abend and no message (no S0C7 in GnuCOBOL), rc 0.
+- Low-nibble rule (operator run, same day): a non-digit byte in a PIC 9(5) read through a REDEFINES contributes its LOW NIBBLE as the digit value. "12A45" (A = x41) is used as 12145, so +1 gives 12146; "12B45" (x42) gives 12246; "12J45" (x4A, low nibble 10) gives 13046 (the 10 carries into the next position); "12Z45" (x5A) also 13046; "12 45" (space x20) gives 12046. Every run rc 0, no message. DISPLAY of the field shows the original characters (for example 012A45).

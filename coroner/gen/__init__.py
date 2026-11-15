@@ -477,23 +477,58 @@ def generate_batch_cases(
                     row[col.name] = str(value)
                 
                 elif col.type == 'string':
-                    # Draw random string or empty
-                    import re
-                    len_match = re.search(r'X\((\d+)\)', col.pic)
-                    if len_match:
-                        max_len = int(len_match.group(1))
+                    # Check if domain is provided
+                    domain = getattr(col, 'domain', None)
+                    if domain:
+                        # Check for domain_weights
+                        domain_weights = getattr(col, 'domain_weights', None)
+                        if domain_weights:
+                            # Weighted sampling using cumulative weights
+                            if len(domain_weights) != len(domain):
+                                raise ValueError(f"domain_weights length {len(domain_weights)} != domain length {len(domain)} for column {col.name}")
+                            
+                            # Build cumulative weights
+                            cumulative = []
+                            total = 0
+                            for w in domain_weights:
+                                if w <= 0:
+                                    raise ValueError(f"domain_weights must be positive integers for column {col.name}")
+                                total += w
+                                cumulative.append(total)
+                            
+                            # Draw a random number in [0, total)
+                            r = rng.random() * total
+                            
+                            # Find which bucket r falls into
+                            idx = 0
+                            for i, cumul in enumerate(cumulative):
+                                if r < cumul:
+                                    idx = i
+                                    break
+                            
+                            row[col.name] = domain[idx]
+                        else:
+                            # Uniform sampling
+                            idx = draw_int(rng, 0, len(domain) - 1)
+                            row[col.name] = domain[idx]
                     else:
-                        max_len = 1
-                    
-                    # Simple random letter or empty
-                    if rng.random() < 0.5:
-                        # Generate a random uppercase letter or digit
-                        chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -'
-                        length = draw_int(rng, 0, min(max_len, 3))
-                        value = ''.join(chars[draw_int(rng, 0, len(chars) - 1)] for _ in range(length))
-                        row[col.name] = value
-                    else:
-                        row[col.name] = ''
+                        # Draw random string or empty
+                        import re
+                        len_match = re.search(r'X\((\d+)\)', col.pic)
+                        if len_match:
+                            max_len = int(len_match.group(1))
+                        else:
+                            max_len = 1
+                        
+                        # Simple random letter or empty
+                        if rng.random() < 0.5:
+                            # Generate a random uppercase letter or digit
+                            chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -'
+                            length = draw_int(rng, 0, min(max_len, 3))
+                            value = ''.join(chars[draw_int(rng, 0, len(chars) - 1)] for _ in range(length))
+                            row[col.name] = value
+                        else:
+                            row[col.name] = ''
             
             all_rows.append(row)
     

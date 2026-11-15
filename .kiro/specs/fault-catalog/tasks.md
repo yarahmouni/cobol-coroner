@@ -15,7 +15,7 @@ Done when:
 - Existing schemas (no case_rows, no output_key, no cobc_flags) keep their behavior unchanged (unit tests for both cases).
 - pytest passes.
 
-- [ ] 2. Trap 1 (T1-ebcdic-match-merge)
+- [x] 2. Trap 1 (T1-ebcdic-match-merge)
 
 _Requirements: Req 1. COBOL program sorts transactions with EBCDIC collating sequence and matches them sequentially against a branch table in EBCDIC order; faulty Java sorts and compares with ASCII String.compareTo; correct Java uses IBM1047 byte order; branch subtotals diverge while the TOTAL row matches (only if unmatched records are counted in the suspense branch)._
 

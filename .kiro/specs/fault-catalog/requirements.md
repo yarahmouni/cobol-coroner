@@ -20,13 +20,15 @@ Positioning: targeted regression traps within the supported COBOL subset. Not ge
 1.1. Input: transactions with CASE-ID, BRANCH and AMOUNT; one case is a batch of 2 to 12 input rows with the same CASE-ID.
 1.2. COBOL: SORT ... COLLATING SEQUENCE IS an alphabet declared ALPHABET ... IS EBCDIC, then match transactions sequentially against a branch table held in the program in EBCDIC order; OBJECT-COMPUTER PROGRAM COLLATING SEQUENCE so IF comparisons also use EBCDIC. Unmatched transactions go to a suspense branch "SUSP".
 1.3. Output per case: one row per branch with BRANCH, SUBTOTAL and one TOTAL row (BRANCH = "TOTAL") with the grand total.
-1.4. Branch codes only use letters, digits, space and hyphen (the domain where IBM1047 byte order equals GnuCOBOL's EBCDIC table, see the evidence file).
-1.5. Faulty Java: sorts and compares with String.compareTo (ASCII order), so the sequential match advances wrongly and transactions are posted to the wrong branch or suspense.
-1.6. Correct Java: sorts and compares by IBM1047 byte order (the JDK charset IBM1047 provides it).
-1.7. Explain in the design: a plain grouping by branch (SQL GROUP BY) would NOT show any divergence because subtotals are order independent. The order-dependent match does diverge.
-1.8. Branch subtotals between COBOL and Java diverge while the TOTAL row still matches (the lead evidence of a subtle control-break bug). The TOTAL row matches only if unmatched records are counted (suspense branch).
-1.9. The hand fixture covers at least one branch that lands in the wrong place in the ASCII sort.
-1.10. Acceptance must verify with measured numbers that the TOTAL rows are equal while branch subtotals diverge.
+1.4. Branch codes only use uppercase letters, digits, space and hyphen (the domain where IBM1047 byte order equals GnuCOBOL's EBCDIC table, see the evidence file). No lowercase codes (lowercase codes are not realistic and would cause 100% divergence in ASCII).
+1.5. Branch table in EBCDIC order (9 entries): A01, B02, C03, D04, E05, F06, Z99, 001, 9ZZ. Uppercase-led codes sort in the same relative order under ASCII and EBCDIC (space, uppercase, digits in EBCDIC; space, digits, uppercase in ASCII), so batches with only uppercase codes produce identical output. Digit-led codes (001, 9ZZ) sort first in ASCII but after uppercase in EBCDIC; the faulty port with ASCII comparison does not advance past A01 for a digit-led code and posts it to SUSP, so only those amounts move while the TOTAL row still matches.
+1.6. Domain weights (schema.json): A01, B02, C03, D04, E05, F06, Z99 weight 20 each; 001 and 9ZZ weight 2 each; X77 weight 2 (goes to SUSP on both sides). Measured divergence rate (2000 cases, seed 42): 262 cases (13.1%), exposure sum 666358.16, max 666357.81, 2 branches affected, grand total matches: yes.
+1.7. Faulty Java: sorts and compares with String.compareTo (ASCII order), so the sequential match advances wrongly and transactions are posted to the wrong branch or suspense.
+1.8. Correct Java: sorts and compares by IBM1047 byte order (the JDK charset IBM1047 provides it).
+1.9. Explain in the design: a plain grouping by branch (SQL GROUP BY) would NOT show any divergence because subtotals are order independent. The order-dependent match does diverge.
+1.10. Branch subtotals between COBOL and Java diverge while the TOTAL row still matches (the lead evidence of a subtle control-break bug). The TOTAL row matches only if unmatched records are counted (suspense branch).
+1.11. The hand fixture covers at least one case with only uppercase codes (same output for both ports) and one case with a digit-led code (faulty differs).
+1.12. Acceptance must verify with measured numbers that the TOTAL rows are equal while branch subtotals diverge.
 
 ### 2. Trap 2 (T2-rounding): truncation without ROUNDED, and ROUNDED ported as HALF_EVEN
 2.1. Input: one or more numeric values.

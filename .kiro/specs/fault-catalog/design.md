@@ -50,28 +50,34 @@ A plain grouping by branch (SQL GROUP BY or a Java HashMap) would NOT diverge be
 Acceptance verification: with measured numbers, the TOTAL rows must be equal while at least one branch subtotal differs.
 
 ### COBOL design
-- Input: CASE-ID (transaction batch id), BRANCH (3 characters, letters/digits/space/hyphen only), AMOUNT (signed decimal).
+- Input: CASE-ID (transaction batch id), BRANCH (3 characters, uppercase letters, digits, space and hyphen only, no lowercase), AMOUNT (signed decimal).
 - SORT INPUT-FILE ASCENDING KEY BRANCH COLLATING SEQUENCE IS EBC.
 - ALPHABET EBC IS EBCDIC. OBJECT-COMPUTER PROGRAM COLLATING SEQUENCE IS EBC.
-- Branch table: hard-coded array of branch codes in EBCDIC order, for example "A01", "A02", "Z99", "a01" (space, lowercase, uppercase, digits per the evidence file).
+- Branch table: hard-coded array of 9 branch codes in EBCDIC order: A01, B02, C03, D04, E05, F06, Z99, 001, 9ZZ. Uppercase-led codes sort in the same relative order under ASCII and EBCDIC (space, uppercase, digits in EBCDIC; space, digits, uppercase in ASCII). Digit-led codes (001, 9ZZ) sort first in ASCII but after uppercase in EBCDIC.
 - Match loop: read sorted transaction, advance branch table pointer while BRANCH > TABLE-BRANCH, post to TABLE-BRANCH if equal or "SUSP" if unmatched.
 - Output per case: one row per branch with BRANCH, SUBTOTAL (sum of amounts) and one TOTAL row (BRANCH = "TOTAL", SUBTOTAL = grand total).
 
 ### Faulty Java design
-- Sorts List<Transaction> by branch with String.compareTo (ASCII: space, digits, uppercase, lowercase).
-- Advances wrongly: "a01" is greater than "Z99" in ASCII but less than "Z99" in EBCDIC, so transactions for "a01" go to SUSP or the next ASCII branch.
-- Outputs divergent branch subtotals but the same grand total.
+- Sorts List<Transaction> by branch with String.compareTo (ASCII: space, digits, uppercase).
+- Advances wrongly: for a digit-led code like "001", the faulty walk does not advance past A01 (because "001" < "A01" in ASCII but "001" > "A01" in EBCDIC), and posts it to SUSP. Only those amounts move, so branch subtotals diverge but the grand total still matches.
+- For batches with only uppercase codes, both programs produce identical output because uppercase codes sort in the same relative order.
 
 ### Correct Java design
-- Sorts by IBM1047 byte order: Collator coll = Collator.getInstance(Locale.forLanguageTag("en-US-u-co-private-use")), then use a custom Comparator that converts each branch string to IBM1047 bytes and compares them.
-- Or: Charset ibm1047 = Charset.forName("IBM1047"), convert to bytes, compare.
-- On letters, digits, space and hyphen this order equals GnuCOBOL's EBCDIC table (evidence file).
+- Sorts by IBM1047 byte order: Charset ibm1047 = Charset.forName("IBM1047"), convert each branch string to bytes, compare them byte by byte with Byte.compareUnsigned.
+- On uppercase letters, digits, space and hyphen this order equals GnuCOBOL's EBCDIC table (evidence file).
 
 ### Fixture
-At least 4 transactions: one for a branch that appears before "Z99" in EBCDIC but after it in ASCII (for example "a01"), one for "Z99", one for "A01", one for another branch. The expected output comes from running the COBOL program.
+At least 3 cases:
+- UPPER-01: only uppercase codes (A01, B02, F06), same output for both ports.
+- DIGIT-01: digit-led codes (001, 9ZZ) plus Z99, faulty port differs.
+- MIXED-01: mix of uppercase and digit-led codes plus X77 (goes to SUSP on both sides).
+The expected output comes from running the COBOL program.
 
 ### Detection
-100 percent on cases where the generator emits at least one branch that lands in a different table position under ASCII vs EBCDIC sort.
+Measured divergence rate (2000 cases, seed 42): 262 cases (13.1%), exposure sum 666358.16, max 666357.81, 2 branches affected, grand total matches: yes.
+
+### Domain weights
+schema.json: A01, B02, C03, D04, E05, F06, Z99 weight 20 each; 001 and 9ZZ weight 2 each; X77 weight 2 (goes to SUSP on both sides). Measured to give 5% to 25% divergence on 2000 cases.
 
 ### Engine extension (Req 7, D-34)
 - schema.json: "case_rows": {"min": 2, "max": 12}, "output_key": ["CASE-ID", "BRANCH"], "group_key": "BRANCH", "subtotal": "SUBTOTAL", "grand_total_key": "TOTAL".

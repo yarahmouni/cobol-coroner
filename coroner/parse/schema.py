@@ -16,6 +16,8 @@ class SchemaColumn:
     scale: int | None = None
     signed: bool = False
     comp3: bool = False
+    domain: list[str] | None = None  # Optional domain list for string columns
+    domain_weights: list[int] | None = None  # Optional weights for domain values
 
 
 @dataclass
@@ -162,7 +164,9 @@ def load_schema(path: str) -> Schema:
             description=col_data['description'],
             scale=scale,
             signed=signed,
-            comp3=False  # Will be set from internal_precision if present
+            comp3=False,  # Will be set from internal_precision if present
+            domain=col_data.get('domain'),  # Optional domain list
+            domain_weights=col_data.get('domain_weights')  # Optional weights
         ))
     
     # Parse output columns
