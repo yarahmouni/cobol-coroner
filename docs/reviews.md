@@ -169,3 +169,9 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - java-credit-fees fixes (4): trailing-only trim for CASE-ID and CUSTOMER-SEGMENT (a two-sided trim would accept " B", which COBOL rejects); invalid example (-100.005 is an E01 input) replaced by -1234.50 x 0.01000 = -12.345 gives -0000012.35; range check after rounding (ON SIZE ERROR with ROUNDED); CSV split keeps trailing empty fields, more than 6 fields is E01.
 - The HALF_EVEN demo variant is produced by fault F01 injection, not hand-written.
 - Status: java-credit-fees requirements clean; fault-catalog requirements waiting for owner review before design.
+
+### R-29 2026-11-15: owner decisions D-22 to D-28 recorded
+- Call decisions-22-28 (haiku, credits not yet reported by `/usage`): D-22 improvements list, D-23 to D-28 (votes V1 to V6 as validated by the owner, with simulated vote counts); no-formal-proof.md (no "first", "unique", "novel"; certificate and suggested-fix wording) and scope-v1.md (certificate, JUnit source test, suggested fix, fixed-width after the S1 core, GitHub Action bonus, line count for the demo sample only) updated.
+- Checked: rows D-01 to D-28 without collision, text matches the owner validation, no em dash.
+- The owner's commit-hours rule is applied by the operator from now on; its row is held until the owner confirms it may be published (public-repo.md).
+- Two untracked helper scripts left by Kiro deleted with owner approval.
