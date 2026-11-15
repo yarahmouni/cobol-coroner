@@ -33,7 +33,7 @@ _Requirements: 2.5, 2.6, 2.8, 2.9_
 
 Done when: `.venv/bin/pytest tests/test_trace_parser_engine.py -q` shows all tests passing, and `parse_trace_counts` on two_source_trace.txt returns at least 5 main program lines and 3 copybook lines as separate keys.
 
-- [ ] 4. Copybook and branch parsing (coroner/parse/copybook.py)
+- [x] 4. Copybook and branch parsing (coroner/parse/copybook.py)
   - Implement `BranchInfo` dataclass with: paragraph (str), line_number (int), branch_type (str enum: "IF_TRUE", "IF_ELSE", "EVALUATE_WHEN", "EVALUATE_OTHER")
   - Implement `parse_cobol_structure(source_path: str, copybook_dir: str) -> dict` that returns {"constants": [...], "paragraphs": {...}, "branches": [BranchInfo(...), ...]}
   - Extract numeric constants from VALUE clauses and numeric literals in IF conditions (regex-based parsing)

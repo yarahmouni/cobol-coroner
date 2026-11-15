@@ -57,26 +57,28 @@ def parse_trace_counts(path: str) -> dict[tuple[str, int], int]:
     if not trace_path.exists():
         raise FileNotFoundError(f"Trace file not found: {path}")
     
-    content = trace_path.read_text()
-    if not content.strip():
-        raise ValueError("Trace file is empty")
-    
     source_pattern = re.compile(r"Source:\s+'([^']+)'")
     line_pattern = re.compile(r'Line:\s+(\d+)')
     
     counts: dict[tuple[str, int], int] = {}
     current_source = None
+    empty = True
     
-    for line in content.splitlines():
-        source_match = source_pattern.search(line)
-        if source_match:
-            current_source = source_match.group(1)
-            continue
-        
-        line_match = line_pattern.search(line)
-        if line_match and current_source:
-            line_num = int(line_match.group(1))
-            key = (current_source, line_num)
-            counts[key] = counts.get(key, 0) + 1
+    with open(trace_path, 'r') as file:
+        for line in file:
+            empty = False
+            source_match = source_pattern.search(line)
+            if source_match:
+                current_source = source_match.group(1)
+                continue
+            
+            line_match = line_pattern.search(line)
+            if line_match and current_source:
+                line_num = int(line_match.group(1))
+                key = (current_source, line_num)
+                counts[key] = counts.get(key, 0) + 1
+    
+    if empty:
+        raise ValueError("Trace file is empty")
     
     return counts

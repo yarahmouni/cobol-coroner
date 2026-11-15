@@ -245,3 +245,9 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 ### R-41 2026-11-15: engine task 3 (trace keyed by source file and line)
 - Call et3 (sonnet). Real two-source trace captured from GnuCOBOL (program, copybook, back to program: 3 Source: records); parse_trace_counts keys (source, line) correctly; parse_trace wrapper unchanged ({9, 10, 11, 16, 17}); smoke PASSED; pytest 59 passed.
 - Notes for later tasks: the trace names the copybook HELPER.CPY while the file is HELPER.cpy (case-insensitive macOS filesystem): coverage matching (task 10) must resolve paths, not compare strings. parse_trace_counts reads the whole file instead of streaming (design); fix sent with task 4.
+
+### R-42 2026-11-15: engine task 4 (COBOL structure parser)
+- Calls et4 and et4fix (sonnet). Operator ground truth (counted from the source): 12 paragraphs, 33 IF, 33 ELSE, 1 EVALUATE with 4 arms (70 branches), constants 10.00, 25000.00, 12, 0.10, 0.05. Parser matches.
+- BUG fixed: an arm starting with a nested IF was marked by the next non-IF statement, so 14 marker lines were shared by two branches and outer arms were only counted when their inner true arm ran. Now a nested IF/EVALUATE is the first statement of the arm; tests: no shared marker, CHECK-ELIGIBILITY outer ELSE 362 and inner true 363.
+- Also done: parse_trace_counts streams the file.
+- Operator check: 70 branches, no shared markers, no marker on ELSE/END-IF/WHEN lines; pytest 66 passed.
