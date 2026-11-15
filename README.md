@@ -82,6 +82,13 @@ A Kiro agent ports the COBOL program, Coroner audits the port through MCP, a Kir
 
 The Git pre-commit hook runs a fast 500-case check on the demo sample and blocks ZOMBIE commits. The CORONER_PRECOMMIT_JAVA environment variable exists only for tests and the demo; pointing it elsewhere, like using `git commit --no-verify`, bypasses the gate under the owner's responsibility.
 
+## Kiro skills
+
+Three skills guide the coroner-auditor agent:
+- `banking-trap-recognition`: Recognize the six banking migration traps in COBOL and Java (EBCDIC collation, rounding, COMP-3 sign, zoned overpunch, REDEFINES, reserved for owner trap).
+- `cobol-semantics-safety`: COBOL semantic rules a Java port must preserve (rounding to HALF_UP, truncation to DOWN, BigDecimal with explicit scale, sign handling, EBCDIC collating sequence).
+- `coroner-audit-workflow`: End-to-end workflow from run_differential_check to certificate verification.
+
 ## Status
 
 Work in progress for Kiroween 2026 (category: Resurrection). See `docs/sprints.md`.

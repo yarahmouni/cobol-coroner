@@ -13,7 +13,6 @@ from coroner.compare import compare_outputs
 from coroner.verdict import compute_verdict
 from coroner.store import collect_inputs, compute_run_id, store_inputs, store_comparison, store_verdict
 from coroner.diag.coverage import compute_coverage
-from coroner.diag.coverage import compute_coverage
 from coroner.diag.report import generate_failure_report
 from coroner.parse.trace import parse_trace_counts
 
@@ -69,33 +68,218 @@ def validate_inputs(cobol: str, copybooks: str, java: str, schema: str) -> None:
                 raise ValueError(f"Copybook {entry} exceeds 100 KB: {size} bytes")
 
 
+def run_verify(
+    cobol_path: str,
+    java_path: str,
+    schema_path: str,
+    copybooks_dir: str,
+    num_cases: int = 2000,
+    seed: int = 42,
+    timings: bool = False,
+    base_dir: str = "."
+) -> tuple:
+    """Run the differential verification pipeline.
+    
+    Args:
+        cobol_path: Path to COBOL source file
+        java_path: Path to Java source file
+        schema_path: Path to schema.json
+        copybooks_dir: Path to copybooks directory
+        num_cases: Number of test cases (default 2000)
+        seed: Random seed (default 42)
+        timings: Print per-step timings to stderr (default False)
+        base_dir: Base directory for runs/ and build/ (default current directory)
+        
+    Returns:
+        (verdict, run_dir): Verdict object and Path to run directory
+        
+    Raises:
+        ValueError: Input validation failures
+        Exception: Compilation, execution or comparison errors
+    """
+    import json
+    import csv
+    import shutil
+    
+    tie_share = 0.06  # Calibrated in R-55
+    
+    def record_step(name: str, start: float):
+        if timings:
+            elapsed = time.time() - start
+            print(f"  {name}: {elapsed:.2f} s", file=sys.stderr)
+    
+    # Step 1: Validate inputs
+    step_start = time.time()
+    validate_inputs(cobol_path, copybooks_dir, java_path, schema_path)
+    record_step("Validate inputs", step_start)
+    
+    # Step 2: Parse schema and structure
+    step_start = time.time()
+    schema_obj = load_schema(schema_path)
+    cobol_structure = parse_cobol_structure(cobol_path, copybooks_dir)
+    record_step("Parse schema and structure", step_start)
+    
+    # Step 3: Generate cases
+    step_start = time.time()
+    cases_csv_path = generate_cases(schema_obj, cobol_structure, seed, num_cases, tie_share, base_dir)
+    record_step(f"Generate {num_cases} cases", step_start)
+    
+    # Step 4: Collect inputs and compute run_id
+    step_start = time.time()
+    inputs_data = collect_inputs(cobol_path, copybooks_dir, java_path, schema_path, 
+                                  cases_csv_path, seed, num_cases)
+    run_id = compute_run_id(inputs_data)
+    run_dir = Path(base_dir) / "runs" / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    record_step("Collect inputs and compute run_id", step_start)
+    
+    # Create build directories
+    build_dir = Path(base_dir) / "build" / run_id
+    build_dir.mkdir(parents=True, exist_ok=True)
+    (build_dir / "coverage").mkdir(exist_ok=True)
+    (build_dir / "java").mkdir(exist_ok=True)
+    
+    # Extract program name from schema
+    program_name = schema_obj.program_name
+    
+    # Step 5: Compile COBOL reference
+    step_start = time.time()
+    cobol_binary = str(build_dir / program_name)
+    compile_cobol(cobol_path, copybooks_dir, cobol_binary, [])
+    record_step("Compile COBOL reference", step_start)
+    
+    # Step 5b: Compile COBOL coverage
+    step_start = time.time()
+    cobol_coverage_binary = str(build_dir / "coverage" / program_name)
+    compile_cobol(cobol_path, copybooks_dir, cobol_coverage_binary, ["-ftraceall"])
+    record_step("Compile COBOL coverage", step_start)
+    
+    # Step 5c: Compile Java
+    step_start = time.time()
+    compile_java(java_path, str(build_dir / "java"))
+    record_step("Compile Java", step_start)
+    
+    # Extract Java class name from file
+    java_class = Path(java_path).stem
+    
+    # Step 6: Run reference COBOL
+    step_start = time.time()
+    cobol_output = str(build_dir / "cobol_output.csv")
+    cobol_result = run_cobol(cobol_binary, cases_csv_path, cobol_output)
+    record_step("Run COBOL reference", step_start)
+    
+    # Step 6b: Run Java
+    step_start = time.time()
+    java_output = str(build_dir / "java_output.csv")
+    java_result = run_java(java_class, str(build_dir / "java"), cases_csv_path, java_output)
+    record_step("Run Java", step_start)
+    
+    # Step 7: Run instrumented COBOL for coverage
+    step_start = time.time()
+    trace_file = str(run_dir / "coverage_trace.txt")
+    coverage_output = str(build_dir / "coverage_output.csv")
+    run_cobol_instrumented(cobol_coverage_binary, cases_csv_path, coverage_output, trace_file)
+    record_step("Run COBOL coverage", step_start)
+    
+    # Step 8: Compare outputs
+    step_start = time.time()
+    comparison = compare_outputs(cobol_result.output_path, java_result.output_path, 
+                                 schema_obj, cobol_result.return_code, java_result.return_code)
+    record_step("Compare outputs", step_start)
+    
+    # Step 9: Compute verdict
+    step_start = time.time()
+    verdict = compute_verdict(comparison)
+    record_step("Compute verdict", step_start)
+    
+    # Step 10: Generate reports
+    step_start = time.time()
+    trace = parse_trace_counts(trace_file)
+    coverage_report = compute_coverage(trace, cobol_structure, cobol_path, copybooks_dir)
+    
+    # Store coverage report
+    with open(run_dir / "coverage_report.json", 'w') as f:
+        json.dump({
+            "paragraph_coverage": coverage_report.paragraph_coverage,
+            "branch_coverage": coverage_report.branch_coverage,
+            "paragraphs_total": coverage_report.paragraphs_total,
+            "paragraphs_covered": coverage_report.paragraphs_covered,
+            "branches_total": coverage_report.branches_total,
+            "branches_covered": coverage_report.branches_covered,
+            "uncovered_branches": coverage_report.uncovered_branches
+        }, f, indent=2)
+    
+    # Generate failure report if ZOMBIE
+    if verdict.status == "ZOMBIE":
+        # Build input_rows dict from cases CSV
+        input_rows = {}
+        with open(cases_csv_path, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                case_id = row.get('CASE-ID', '')
+                input_rows[case_id] = row
+        
+        # Select minimal case
+        from coroner.diag.minimal_case import select_minimal_case
+        divergent_cases = [case for case in comparison.cases if case.divergent]
+        minimal_case = select_minimal_case(divergent_cases, schema_obj, input_rows)
+        
+        # Generate failure report
+        failure_report = generate_failure_report(
+            minimal_case, input_rows, schema_obj,
+            cobol_coverage_binary, java_class, str(build_dir / "java"),
+            str(run_dir)
+        )
+        
+        # Store failure report
+        with open(run_dir / "failure_report.json", 'w') as f:
+            json.dump({
+                "case_id": failure_report.case_id,
+                "input_row": failure_report.input_row,
+                "cobol_output": failure_report.cobol_output,
+                "java_output": failure_report.java_output,
+                "divergent_fields": failure_report.divergent_fields,
+                "cobol_return_code": failure_report.cobol_return_code,
+                "java_return_code": failure_report.java_return_code,
+                "executed_lines": [(src, line) for src, line in failure_report.executed_lines]
+            }, f, indent=2)
+        
+        # Generate JUnit regression test
+        from coroner.diag.junit import generate_junit_test
+        generate_junit_test(
+            minimal_case,
+            input_rows[minimal_case.case_id],
+            failure_report.cobol_output,
+            java_class,
+            schema_obj,
+            str(run_dir / "ZombieRegressionTest.java")
+        )
+    
+    record_step("Generate reports", step_start)
+    
+    # Step 11: Store results
+    step_start = time.time()
+    store_inputs(str(run_dir), inputs_data)
+    store_comparison(str(run_dir), comparison)
+    store_verdict(str(run_dir), verdict)
+    
+    # Copy generated cases to run directory
+    shutil.copy(cases_csv_path, run_dir / "generated_cases.csv")
+    
+    # Generate certificate
+    from coroner.certificate import generate_certificate
+    generate_certificate(run_id, cobol_path, copybooks_dir, java_path, schema_path, base_dir)
+    
+    record_step("Store results", step_start)
+    
+    return (verdict, run_dir)
+
+
 def verify_command(cobol: str, copybooks: str, java: str, schema: str, 
                    cases: int = 2000, seed: int = 42, tie_share: float = 0.06, 
                    timings: bool = False) -> int:
     """
-    Orchestrate the full verification pipeline.
-    
-    Steps:
-    1. Validate inputs (existence, size limits)
-    2. Parse schema and COBOL structure
-    3. Generate test cases
-    4. Collect inputs and compute run_id
-    5. Compile reference and coverage COBOL, and Java
-    6. Run batch executions (reference COBOL and Java)
-    7. Run instrumented COBOL for coverage
-    8. Compare outputs
-    9. Compute verdict
-    10. Generate reports (coverage, failure if ZOMBIE)
-    11. Store all results
-    
-    Prints:
-    - Verdict status and sub_label
-    - Paragraph coverage X/Y
-    - Branch coverage (Coroner definition) X/Y
-    - Validated under GnuCOBOL 3.x
-    - Run: runs/<run_id>
-    - Duration: N.N s
-    - With --timings: one line per step
+    CLI wrapper for run_verify that formats output.
     
     Args:
         cobol: Path to COBOL source file
@@ -104,198 +288,27 @@ def verify_command(cobol: str, copybooks: str, java: str, schema: str,
         schema: Path to schema.json
         cases: Number of test cases to generate (default 2000)
         seed: Random seed (default 42)
-        tie_share: Fraction of cases that are rounding ties (default 0.06)
+        tie_share: Unused, kept for compatibility
         timings: Print per-step timings (default False)
         
     Returns:
         Exit code: 0 (ALIVE), 1 (ZOMBIE), 2 (error)
     """
+    import json
     start_time = time.time()
-    step_times = {}
-    
-    def record_step(name: str, start: float):
-        elapsed = time.time() - start
-        step_times[name] = elapsed
-        if timings:
-            print(f"  {name}: {elapsed:.2f} s")
     
     try:
-        # Step 1: Validate inputs
-        step_start = time.time()
-        validate_inputs(cobol, copybooks, java, schema)
-        record_step("Validate inputs", step_start)
+        verdict, run_dir = run_verify(cobol, java, schema, copybooks, cases, seed, timings)
         
-        # Step 2: Parse schema and structure
-        step_start = time.time()
-        schema_obj = load_schema(schema)
-        cobol_structure = parse_cobol_structure(cobol, copybooks)
-        record_step("Parse schema and structure", step_start)
-        
-        # Step 3: Generate cases
-        step_start = time.time()
-        cases_csv_path = generate_cases(schema_obj, cobol_structure, seed, cases, tie_share)
-        record_step(f"Generate {cases} cases", step_start)
-        
-        # Step 4: Collect inputs and compute run_id
-        step_start = time.time()
-        inputs_data = collect_inputs(cobol, copybooks, java, schema, 
-                                      cases_csv_path, seed, cases)
-        run_id = compute_run_id(inputs_data)
-        run_dir = f"runs/{run_id}"
-        os.makedirs(run_dir, exist_ok=True)
-        record_step("Collect inputs and compute run_id", step_start)
-        
-        # Create build directories
-        build_dir = f"build/{run_id}"
-        os.makedirs(build_dir, exist_ok=True)
-        os.makedirs(f"{build_dir}/coverage", exist_ok=True)
-        os.makedirs(f"{build_dir}/java", exist_ok=True)
-        
-        # Extract program name from schema
-        program_name = schema_obj.program_name
-        
-        # Step 5: Compile COBOL reference
-        step_start = time.time()
-        cobol_binary = f"{build_dir}/{program_name}"
-        compile_cobol(cobol, copybooks, cobol_binary, [])
-        record_step("Compile COBOL reference", step_start)
-        
-        # Step 5b: Compile COBOL coverage
-        step_start = time.time()
-        cobol_coverage_binary = f"{build_dir}/coverage/{program_name}"
-        compile_cobol(cobol, copybooks, cobol_coverage_binary, ["-ftraceall"])
-        record_step("Compile COBOL coverage", step_start)
-        
-        # Step 5c: Compile Java
-        step_start = time.time()
-        compile_java(java, f"{build_dir}/java")
-        record_step("Compile Java", step_start)
-        
-        # Extract Java class name from file
-        java_class = Path(java).stem
-        
-        # Step 6: Run reference COBOL
-        step_start = time.time()
-        cobol_output = f"{build_dir}/cobol_output.csv"
-        cobol_result = run_cobol(cobol_binary, cases_csv_path, cobol_output)
-        record_step("Run COBOL reference", step_start)
-        
-        # Step 6b: Run Java
-        step_start = time.time()
-        java_output = f"{build_dir}/java_output.csv"
-        java_result = run_java(java_class, f"{build_dir}/java", cases_csv_path, java_output)
-        record_step("Run Java", step_start)
-        
-        # Step 7: Run instrumented COBOL for coverage
-        step_start = time.time()
-        trace_file = f"{run_dir}/coverage_trace.txt"
-        coverage_output = f"{build_dir}/coverage_output.csv"
-        run_cobol_instrumented(cobol_coverage_binary, cases_csv_path, coverage_output, trace_file)
-        record_step("Run COBOL coverage", step_start)
-        
-        # Step 8: Compare outputs
-        step_start = time.time()
-        comparison = compare_outputs(cobol_result.output_path, java_result.output_path, 
-                                     schema_obj, cobol_result.return_code, java_result.return_code)
-        record_step("Compare outputs", step_start)
-        
-        # Step 9: Compute verdict
-        step_start = time.time()
-        verdict = compute_verdict(comparison)
-        record_step("Compute verdict", step_start)
-        
-        # Step 10: Generate reports
-        step_start = time.time()
-        trace = parse_trace_counts(trace_file)
-        coverage_report = compute_coverage(trace, cobol_structure, cobol, copybooks)
-        
-        # Store coverage report
-        import json
-        with open(f"{run_dir}/coverage_report.json", 'w') as f:
-            json.dump({
-                "paragraph_coverage": coverage_report.paragraph_coverage,
-                "branch_coverage": coverage_report.branch_coverage,
-                "paragraphs_total": coverage_report.paragraphs_total,
-                "paragraphs_covered": coverage_report.paragraphs_covered,
-                "branches_total": coverage_report.branches_total,
-                "branches_covered": coverage_report.branches_covered,
-                "uncovered_branches": coverage_report.uncovered_branches
-            }, f, indent=2)
-        
-        # Generate failure report if ZOMBIE
-        if verdict.status == "ZOMBIE":
-            # Build input_rows dict from cases CSV
-            import csv
-            input_rows = {}
-            with open(cases_csv_path, 'r') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    case_id = row.get('CASE-ID', '')
-                    input_rows[case_id] = row
-            
-            # Select minimal case
-            from coroner.diag.minimal_case import select_minimal_case
-            divergent_cases = [case for case in comparison.cases if case.divergent]
-            minimal_case = select_minimal_case(divergent_cases, schema_obj, input_rows)
-            
-            # Generate failure report
-            failure_report = generate_failure_report(
-                minimal_case, input_rows, schema_obj,
-                cobol_coverage_binary, java_class, f"{build_dir}/java",
-                run_dir
-            )
-            
-            # Store failure report
-            with open(f"{run_dir}/failure_report.json", 'w') as f:
-                json.dump({
-                    "case_id": failure_report.case_id,
-                    "input_row": failure_report.input_row,
-                    "cobol_output": failure_report.cobol_output,
-                    "java_output": failure_report.java_output,
-                    "divergent_fields": failure_report.divergent_fields,
-                    "cobol_return_code": failure_report.cobol_return_code,
-                    "java_return_code": failure_report.java_return_code,
-                    "executed_lines": [(src, line) for src, line in failure_report.executed_lines]
-                }, f, indent=2)
-            
-            # Generate JUnit regression test
-            from coroner.diag.junit import generate_junit_test
-            generate_junit_test(
-                minimal_case,
-                input_rows[minimal_case.case_id],
-                failure_report.cobol_output,
-                java_class,
-                schema_obj,
-                f"{run_dir}/ZombieRegressionTest.java"
-            )
-        
-        record_step("Generate reports", step_start)
-        
-        # Step 11: Store results
-        step_start = time.time()
-        store_inputs(run_dir, inputs_data)
-        store_comparison(run_dir, comparison)
-        store_verdict(run_dir, verdict)
-        
-        # Copy generated cases to run directory
-        import shutil
-        shutil.copy(cases_csv_path, f"{run_dir}/generated_cases.csv")
-        
-        # Generate certificate
-        try:
-            from coroner.certificate import generate_certificate
-            generate_certificate(run_id, cobol, copybooks, java, schema)
-        except Exception as e:
-            # Warn but don't fail the run
-            print(f"Warning: certificate generation failed: {e}", file=sys.stderr)
-        
-        record_step("Store results", step_start)
+        # Read coverage report
+        with open(run_dir / "coverage_report.json", 'r') as f:
+            coverage = json.load(f)
         
         # Print output
         total_time = time.time() - start_time
         print(f"{verdict.status}: {verdict.sub_label}")
-        print(f"Paragraph coverage {coverage_report.paragraphs_covered}/{coverage_report.paragraphs_total}")
-        print(f"Branch coverage (Coroner definition) {coverage_report.branches_covered}/{coverage_report.branches_total}")
+        print(f"Paragraph coverage {coverage['paragraphs_covered']}/{coverage['paragraphs_total']}")
+        print(f"Branch coverage (Coroner definition) {coverage['branches_covered']}/{coverage['branches_total']}")
         print(verdict.validation_notice)
         print(f"Run: {run_dir}")
         print(f"Duration: {total_time:.1f} s")

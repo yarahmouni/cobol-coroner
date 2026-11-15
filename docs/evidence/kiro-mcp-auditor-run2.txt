@@ -1,0 +1,30 @@
+# Kiro coroner-auditor run 2, 2026-11-15, kiro-cli 3.3.0, model claude-sonnet-4.5, non-interactive
+# After the fix: real MCP tool calls ([tool] lines), numbers match the measured 200-case run.
+
+I'll audit the Java port against the COBOL program using Coroner's MCP tools.
+[tool] Running: @coroner/run_differential_check
+[tool] status: Completed
+[tool] Running: @coroner/get_verdict
+[tool] Running: @coroner/verify_certificate
+[tool] status: Completed
+[tool] status: Completed
+**Verdict:**
+
+ALIVE: PASS: business behavior preserved on 200 cases
+
+- Cases total: 200
+- Cases divergent: 0
+- Paragraph coverage: 12/12
+- Branch coverage (Coroner definition): 41/70
+- Validated under GnuCOBOL 3.x
+
+**Certificate validity:**
+
+Valid: true
+- Status: ALIVE
+- Cases: 200
+- Divergences: 0
+- Paragraph coverage: 12/12
+- Branch coverage: 41/70
+
+The Java port CreditFees.java preserves business behavior on all 200 generated test cases. The certificate (run 3b0794fc91da) is valid and reproducible.

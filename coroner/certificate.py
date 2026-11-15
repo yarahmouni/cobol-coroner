@@ -69,7 +69,8 @@ def generate_certificate(
     cobol_file: str,
     copybook_dir: str,
     java_file: str,
-    schema_file: str
+    schema_file: str,
+    base_dir: str = "."
 ) -> None:
     """
     Generate certificate.json after a run.
@@ -86,12 +87,13 @@ def generate_certificate(
         copybook_dir: Path to copybook directory
         java_file: Path to Java source file
         schema_file: Path to schema.json
+        base_dir: Base directory for runs/ (default current directory)
         
     Raises:
         FileNotFoundError: If required run files not found
         ValueError: If required fields missing
     """
-    run_dir = f"runs/{run_id}"
+    run_dir = str(Path(base_dir) / "runs" / run_id)
     
     # Load run files
     with open(f"{run_dir}/inputs.json", 'r') as f:

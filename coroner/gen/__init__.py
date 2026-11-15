@@ -296,7 +296,8 @@ def generate_cases(
     cobol_structure: dict,
     seed: int,
     num_cases: int,
-    tie_share: float = 0.06
+    tie_share: float = 0.06,
+    base_dir: str = "."
 ) -> str:
     """
     Generate test cases from schema and COBOL structure.
@@ -307,6 +308,7 @@ def generate_cases(
         seed: Fixed seed for reproducibility
         num_cases: Total number of cases to generate
         tie_share: Fraction of cases that are rounding ties (default 0.06)
+        base_dir: Base directory for runs/ (default current directory)
         
     Returns:
         Path to generated_cases.csv
@@ -393,7 +395,7 @@ def generate_cases(
         row['CASE-ID'] = case_id
     
     # Write CSV with LF line endings
-    output_dir = Path('runs') / 'temp'
+    output_dir = Path(base_dir) / 'runs' / 'temp'
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / 'generated_cases.csv'
     
