@@ -309,3 +309,11 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Fixes: output directory created when missing; Kiro had compiled COBOL into samples/credit-fees/ and written a duplicate expected file there (byte-identical to expected-output.csv): the test now uses expected-output.csv and builds in build/; the operator deleted the two untracked strays (regenerable artifacts, owner autonomy rule).
 - Tests: pytest 155 passed.
 - Kiro balance: plan 172.17 of 531 used (358.83 left); bonus Trial credits: 0.00/500.
+
+### R-54 2026-11-15: engine task 13 (CLI, make demo, make zombie)
+- Call et13 (sonnet). Operator runs on the real programs, 2,000 cases, seed 42:
+  - `make demo`: "ALIVE: PASS: business behavior preserved on 2000 cases", Paragraph coverage 12/12, Branch coverage (Coroner definition) 42/70, 4.1 s, exit 0, run a26c32ac9519.
+  - `make zombie`: "ZOMBIE: FAIL: business behavior diverged on 75 cases", same coverage, 4.4 s, CLI exit 1 (make reports 2), run 227fcf67095d with failure_report.json and ZombieRegressionTest.java.
+  - Re-run of make zombie: same run_id, byte-identical generated_cases.csv and verdict.json.
+- Extra changes reviewed: a `python -m coroner.catalog.legacy_variant` entry point (used by make zombie, no new script file) and coverage string helpers. Certificate replay form reserved (exit 2 "not implemented yet") until priority 2.
+- Kiro balance: plan 189.78 of 531 used (341.22 left); bonus Trial credits: 0.00/500.

@@ -73,7 +73,8 @@ def compile_cobol(source: str, copybooks: str, output: str, flags: list[str]) ->
     # Build directory if needed
     Path(output).parent.mkdir(parents=True, exist_ok=True)
     
-    # Build command: cobc -x -Wall -I <copybooks> -o <output> <source> [flags]
+    # Build command: cobc -x -Wall -I <copybooks> -o <output> <source> [additional flags]
+    # Base flags are always -x -Wall
     cmd = ['cobc', '-x', '-Wall', '-I', copybooks, '-o', output, source] + flags
     
     try:

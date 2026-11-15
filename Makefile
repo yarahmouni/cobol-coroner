@@ -7,10 +7,12 @@ smoke:
 	docker build -t coroner:smoke . && docker run --rm coroner:smoke
 
 demo:
-	@echo "demo: not available yet (planned for S1)" >&2; exit 2
+	@.venv/bin/python -m coroner verify --cobol samples/credit-fees/CREDIT-FEES.cob --copybooks samples/credit-fees/copybooks --java samples/credit-fees/java/CreditFees.java --schema samples/credit-fees/schema.json; exit $$?
 
 zombie:
-	@echo "zombie: not available yet (planned for S1)" >&2; exit 2
+	@mkdir -p build/variants
+	@.venv/bin/python -m coroner.catalog.legacy_variant samples/credit-fees/java/CreditFees.java build/variants/CreditFees.java
+	@.venv/bin/python -m coroner verify --cobol samples/credit-fees/CREDIT-FEES.cob --copybooks samples/credit-fees/copybooks --java build/variants/CreditFees.java --schema samples/credit-fees/schema.json; exit $$?
 
 serve:
 	@echo "serve: not available yet (planned for S2)" >&2; exit 2

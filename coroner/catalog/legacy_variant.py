@@ -39,3 +39,21 @@ def generate_half_even_variant(source_path: str, output_path: str) -> int:
         f.write(new_content)
     
     return count
+
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) != 3:
+        print("Usage: python -m coroner.catalog.legacy_variant SOURCE OUTPUT", file=sys.stderr)
+        sys.exit(2)
+    
+    source_path = sys.argv[1]
+    output_path = sys.argv[2]
+    
+    try:
+        count = generate_half_even_variant(source_path, output_path)
+        print(f"Generated HALF_EVEN variant: {count} replacements", file=sys.stderr)
+        sys.exit(0)
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(2)

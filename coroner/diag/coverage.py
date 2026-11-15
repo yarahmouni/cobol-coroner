@@ -32,6 +32,28 @@ class CoverageReport:
     branches_total: int
     paragraph_details: list[ParagraphDetail]
     branch_details: list[BranchDetail]
+    
+    @property
+    def paragraph_coverage(self) -> str:
+        """Return paragraph coverage as a string like '12/12'."""
+        return f"{self.paragraphs_covered}/{self.paragraphs_total}"
+    
+    @property
+    def branch_coverage(self) -> str:
+        """Return branch coverage as a string like '42/70'."""
+        return f"{self.branches_covered}/{self.branches_total}"
+    
+    @property
+    def uncovered_branches(self) -> list[dict]:
+        """Return list of uncovered branches with details."""
+        return [
+            {
+                "paragraph": b.paragraph,
+                "line": b.line,
+                "branch_type": b.branch_type
+            }
+            for b in self.branch_details if not b.covered
+        ]
 
 
 def _normalize_path(path: str) -> str:

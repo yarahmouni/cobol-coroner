@@ -155,7 +155,7 @@ _Requirements: D-06, D-29_
 
 Done when: `.venv/bin/pytest tests/test_legacy_variant.py -q` shows all tests passing or skipped, and the generated variant compiles and runs.
 
-- [ ] 13. CLI and Makefile targets (coroner/cli.py, coroner/__main__.py, Makefile)
+- [x] 13. CLI and Makefile targets (coroner/cli.py, coroner/__main__.py, Makefile)
   - Implement `verify_command(cobol: str, copybooks: str, java: str, schema: str, cases: int = 2000, seed: int = 42) -> int` that orchestrates the full pipeline: load inputs, validate, generate cases, compile, run, compare, compute verdict, generate reports, store results
   - Input validation: file existence, size limits per Requirement 1 (COBOL 1 MB, Java 1 MB, copybooks 100 KB each, schema 100 KB)
   - Print verdict and coverage to stdout, run_id for reference
