@@ -228,3 +228,7 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - D-30 and D-31 logged; quality.md (random.Random(seed).random() only, Hypothesis for property tests only); comparison-rules.md (exact OS exit status 0 to 255, per run and per re-run case, "FAIL: return code differs (COBOL x, Java y)"); README note on the 0 to 255 limit; engine requirements and design updated (draw helpers from random() only, inputs.json gains cases_file_sha256, cases_file_encoding, cases_file_line_ending, python_version, random_seed; open questions closed).
 - Fix sent: a leftover "owner validation pending" in the design flow, and the draw helpers the first call omitted. Operator check: draw_int over 100,000 draws stays within [lo, hi].
 - Status: clean.
+
+### R-38 2026-11-15: engine tasks.md
+- Call engine-tasks (haiku, 0.58 credits): 15 tasks, each with Requirements and Done when, coverage table maps every criterion. Constraints given: hypothesis pinned at 6.170.14 (2026-10-30; the latest release was 9 days old), parse_trace kept as a wrapper because smoke/run_smoke.sh and the S0 tests use it, real two-source trace fixture, structure counts checked by hand, grep test against non-random() draws, JUnit jar version and checksum filled by the operator from a real download.
+- Status: clean.
