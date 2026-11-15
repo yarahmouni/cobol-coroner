@@ -333,6 +333,21 @@ def replay_certificate(certificate_path: str) -> ReplayResult:
         schema_obj = load_schema(schema_file)
         cobol_structure = parse_cobol_structure(cobol_file, copybook_dir)
         
+        # Check cobc_flags if present in certificate
+        cobol_flags = []
+        if "cobc_flags" in cert:
+            cobol_flags = cert["cobc_flags"]
+            # Verify schema has matching flags
+            schema_flags = schema_obj.cobc_flags or []
+            if schema_flags != cobol_flags:
+                return ReplayResult(
+                    valid=False, reason=f"cobc_flags mismatch (certificate: {cobol_flags}, schema: {schema_flags})",
+                    verdict=None, cases_total=0, cases_divergent=0,
+                    paragraph_coverage_reached=0, paragraph_coverage_total=0,
+                    branch_coverage_reached=0, branch_coverage_total=0,
+                    cases_file="", warnings=[]
+                )
+        
         # Create temporary build directory for replay
         import tempfile
         with tempfile.TemporaryDirectory(prefix="coroner_replay_") as replay_build:
@@ -341,12 +356,12 @@ def replay_certificate(certificate_path: str) -> ReplayResult:
             
             # Compile COBOL reference
             cobol_binary = f"{replay_build}/{program_name}"
-            compile_cobol(cobol_file, copybook_dir, cobol_binary, [])
+            compile_cobol(cobol_file, copybook_dir, cobol_binary, cobol_flags)
             
             # Compile COBOL coverage
             os.makedirs(f"{replay_build}/coverage", exist_ok=True)
             cobol_coverage_binary = f"{replay_build}/coverage/{program_name}"
-            compile_cobol(cobol_file, copybook_dir, cobol_coverage_binary, ["-ftraceall"])
+            compile_cobol(cobol_file, copybook_dir, cobol_coverage_binary, cobol_flags + ["-ftraceall"])
             
             # Compile Java
             os.makedirs(f"{replay_build}/java", exist_ok=True)
@@ -466,7 +481,8 @@ def replay_certificate(certificate_path: str) -> ReplayResult:
         # Get current versions by collecting inputs
         temp_inputs = collect_inputs(
             cobol_file, copybook_dir, java_file, schema_file,
-            cases_file, cert["random_seed"], cert["case_count"]
+            cases_file, cert["random_seed"], cert["case_count"],
+            cobol_flags if cobol_flags else None
         )
         
         if temp_inputs["python_version"] != cert["python_version"]:

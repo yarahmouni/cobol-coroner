@@ -1,6 +1,6 @@
 # Trap Catalog Tasks
 
-- [ ] 1. Engine extension for batch input and control breaks
+- [x] 1. Engine extension for batch input and control breaks
 
 _Requirements: Req 7, D-34. Schema.json may declare case_rows (emit multiple input rows per case), output_key (comparison key for output rows), group_key, subtotal and grand_total_key (compute Unreconciled branch exposure)._
 

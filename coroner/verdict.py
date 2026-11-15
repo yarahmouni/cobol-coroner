@@ -1,6 +1,7 @@
 """Verdict computation for COBOL Coroner."""
 
 from dataclasses import dataclass
+from decimal import Decimal
 
 
 @dataclass
@@ -12,6 +13,10 @@ class Verdict:
     cases_divergent: int
     run_return_codes: tuple[int, int]  # (cobol, java)
     validation_notice: str = "Validated under GnuCOBOL 3.x"
+    exposure_sum: Decimal | None = None
+    exposure_max: Decimal | None = None
+    affected_branches: int | None = None
+    grand_total_matches: bool | None = None
 
 
 def compute_verdict(comparison) -> Verdict:
@@ -19,7 +24,7 @@ def compute_verdict(comparison) -> Verdict:
     Compute verdict from comparison results.
     
     Args:
-        comparison: ComparisonResult with cases, run_return_codes, total_divergent
+        comparison: ComparisonResult with cases, run_return_codes, total_divergent, optional exposure
         
     Returns:
         Verdict with status ALIVE or ZOMBIE and appropriate sub_label
@@ -30,6 +35,12 @@ def compute_verdict(comparison) -> Verdict:
     
     return_codes_differ = cobol_rc != java_rc
     
+    # Extract exposure fields if present (use getattr for backward compatibility with mocks)
+    exposure_sum = getattr(comparison, 'exposure_sum', None)
+    exposure_max = getattr(comparison, 'exposure_max', None)
+    affected_branches = getattr(comparison, 'affected_branches', None)
+    grand_total_matches = getattr(comparison, 'grand_total_matches', None)
+    
     if cases_divergent == 0 and not return_codes_differ:
         # ALIVE: no divergences and return codes match
         case_word = "case" if cases_total == 1 else "cases"
@@ -38,7 +49,11 @@ def compute_verdict(comparison) -> Verdict:
             sub_label=f"PASS: business behavior preserved on {cases_total} {case_word}",
             cases_total=cases_total,
             cases_divergent=0,
-            run_return_codes=(cobol_rc, java_rc)
+            run_return_codes=(cobol_rc, java_rc),
+            exposure_sum=exposure_sum,
+            exposure_max=exposure_max,
+            affected_branches=affected_branches,
+            grand_total_matches=grand_total_matches
         )
     
     # ZOMBIE: at least one issue
@@ -57,5 +72,9 @@ def compute_verdict(comparison) -> Verdict:
         sub_label=sub_label,
         cases_total=cases_total,
         cases_divergent=cases_divergent,
-        run_return_codes=(cobol_rc, java_rc)
+        run_return_codes=(cobol_rc, java_rc),
+        exposure_sum=exposure_sum,
+        exposure_max=exposure_max,
+        affected_branches=affected_branches,
+        grand_total_matches=grand_total_matches
     )

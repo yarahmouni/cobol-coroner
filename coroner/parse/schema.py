@@ -28,6 +28,12 @@ class Schema:
     output_file: str
     output_columns: list[SchemaColumn]
     internal_precision: dict[str, dict] | None = None
+    case_rows: dict[str, int] | None = None  # {"min": 2, "max": 12}
+    output_key: list[str] | None = None  # ["CASE-ID", "BRANCH"]
+    group_key: str | None = None  # "BRANCH"
+    subtotal: str | None = None  # "SUBTOTAL"
+    grand_total_key: str | None = None  # "TOTAL"
+    cobc_flags: list[str] | None = None  # ["-fsign=EBCDIC"]
 
 
 def parse_pic(pic: str) -> tuple[bool, int, int]:
@@ -195,6 +201,24 @@ def load_schema(path: str) -> Schema:
                     if col.name == field_name:
                         col.comp3 = True
     
+    # Parse optional batch input and control break fields
+    case_rows = data.get('case_rows')
+    if case_rows is not None:
+        if 'min' not in case_rows or 'max' not in case_rows:
+            raise ValueError("case_rows must have 'min' and 'max' fields")
+    
+    output_key = data.get('output_key')
+    if output_key is not None and not isinstance(output_key, list):
+        raise ValueError("output_key must be a list of field names")
+    
+    group_key = data.get('group_key')
+    subtotal = data.get('subtotal')
+    grand_total_key = data.get('grand_total_key')
+    
+    cobc_flags = data.get('cobc_flags')
+    if cobc_flags is not None and not isinstance(cobc_flags, list):
+        raise ValueError("cobc_flags must be a list of strings")
+    
     return Schema(
         program_name=data['program'],
         description=data['description'],
@@ -202,5 +226,11 @@ def load_schema(path: str) -> Schema:
         input_columns=input_columns,
         output_file=data['output']['file'],
         output_columns=output_columns,
-        internal_precision=internal_precision
+        internal_precision=internal_precision,
+        case_rows=case_rows,
+        output_key=output_key,
+        group_key=group_key,
+        subtotal=subtotal,
+        grand_total_key=grand_total_key,
+        cobc_flags=cobc_flags
     )

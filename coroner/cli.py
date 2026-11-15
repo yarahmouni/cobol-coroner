@@ -126,8 +126,9 @@ def run_verify(
     
     # Step 4: Collect inputs and compute run_id
     step_start = time.time()
+    cobol_flags = schema_obj.cobc_flags or []
     inputs_data = collect_inputs(cobol_path, copybooks_dir, java_path, schema_path, 
-                                  cases_csv_path, seed, num_cases)
+                                  cases_csv_path, seed, num_cases, cobol_flags)
     run_id = compute_run_id(inputs_data)
     run_dir = Path(base_dir) / "runs" / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -145,13 +146,14 @@ def run_verify(
     # Step 5: Compile COBOL reference
     step_start = time.time()
     cobol_binary = str(build_dir / program_name)
-    compile_cobol(cobol_path, copybooks_dir, cobol_binary, [])
+    cobol_flags = schema_obj.cobc_flags or []
+    compile_cobol(cobol_path, copybooks_dir, cobol_binary, cobol_flags)
     record_step("Compile COBOL reference", step_start)
     
     # Step 5b: Compile COBOL coverage
     step_start = time.time()
     cobol_coverage_binary = str(build_dir / "coverage" / program_name)
-    compile_cobol(cobol_path, copybooks_dir, cobol_coverage_binary, ["-ftraceall"])
+    compile_cobol(cobol_path, copybooks_dir, cobol_coverage_binary, cobol_flags + ["-ftraceall"])
     record_step("Compile COBOL coverage", step_start)
     
     # Step 5c: Compile Java
@@ -309,6 +311,12 @@ def verify_command(cobol: str, copybooks: str, java: str, schema: str,
         print(f"{verdict.status}: {verdict.sub_label}")
         print(f"Paragraph coverage {coverage['paragraphs_covered']}/{coverage['paragraphs_total']}")
         print(f"Branch coverage (Coroner definition) {coverage['branches_covered']}/{coverage['branches_total']}")
+        
+        # Print exposure if present
+        if verdict.exposure_sum is not None:
+            matches_text = "yes" if verdict.grand_total_matches else "no"
+            print(f"Unreconciled branch exposure: sum {verdict.exposure_sum:.2f}, max {verdict.exposure_max:.2f}, {verdict.affected_branches} branches affected, grand total matches: {matches_text}")
+        
         print(verdict.validation_notice)
         print(f"Run: {run_dir}")
         print(f"Duration: {total_time:.1f} s")

@@ -315,6 +315,11 @@ def generate_cases(
     """
     rng = random.Random(seed)
     
+    # Check if we are generating multiple rows per case
+    if schema.case_rows:
+        return generate_batch_cases(schema, cobol_structure, seed, num_cases, tie_share, base_dir)
+    
+    # Original single-row-per-case logic
     # Calculate number of targeted cases
     num_ties = int(num_cases * tie_share)
     
@@ -407,5 +412,103 @@ def generate_cases(
         writer = csv.DictWriter(f, fieldnames=column_names, lineterminator='\n')
         writer.writeheader()
         writer.writerows(rows)
+    
+    return str(output_path)
+
+
+def generate_batch_cases(
+    schema: Schema,
+    cobol_structure: dict,
+    seed: int,
+    num_cases: int,
+    tie_share: float,
+    base_dir: str
+) -> str:
+    """
+    Generate batch cases with multiple rows per CASE-ID.
+    
+    When schema.case_rows is declared, emit between min and max input rows
+    per case, all with the same CASE-ID.
+    """
+    rng = random.Random(seed)
+    
+    min_rows = schema.case_rows['min']
+    max_rows = schema.case_rows['max']
+    
+    all_rows = []
+    
+    for case_idx in range(1, num_cases + 1):
+        case_id = generate_case_id(case_idx, 10)
+        
+        # Draw number of rows for this case using random()
+        num_rows = min_rows + int(rng.random() * (max_rows - min_rows + 1))
+        if num_rows > max_rows:
+            num_rows = max_rows
+        
+        # Generate num_rows input rows for this case
+        for _ in range(num_rows):
+            row = {'CASE-ID': case_id}
+            
+            # Generate values for all other input columns
+            for col in schema.input_columns:
+                if col.name == 'CASE-ID':
+                    continue
+                
+                if col.type == 'decimal':
+                    # Draw by magnitude
+                    import re
+                    digit_match = re.search(r'9\((\d+)\)', col.pic)
+                    if digit_match:
+                        max_int_digits = int(digit_match.group(1))
+                    else:
+                        max_int_digits = col.pic.count('9') - (col.scale or 0)
+                    
+                    value = draw_decimal_by_magnitude(rng, max_int_digits, col.scale or 0, col.signed)
+                    row[col.name] = format_decimal(value, col.scale or 0, col.signed)
+                
+                elif col.type == 'integer':
+                    import re
+                    digit_match = re.search(r'9\((\d+)\)', col.pic)
+                    if digit_match:
+                        max_val = 10 ** int(digit_match.group(1)) - 1
+                    else:
+                        max_val = 10 ** col.pic.count('9') - 1
+                    value = draw_int(rng, 0, max_val)
+                    row[col.name] = str(value)
+                
+                elif col.type == 'string':
+                    # Draw random string or empty
+                    import re
+                    len_match = re.search(r'X\((\d+)\)', col.pic)
+                    if len_match:
+                        max_len = int(len_match.group(1))
+                    else:
+                        max_len = 1
+                    
+                    # Simple random letter or empty
+                    if rng.random() < 0.5:
+                        # Generate a random uppercase letter or digit
+                        chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -'
+                        length = draw_int(rng, 0, min(max_len, 3))
+                        value = ''.join(chars[draw_int(rng, 0, len(chars) - 1)] for _ in range(length))
+                        row[col.name] = value
+                    else:
+                        row[col.name] = ''
+            
+            all_rows.append(row)
+    
+    # Write CSV with LF line endings
+    output_dir = Path(base_dir) / 'runs' / 'temp'
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / 'generated_cases.csv'
+    
+    # Get column names from schema
+    column_names = [col.name for col in schema.input_columns]
+    
+    # Write with explicit LF
+    with open(output_path, 'w', encoding='utf-8', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=column_names, lineterminator='\n')
+        writer.writeheader()
+        writer.writerows(all_rows)
     
     return str(output_path)

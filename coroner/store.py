@@ -49,6 +49,10 @@ def compute_run_id(inputs: dict) -> str:
         }
     }
     
+    # Include cobc_flags if present (D-36: part of certificate content)
+    if "cobc_flags" in inputs:
+        data["cobc_flags"] = inputs["cobc_flags"]
+    
     canonical = json.dumps(data, sort_keys=True, separators=(',', ':'))
     hasher.update(canonical.encode('utf-8'))
     
@@ -62,7 +66,8 @@ def collect_inputs(
     schema_path: str,
     cases_file: str,
     seed: int,
-    case_count: int
+    case_count: int,
+    cobc_flags: list[str] | None = None
 ) -> dict:
     """
     Collect all metadata for inputs.json.
@@ -71,7 +76,7 @@ def collect_inputs(
     copybook_hashes, seed, random_seed, case_count, cases_file_sha256,
     cases_file_encoding, cases_file_line_ending, python_version,
     cobc_version, javac_version, java_version, coroner_version,
-    comparison_engine_sha256, timestamp.
+    comparison_engine_sha256, timestamp, and optionally cobc_flags.
     
     Args:
         cobol_source: Path to COBOL source file
@@ -81,6 +86,7 @@ def collect_inputs(
         cases_file: Path to generated cases CSV
         seed: Random seed
         case_count: Number of cases
+        cobc_flags: Optional list of additional COBOL compiler flags
         
     Returns:
         Complete inputs.json dict
@@ -158,7 +164,7 @@ def collect_inputs(
     # Timestamp UTC ISO 8601
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     
-    return {
+    result = {
         "cobol_source_sha256": cobol_hash,
         "java_source_sha256": java_hash,
         "schema_sha256": schema_hash,
@@ -177,6 +183,11 @@ def collect_inputs(
         "comparison_engine_sha256": comparison_engine_sha256,
         "timestamp": timestamp
     }
+    
+    if cobc_flags:
+        result["cobc_flags"] = cobc_flags
+    
+    return result
 
 
 def store_inputs(run_dir: str, inputs_data: dict) -> None:
@@ -211,6 +222,13 @@ def store_verdict(run_dir: str, verdict: Verdict) -> None:
         "run_return_codes": verdict.run_return_codes,
         "validation_notice": verdict.validation_notice
     }
+    
+    # Add exposure fields if present
+    if verdict.exposure_sum is not None:
+        verdict_data["exposure_sum"] = str(verdict.exposure_sum)
+        verdict_data["exposure_max"] = str(verdict.exposure_max)
+        verdict_data["affected_branches"] = verdict.affected_branches
+        verdict_data["grand_total_matches"] = verdict.grand_total_matches
     
     verdict_path = os.path.join(run_dir, "verdict.json")
     

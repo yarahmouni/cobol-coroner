@@ -393,3 +393,9 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Design point found by the operator for T1: a plain grouping by branch cannot diverge (subtotals are order independent); the trap uses an order-dependent sequential match (balance line) against a branch table in EBCDIC order, with a suspense branch so the TOTAL row still matches. Approved by the owner.
 - Calls traps-spec and traps-spec2 (sonnet): .kiro/specs/fault-catalog/ rewritten for D-46 (six traps, T6 placeholder), engine extension (case_rows, output_key, group_key, subtotal, grand_total_key, Unreconciled branch exposure), catalog runner, Given/When/Then card, MCP wiring. Owner review applied: T4 compiled with -fsign=EBCDIC through per-program cobc_flags recorded in inputs.json and the certificate hash; T3 certified cases use only preferred nibbles (C, D, F), B difference documented; T1 acceptance checks equal TOTAL rows and divergent subtotals with measured numbers; tasks in checkbox format.
 - Kiro balance: plan 293.31 of 531 used (237.69 left); bonus Trial credits: 0.00/500.
+
+### R-63 2026-11-15: trap catalog task 1 (engine extension)
+- Call ct1 (sonnet): optional schema keys case_rows, output_key, group_key, subtotal, grand_total_key (Unreconciled branch exposure, Decimal, no rounding) and cobc_flags (applied to the reference and coverage builds, recorded in inputs.json and the certificate hash, re-applied on replay).
+- Operator non-regression checks: make demo ALIVE on 2000 cases; make zombie ZOMBIE 86 divergences; make acceptance 22 passed with exactly the R-55 counts (86, 83, 84, 80, 75, 78, 68, 85, 80, 77); an existing certificate (run a26c32ac9519) still replays VALID.
+- Tests: .
+- Kiro balance: plan 308.93 of 531 used (222.07 left); bonus Trial credits: 0.00/500.
