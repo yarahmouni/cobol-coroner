@@ -1,8 +1,8 @@
 {
   "mcpServers": {
-    "lazarus": {
+    "coroner": {
       "command": ".venv/bin/python",
-      "args": ["-m", "lazarus.mcp"]
+      "args": ["-m", "coroner.mcp"]
     }
   }
 }

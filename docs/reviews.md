@@ -2,7 +2,9 @@
 
 Every Kiro step is reviewed by the operator (Claude Code) against `.kiro/steering/` and `docs/` before commit. Kiro writes all code, specs, designs and tasks; fixes are sent back to Kiro until clean.
 
-Kiro is driven with `kiro-cli chat --no-interactive --agent lazarus-builder` (agent config outside the repo: file writes auto-approved inside this workspace only, shell limited to an allowlist, `rm`, `git`, `sudo`, `brew`, `curl`, `wget` denied).
+Names in entries before R-21 use the post-rename names (D-19: COBOL Coroner, package `coroner`).
+
+Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (agent config outside the repo: file writes auto-approved inside this workspace only, shell limited to an allowlist, `rm`, `git`, `sudo`, `brew`, `curl`, `wget` denied).
 
 ## S0
 
@@ -12,18 +14,18 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent lazarus-builder` (ag
 
 ### R-02 2026-11-15: s0-toolchain design.md (leftovers)
 - Fix 1: line 70, base image said "Alpine or Debian slim". Now "Debian slim base pinned by digest", no Alpine (consistent with Component 2).
-- Fix 2: diagram label `lazarus_mcp` renamed `lazarus/mcp` (matches `docs/architecture.md` module name).
+- Fix 2: diagram label `coroner_mcp` renamed `coroner/mcp` (matches `docs/architecture.md` module name).
 - Checks: no other Alpine mention, no em dash in the repo.
 - Status: clean.
 
 ### R-03 2026-11-15: s0-toolchain tasks.md
 - Generated: 19 tasks, checkbox + `_Requirements_` + `Done when`, coverage table (all 9 criteria covered).
-- Fixes sent (10): push task turned into an owner step (git push needs owner approval, branch protection moved there); build outputs under `build/` only; objective Done when for trace capture (note yes/no in tasks.md); pytest as dev extra with `pip install -e ".[dev]"` and pytest config; Dockerfile task checks package versions in the Debian slim base first, Python 3.12 + JDK 17 image pinned by digest, GnuCOBOL 3.2.0 from tarball with sha256 if needed, copies `lazarus/`; run_smoke.sh must pass on host; MCP tests via a real stdio client incl. missing `project_id` error; Kiro MCP check made non-interactive; CI adds a license-free secret scan (quality.md), pinned actions, `make test`; task 19 no longer claims "cobc compiles the sample" (that is the cobol-sample spec).
+- Fixes sent (10): push task turned into an owner step (git push needs owner approval, branch protection moved there); build outputs under `build/` only; objective Done when for trace capture (note yes/no in tasks.md); pytest as dev extra with `pip install -e ".[dev]"` and pytest config; Dockerfile task checks package versions in the Debian slim base first, Python 3.12 + JDK 17 image pinned by digest, GnuCOBOL 3.2.0 from tarball with sha256 if needed, copies `coroner/`; run_smoke.sh must pass on host; MCP tests via a real stdio client incl. missing `project_id` error; Kiro MCP check made non-interactive; CI adds a license-free secret scan (quality.md), pinned actions, `make test`; task 19 no longer claims "cobc compiles the sample" (that is the cobol-sample spec).
 - Accepted as is: task 12 Done when still mentions "waits for stdin input" (harmless, task 13 tests are the real check).
 - Status: clean.
 
 ### R-04 2026-11-15: s0-toolchain task 1 (pyproject.toml)
-- Fixes sent (3): `mcp==0.9.0` was an obsolete pre-1.0 SDK, now `mcp==2.3.0` (pytest 9.2.0, pyyaml 6.0.3); setuptools discovery restricted to `lazarus*` (flat layout with smoke/ and tests/); build requirement pinned (`setuptools==75.6.0`).
+- Fixes sent (3): `mcp==0.9.0` was an obsolete pre-1.0 SDK, now `mcp==2.3.0` (pytest 9.2.0, pyyaml 6.0.3); setuptools discovery restricted to `coroner*` (flat layout with smoke/ and tests/); build requirement pinned (`setuptools==75.6.0`).
 - Status: clean.
 
 ### R-05 2026-11-15: s0-toolchain task 2 (.venv)
@@ -46,7 +48,7 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent lazarus-builder` (ag
 
 ### R-09 2026-11-15: s0-toolchain task 5 (trace parser)
 - Checked: `parse_trace` reads only the `Line: N` field, returns {9, 10, 11, 16, 17} on the fixture, FileNotFoundError and ValueError as designed.
-- Fix sent (1): missing `lazarus/__init__.py` (regular package discovery would drop `lazarus` in a non-editable install, i.e. Docker).
+- Fix sent (1): missing `coroner/__init__.py` (regular package discovery would drop `coroner` in a non-editable install, i.e. Docker).
 - Follow-up for S1 (not S0 scope): with copybooks the trace has several `Source:` files, so line numbers must be keyed by source file.
 - Status: clean.
 
@@ -79,11 +81,11 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent lazarus-builder` (ag
 - Status: clean.
 
 ### R-15 2026-11-15: s0-toolchain task 14 (.kiro/settings/mcp.json)
-- Checked: matches design (command `.venv/bin/python`, args `-m lazarus.mcp`), valid JSON.
+- Checked: matches design (command `.venv/bin/python`, args `-m coroner.mcp`), valid JSON.
 - Status: clean.
 
 ### R-16 2026-11-15: s0-toolchain task 15 (Kiro lists and calls get_verdict)
-- Verified by the operator: `kiro-cli mcp list` shows `lazarus` from the workspace mcp.json; a non-interactive Kiro chat called `@lazarus/get_verdict` (project_id "test") and got the exact stub verdict, isError false. Evidence note added under task 15.
+- Verified by the operator: `kiro-cli mcp list` shows `coroner` from the workspace mcp.json; a non-interactive Kiro chat called `@coroner/get_verdict` (project_id "test") and got the exact stub verdict, isError false. Evidence note added under task 15.
 - Status: clean. S0 acceptance item "Kiro lists and calls get_verdict": met.
 
 ### R-17 2026-11-15: s0-toolchain task 16 (CI workflow)
@@ -109,3 +111,10 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent lazarus-builder` (ag
 - Round 2 (9 fixes): BUG stale state between records (no INITIALIZE, a valid record left A00 so the next record skipped validation and reused old numbers); BUG overflow E01 overwritten by eligibility; BUG silent truncation by MOVE of NUMVAL made range and decimal checks useless (now: moved value must equal NUMVAL of the text); UNSTRING ON OVERFLOW for extra fields; CASE-ID longer than 10 is E01; FILE STATUS bound; empty input file handled; every IF has an ELSE; verified tie examples (computed with Python Decimal); byte-exact regression test; one validation fixture row per E01 cause plus a no-leak check.
 - Round 3 (3 fixes): segment length tested on the 1-character field (never true); CASE-ID cut at an embedded space; OUTPUT-LINE not cleared before STRING.
 - Status: clean.
+
+### R-21 2026-11-15: rename to COBOL Coroner (D-19, D-20), part 1 and part of part 2
+- Repo renamed on GitHub to `yarahmouni/cobol-coroner` (owner approved), local remote updated. Operator agent renamed `coroner-builder` (trusts `@coroner`).
+- Code (Kiro, verified): package folder renamed to `coroner/`, imports, pyproject name `cobol-coroner`, MCP server `coroner`, verdict `ALIVE` with "PASS: business behavior preserved on 1 case (stub)", mcp.json, tests, smoke script, Dockerfile user `coroner`. Tests: `pytest` 7 passed, `smoke/run_smoke.sh` PASSED, no old project name or old verdict label left in code.
+- Dockerfile review (task 8, still open): Kiro's GnuCOBOL sha256 was invented (its download had failed); the operator downloaded gnucobol-3.2.tar.xz and computed 3bb48af46ced4779facf41fdc2ee60e4ccb86eaa99d010b36685315df39c2ee2, now in the Dockerfile. Pin libdb5.3 corrected to 5.3.28+dfsg2-1 (checked with apt-cache in the pinned base image). Debian bookworm only has gnucobol3 3.1.2, so the source build is justified. Image not built yet.
+- Docs (Kiro, verified): README (title, subtitle, description, slogan, ALIVE/ZOMBIE sub-labels), product.md (D-18 rules), no-formal-proof.md, quality.md, architecture.md, sprints.md, s0-checklist.md, s0 requirements, part of s0 design; D-18, D-19, D-20 logged.
+- Not done: Kiro hit "monthly usage limit has been reached" (50/50 credits, reset 2026-12-01) before finishing decisions D-02/D-07/D-08/D-13 wording, the rest of s0-toolchain design.md and tasks.md, and cobol-sample design.md.

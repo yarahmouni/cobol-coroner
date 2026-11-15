@@ -9,10 +9,10 @@ from mcp.client.stdio import StdioServerParameters, stdio_client
 
 
 async def run_mcp_session(coro):
-    """Open stdio session to lazarus.mcp and run a coroutine."""
+    """Open stdio session to coroner.mcp and run a coroutine."""
     server_params = StdioServerParameters(
         command=sys.executable,
-        args=["-m", "lazarus.mcp"],
+        args=["-m", "coroner.mcp"],
         cwd=Path(__file__).parent.parent
     )
     async with stdio_client(server_params) as (read, write):
@@ -40,10 +40,10 @@ def test_get_verdict_success():
         result = await session.call_tool("get_verdict", arguments={"project_id": "test"})
         assert result.is_error is False
         expected = {
-            "verdict": "VIVANT",
+            "verdict": "ALIVE",
             "divergences": 0,
             "test_cases": 1,
-            "message": "0 divergence found on 1 case (stub)"
+            "message": "PASS: business behavior preserved on 1 case (stub)"
         }
         assert result.structured_content == expected
         

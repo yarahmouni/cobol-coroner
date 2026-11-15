@@ -1,7 +1,7 @@
 # S0 checklist (macOS)
 
 1. Register for Kiroween: https://kiroween.devpost.com
-2. Create the public repo `yarahmouni/cobol-lazarus`, license Apache-2.0, then upload this folder: https://github.com/new
+2. Create the public repo `yarahmouni/cobol-coroner`, license Apache-2.0, then upload this folder: https://github.com/new
 3. Install Kiro: https://kiro.dev/downloads
 4. Install Docker Desktop: https://www.docker.com/products/docker-desktop/
 5. Install Homebrew if missing: https://brew.sh

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Smoke test runner for COBOL Lazarus S0 toolchain validation.
+# Smoke test runner for COBOL Coroner S0 toolchain validation.
 # Runs on host (with .venv) and in Docker container.
 # Exits 0 with 'Smoke test PASSED' if all checks succeed, exits 1 otherwise.
 
@@ -43,7 +43,7 @@ echo "[COBOL] toy executed successfully"
 
 # Parse trace and count line numbers
 LINE_COUNT=$($PYTHON -c "
-from lazarus.parse.trace import parse_trace
+from coroner.parse.trace import parse_trace
 lines = parse_trace('build/toy_trace.txt')
 print(len(lines))
 ")

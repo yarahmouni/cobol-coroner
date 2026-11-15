@@ -1,4 +1,4 @@
-"""MCP server for COBOL Lazarus."""
+"""MCP server for COBOL Coroner."""
 
 import sys
 from dataclasses import dataclass
@@ -8,16 +8,16 @@ from mcp.server.mcpserver import MCPServer
 
 @dataclass
 class Verdict:
-    verdict: Literal["VIVANT", "ZOMBIE"]
+    verdict: Literal["ALIVE", "ZOMBIE"]
     divergences: int
     test_cases: int
     message: str
 
 
 server = MCPServer(
-    name="lazarus",
-    title="COBOL Lazarus",
-    description="The zombie detector for COBOL to Java migrations",
+    name="coroner",
+    title="COBOL Coroner",
+    description="The independent regression auditor for COBOL-to-Java migrations",
     version="0.1.0"
 )
 
@@ -35,8 +35,8 @@ def get_verdict(project_id: str) -> Verdict:
     print(f"[get_verdict] Called with project_id={project_id!r}", file=sys.stderr)
     
     return Verdict(
-        verdict="VIVANT",
+        verdict="ALIVE",
         divergences=0,
         test_cases=1,
-        message="0 divergence found on 1 case (stub)"
+        message="PASS: business behavior preserved on 1 case (stub)"
     )

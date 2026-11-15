@@ -20,7 +20,7 @@ Prove, before building the engine, that the three risky foundations work: GnuCOB
 3. THE SYSTEM SHALL run as a non-root user.
 
 ### Requirement 3: MCP smoke test
-**User Story:** As a Kiro user, I want Kiro to call Lazarus through MCP.
+**User Story:** As a Kiro user, I want Kiro to call Coroner through MCP.
 
 #### Acceptance Criteria
 1. THE SYSTEM SHALL expose a local MCP server with one tool, `get_verdict`, returning a fixed JSON verdict.

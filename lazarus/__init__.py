@@ -1,1 +1,0 @@
-"""COBOL Lazarus verification engine."""

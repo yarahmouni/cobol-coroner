@@ -2,9 +2,9 @@
 
 ## Overview
 
-This spec establishes the three foundational capabilities required before building the Lazarus verification engine: GnuCOBOL 3.2 tracing for coverage computation, a reproducible Docker runtime environment, and integration with Kiro through a local MCP server.
+This spec establishes the three foundational capabilities required before building the Coroner verification engine: GnuCOBOL 3.2 tracing for coverage computation, a reproducible Docker runtime environment, and integration with Kiro through a local MCP server.
 
-The design validates that GnuCOBOL can produce parseable execution traces, that a single container image can host both the reference COBOL runtime (GnuCOBOL 3.2) and the target Java 17 runtime, and that Kiro can discover and invoke Lazarus functionality through the Model Context Protocol.
+The design validates that GnuCOBOL can produce parseable execution traces, that a single container image can host both the reference COBOL runtime (GnuCOBOL 3.2) and the target Java 17 runtime, and that Kiro can discover and invoke Coroner functionality through the Model Context Protocol.
 
 Success criteria: a toy COBOL program with conditional logic produces a trace listing executed line numbers; a Docker container runs both COBOL and Java smoke tests as a non-root user; Kiro successfully calls a stub MCP tool that returns a fixed verdict.
 
@@ -28,7 +28,7 @@ Success criteria: a toy COBOL program with conditional logic produces a trace li
 │         │ stdio                                             │
 │         v                                                    │
 │  ┌──────────────┐                                           │
-│  │ lazarus/mcp  │ (Python)                                 │
+│  │ coroner/mcp  │ (Python)                                 │
 │  │ server       │                                           │
 │  │              │                                           │
 │  │ tool:        │                                           │
@@ -37,7 +37,7 @@ Success criteria: a toy COBOL program with conditional logic produces a trace li
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
-│ Docker container (lazarus:smoke)                            │
+│ Docker container (coroner:smoke)                            │
 │                                                              │
 │  GnuCOBOL 3.2     JDK 17        Python 3.12                 │
 │                                                              │
@@ -67,8 +67,8 @@ Success criteria: a toy COBOL program with conditional logic produces a trace li
 ### Key decisions
 
 - GnuCOBOL tracing uses `-ftraceall` compile flag and `COB_SET_TRACE=Y` runtime environment variable. If line numbers are not present in the trace output, fallback to DISPLAY-based markers (decision D-07).
-- Docker image uses Debian slim base pinned by digest with pinned versions of GnuCOBOL 3.2.0, OpenJDK 17, and Python 3.12. Non-root user `lazarus` runs all processes.
-- MCP server runs as a stdio process launched by Kiro. Initial stub returns a hardcoded VIVANT verdict with zero divergences.
+- Docker image uses Debian slim base pinned by digest with pinned versions of GnuCOBOL 3.2.0, OpenJDK 17, and Python 3.12. Non-root user `coroner` runs all processes.
+- MCP server runs as a stdio process launched by Kiro. Initial stub returns a hardcoded ALIVE verdict with zero divergences.
 - Trace parser extracts line numbers using regex or simple text parsing; no complex grammar required at this stage.
 
 ## Components and Interfaces
@@ -106,7 +106,7 @@ python3.12 -m venv .venv
 
 **Purpose:** Parse execution trace files produced by GnuCOBOL and return the set of executed line numbers.
 
-**Location:** `lazarus/parse/trace.py`
+**Location:** `coroner/parse/trace.py`
 
 **Interface:**
 ```python
@@ -161,8 +161,8 @@ smoke/
 **Makefile target:**
 ```make
 smoke:
-    docker build -t lazarus:smoke .
-    docker run --rm lazarus:smoke
+    docker build -t coroner:smoke .
+    docker run --rm coroner:smoke
 ```
 
 **Expected output:**

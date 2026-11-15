@@ -2,7 +2,7 @@
 
 import pytest
 from pathlib import Path
-from lazarus.parse.trace import parse_trace
+from coroner.parse.trace import parse_trace
 
 
 FIXTURES = Path(__file__).parent / "fixtures"

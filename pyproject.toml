@@ -1,7 +1,7 @@
 [project]
-name = "cobol-lazarus"
+name = "cobol-coroner"
 version = "0.1.0"
-description = "The zombie detector for COBOL to Java migrations"
+description = "The independent regression auditor for COBOL-to-Java migrations"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.12"
@@ -20,7 +20,7 @@ requires = ["setuptools==75.6.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["lazarus*"]
+include = ["coroner*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
