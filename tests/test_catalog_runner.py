@@ -8,10 +8,10 @@ from coroner.traps import run_catalog
 
 
 @pytest.mark.slow
-def test_catalog_runner_200_cases():
+def test_catalog_runner_200_cases(tmp_path):
     """Test catalog runner with 200 cases."""
     # Run catalog with small case count
-    catalog = run_catalog(seed=42, cases=200)
+    catalog = run_catalog(seed=42, cases=200, base_dir=str(tmp_path))
     
     assert "traps" in catalog
     traps = catalog["traps"]
@@ -64,15 +64,15 @@ def test_catalog_runner_200_cases():
 
 
 @pytest.mark.slow
-def test_catalog_json_written():
+def test_catalog_json_written(tmp_path):
     """Test that catalog JSON is written."""
-    catalog = run_catalog(seed=42, cases=200)
+    catalog = run_catalog(seed=42, cases=200, base_dir=str(tmp_path))
     
     from coroner.traps import write_catalog_files
-    write_catalog_files(catalog)
+    write_catalog_files(catalog, base_dir=str(tmp_path))
     
     # Check JSON exists
-    json_path = Path("runs/trap_catalog.json")
+    json_path = tmp_path / "runs" / "trap_catalog.json"
     assert json_path.exists()
     
     # Check it's valid JSON with sorted keys
@@ -85,7 +85,7 @@ def test_catalog_json_written():
     assert len(data["traps"]) == 6
     
     # Check text file exists
-    txt_path = Path("runs/trap_catalog.txt")
+    txt_path = tmp_path / "runs" / "trap_catalog.txt"
     assert txt_path.exists()
     
     with open(txt_path) as f:
@@ -102,3 +102,33 @@ def test_catalog_json_written():
     assert "proven" not in text.lower()
     assert "proves" not in text.lower()
     assert "guaranteed" not in text.lower()
+
+
+
+def test_catalog_does_not_overwrite_real_file(tmp_path):
+    """Test that catalog runner never overwrites the repository's runs/trap_catalog.json."""
+    import hashlib
+    import os
+    
+    repo_catalog_path = Path("runs/trap_catalog.json")
+    
+    # Record mtime and SHA-256 if it exists
+    if repo_catalog_path.exists():
+        original_mtime = os.path.getmtime(repo_catalog_path)
+        with open(repo_catalog_path, "rb") as f:
+            original_hash = hashlib.sha256(f.read()).hexdigest()
+    else:
+        original_mtime = None
+        original_hash = None
+    
+    # Run catalog in tmp_path
+    run_catalog(seed=42, cases=30, base_dir=str(tmp_path))
+    
+    # Check the repository file was not touched
+    if original_mtime is not None:
+        new_mtime = os.path.getmtime(repo_catalog_path)
+        assert new_mtime == original_mtime, "Repository catalog mtime changed"
+        
+        with open(repo_catalog_path, "rb") as f:
+            new_hash = hashlib.sha256(f.read()).hexdigest()
+        assert new_hash == original_hash, "Repository catalog SHA-256 changed"

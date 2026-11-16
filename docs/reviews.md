@@ -532,3 +532,9 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Priority 9 (EBCDIC/control-break demo with branch exposure): done. Deferred to hardening: catalog-wide JUnit verification (task 11), suite duration.
 - The pre-commit guard blocked this commit: tests/test_demo_ebcdic.py contained the literal home path prefix used by its own absolute-path heuristic. Fixed (call guardfix, sonnet): the check now uses Path.home(), the pattern "Run: /" and os.path.isabs on run-path tokens, with no home prefix in the file.
 - Kiro balance (2026-11-16, evening reading): plan 405.95 of 531 used (125.05 left); kiroween2026 397.01 of 4000 used (3602.99 left); trial 0.00 of 500 used.
+
+### R-84 2026-11-16: catalog tests no longer overwrite the real Detection Matrix
+- Found by the operator on the UI: the Detection Matrix page showed 200-case numbers (T1 33 of 200) because tests/test_catalog_runner.py called run_catalog without a base directory, so every default pytest run overwrote runs/trap_catalog.json and .txt (the committed README numbers were not affected). Same class of fault as the MCP tests fixed in R-75.
+- Call catfix (sonnet): every run_catalog call in tests/ passes a pytest tmp_path; a new test records the SHA-256 and mtime of runs/trap_catalog.json before a catalog run in tmp_path and asserts both unchanged.
+- Operator check: SHA-256 of runs/trap_catalog.json identical before and after `pytest tests/test_catalog_runner.py`; the real catalog is regenerated with `make traps` (2000 cases, seed 42) after tonight's commits.
+- Kiro balance (2026-11-16, evening reading): plan 405.95 of 531 used (125.05 left); kiroween2026 397.01 of 4000 used (3602.99 left); trial 0.00 of 500 used.
