@@ -9,7 +9,7 @@ from coroner.parse.schema import Schema
 def select_minimal_case(
     divergent_cases: list[CaseResult],
     schema: Schema,
-    input_rows: dict[str, dict]
+    input_rows: dict[str, dict | list[dict]]
 ) -> CaseResult:
     """
     Select the minimal failing case from divergent cases.
@@ -18,10 +18,12 @@ def select_minimal_case(
     in schema order by absolute Decimal value (smallest first), then by case_id.
     Non-numeric values sort last.
     
+    For multi-row cases, uses the first row's numeric values.
+    
     Args:
         divergent_cases: List of divergent CaseResult objects
         schema: Schema with input column definitions
-        input_rows: Dict mapping case_id to input row dict
+        input_rows: Dict mapping case_id to input row dict (or list of dicts for multi-row)
         
     Returns:
         The minimal CaseResult
@@ -36,7 +38,14 @@ def select_minimal_case(
         Returns tuple: (numeric_values, case_id)
         where numeric_values is list of (is_numeric, abs_value)
         """
-        input_row = input_rows.get(case.case_id, {})
+        case_data = input_rows.get(case.case_id, {})
+        
+        # Handle multi-row cases: use first row
+        if isinstance(case_data, list):
+            input_row = case_data[0] if case_data else {}
+        else:
+            input_row = case_data
+        
         numeric_values = []
         
         for col in schema.input_columns:

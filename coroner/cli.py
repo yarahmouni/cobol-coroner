@@ -260,9 +260,22 @@ def run_verify(
         input_rows = {}
         with open(cases_csv_path, 'r') as f:
             reader = csv.DictReader(f)
-            for row in reader:
-                case_id = row.get('CASE-ID', '')
-                input_rows[case_id] = row
+            
+            # Check if this is a multi-row schema
+            is_multirow = hasattr(schema_obj, 'case_rows') and schema_obj.case_rows is not None
+            
+            if is_multirow:
+                # Group rows by CASE-ID
+                for row in reader:
+                    case_id = row.get('CASE-ID', '')
+                    if case_id not in input_rows:
+                        input_rows[case_id] = []
+                    input_rows[case_id].append(row)
+            else:
+                # Single row per case
+                for row in reader:
+                    case_id = row.get('CASE-ID', '')
+                    input_rows[case_id] = row
         
         # Select minimal case
         from coroner.diag.minimal_case import select_minimal_case
@@ -273,7 +286,10 @@ def run_verify(
         failure_report = generate_failure_report(
             minimal_case, input_rows, schema_obj,
             cobol_coverage_binary, java_class, str(build_dir / "java"),
-            str(run_dir)
+            str(run_dir),
+            cobol_source_path=cobol_path,
+            copybooks_path=copybooks_dir,
+            java_source_path=java_path
         )
         
         # Generate Given/When/Then card
@@ -285,24 +301,42 @@ def run_verify(
             f.write(card_text)
         
         # Store failure report with card
+        report_dict = {
+            "case_id": failure_report.case_id,
+            "input_row": failure_report.input_row,
+            "cobol_output": failure_report.cobol_output,
+            "java_output": failure_report.java_output,
+            "divergent_fields": failure_report.divergent_fields,
+            "cobol_return_code": failure_report.cobol_return_code,
+            "java_return_code": failure_report.java_return_code,
+            "executed_lines": [(src, line) for src, line in failure_report.executed_lines],
+            "card": card_text
+        }
+        
+        # Add multi-row fields if present
+        if failure_report.original_case_rows is not None:
+            report_dict["original_case_rows"] = failure_report.original_case_rows
+        if failure_report.minimal_case_rows is not None:
+            report_dict["minimal_case_rows"] = failure_report.minimal_case_rows
+        
         with open(run_dir / "failure_report.json", 'w') as f:
-            json.dump({
-                "case_id": failure_report.case_id,
-                "input_row": failure_report.input_row,
-                "cobol_output": failure_report.cobol_output,
-                "java_output": failure_report.java_output,
-                "divergent_fields": failure_report.divergent_fields,
-                "cobol_return_code": failure_report.cobol_return_code,
-                "java_return_code": failure_report.java_return_code,
-                "executed_lines": [(src, line) for src, line in failure_report.executed_lines],
-                "card": card_text
-            }, f, indent=2)
+            json.dump(report_dict, f, indent=2)
         
         # Generate JUnit regression test with card as header comment
         from coroner.diag.junit import generate_junit_test
+        
+        # For JUnit test, use the appropriate input
+        if is_multirow and failure_report.minimal_case_rows:
+            # Use minimal rows for the test
+            junit_input = failure_report.minimal_case_rows[0] if failure_report.minimal_case_rows else {}
+        else:
+            junit_input = input_rows[minimal_case.case_id]
+            if isinstance(junit_input, list):
+                junit_input = junit_input[0] if junit_input else {}
+        
         generate_junit_test(
             minimal_case,
-            input_rows[minimal_case.case_id],
+            junit_input,
             failure_report.cobol_output,
             java_class,
             schema_obj,
