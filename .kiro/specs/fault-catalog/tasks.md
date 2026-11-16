@@ -87,7 +87,7 @@ Done when:
 - Run the engine on the fixture: faulty Java ZOMBIE with divergent OUTPUT-VALUE on "12A45"; correct Java ALIVE.
 - pytest passes.
 
-- [ ] 7. Trap 6 (T6-reserved) placeholder
+- [x] 7. Trap 6 (T6-reserved) placeholder
 
 _Requirements: Req 6. Reserved slot for the owner's real field trap._
 

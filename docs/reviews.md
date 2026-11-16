@@ -452,3 +452,7 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Call ct6 (sonnet). Low-nibble rule with carry (evidence file); output value plus fee and a NUMERIC-OK flag; dirty-numeric generator option (minority of values with one invalid byte). Spec sentence about T3 packed decoding corrected (two digit nibbles per byte).
 - Operator verification: fixture rows 0012345, 0012A45, 0012J45, 0012 45 give 124.45, 122.45, 131.45, 121.45 (COBOL output, consistent with the evidence); correct Java byte-identical; verify 2000: faulty ZOMBIE 602 (0.3010), correct ALIVE; credit-fees hash and make zombie 86 unchanged.
 - Kiro balance (2026-11-16): plan 405.95 of 531 used (125.05 left); kiroween2026 215.23 of 4000 used (3784.77 left); trial 0.00 of 500 used.
+
+### R-72 2026-11-16: trap T6 placeholder
+- Call ct7 (sonnet). samples/traps/T6-reserved/README.md only, status "placeholder: owner field trap pending", no numbers; test asserts it.
+- Kiro balance (2026-11-16): plan 405.95 of 531 used (125.05 left); kiroween2026 215.23 of 4000 used (3784.77 left); trial 0.00 of 500 used.
