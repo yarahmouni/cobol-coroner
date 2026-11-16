@@ -327,22 +327,33 @@ def run_verify(
         
         # For JUnit test, use the appropriate input
         if is_multirow and failure_report.minimal_case_rows:
-            # Use minimal rows for the test
-            junit_input = failure_report.minimal_case_rows[0] if failure_report.minimal_case_rows else {}
+            # Multi-row case: pass paths to the CSV files
+            generate_junit_test(
+                minimal_case,
+                {},  # not used for multi-row
+                {},  # not used for multi-row
+                java_class,
+                schema_obj,
+                str(run_dir / "ZombieRegressionTest.java"),
+                card_text,
+                minimal_input_csv_path=str(run_dir / "minimal_case_input.csv"),
+                minimal_cobol_output_csv_path=str(run_dir / "minimal_case_cobol_output.csv")
+            )
         else:
+            # Single-row case: use existing logic
             junit_input = input_rows[minimal_case.case_id]
             if isinstance(junit_input, list):
                 junit_input = junit_input[0] if junit_input else {}
-        
-        generate_junit_test(
-            minimal_case,
-            junit_input,
-            failure_report.cobol_output,
-            java_class,
-            schema_obj,
-            str(run_dir / "ZombieRegressionTest.java"),
-            card_text
-        )
+            
+            generate_junit_test(
+                minimal_case,
+                junit_input,
+                failure_report.cobol_output,
+                java_class,
+                schema_obj,
+                str(run_dir / "ZombieRegressionTest.java"),
+                card_text
+            )
     
     record_step("Generate reports", step_start)
     

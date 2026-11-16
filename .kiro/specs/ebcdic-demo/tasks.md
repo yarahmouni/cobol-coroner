@@ -26,35 +26,41 @@ Priority 9 (D-33, D-34, D-45).
 - [ ] For schemas with group_key, include ordering and comparison statements in the COBOL lines involved, not only ADD statements.
 - [ ] **Done when**: A T1 card lists the input rows in Given, names the divergent branch and values in Then, and includes the match-merge comparison lines in the COBOL evidence.
 
-## Task 5: Demo script
+## Task 5: JUnit export for multi-row cases
+- [ ] **Requirements**: Req 4.
+- [ ] Modify `coroner/diag/junit.py`: when case_rows is present in the schema, generate a test that writes the minimal case input rows (exact content of minimal_case_input.csv) to its input file, runs the port, and asserts the port's whole output file equals the COBOL output of the minimal case (exact content of minimal_case_cobol_output.csv, embedded in the test). Single-case generation unchanged.
+- [ ] Write function `verify_junit_test(test_path, java_path, junit_jar, work_dir)` that compiles the port and the test and runs JUnit (build/junit/junit-platform-console-standalone-6.1.3.jar), returning passed or failed with the JUnit summary.
+- [ ] **Done when**: A T1 run writes ZombieRegressionTest.java that compiles, fails against the faulty port, and passes against the correct port; tested on a real small faulty T1 run.
+
+## Task 6: Demo script
 - [ ] **Requirements**: Req 5.
 - [ ] Write `scripts/demo_ebcdic.sh` per the design: faulty T1 verify (2000 cases, seed 42), print the verdict block and card, compile and run the JUnit test against both ports, replay the certificate, correct T1 verify.
 - [ ] Exit 0 only if every step behaved as expected. Otherwise exit 1 with the failing step named.
 - [ ] **Done when**: The script runs without error on the dev machine; the verdict is ZOMBIE for faulty, the JUnit test fails on faulty and passes on correct, the certificate replays VALID, the correct port is ALIVE.
 
-## Task 6: Makefile target
+## Task 7: Makefile target
 - [ ] **Requirements**: Req 5.
 - [ ] Add `demo-ebcdic` target to Makefile: `bash scripts/demo_ebcdic.sh`.
 - [ ] **Done when**: `make demo-ebcdic` runs the script and exits with its status.
 
-## Task 7: Fast tests
+## Task 8: Fast tests
 - [ ] **Requirements**: Req 6.
 - [ ] Write `tests/test_multirow_minimal.py`: test the reducer on real T1 cases, test row divergence description with output_key, test multi-row card generation.
 - [ ] **Done when**: 3 fast tests pass.
 
-## Task 8: Slow integration test
+## Task 9: Slow integration test
 - [ ] **Requirements**: Req 6.
 - [ ] Write `tests/test_demo_ebcdic.py`: marked slow, runs `make demo-ebcdic` and asserts exit 0.
 - [ ] **Done when**: The test passes; record the measured duration.
 
-## Task 9: README demo section
+## Task 10: README demo section
 - [ ] **Requirements**: Req 7.
 - [ ] Add a "Demo" section to README.md after "Trap catalog" with the `make demo-ebcdic` command and a placeholder sentence for the operator to fill with measured output.
 - [ ] **Done when**: The section exists with the command and placeholder, no number typed by hand.
 
 ## Deferred to hardening (Nov 25 to 27)
 
-## Task 10: Trap catalog JUnit verification
+## Task 11: Trap catalog JUnit verification
 - [ ] **Requirements**: Req 4.
 - [ ] Modify `coroner/traps.py`: after generating the JUnit test for each trap, call `verify_junit_test` with both the faulty and correct Java paths.
 - [ ] **Done when**: `make traps` verifies every generated JUnit test; a test that does not behave correctly stops the catalog with exit 2.
@@ -66,7 +72,7 @@ Priority 9 (D-33, D-34, D-45).
 | Req 1 (Multi-row minimal case reduction) | 1, 2 |
 | Req 2 (Row-level divergence description) | 3 |
 | Req 3 (Multi-row Given/When/Then card) | 4 |
-| Req 4 (JUnit test verification) | 10 (deferred) |
-| Req 5 (Integrated demo command) | 5, 6 |
-| Req 6 (Test coverage) | 7, 8 |
-| Req 7 (README demo section) | 9 |
+| Req 4 (JUnit test verification) | 5, 11 (deferred) |
+| Req 5 (Integrated demo command) | 6, 7 |
+| Req 6 (Test coverage) | 8, 9 |
+| Req 7 (README demo section) | 10 |
