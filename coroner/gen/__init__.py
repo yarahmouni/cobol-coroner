@@ -491,6 +491,52 @@ def generate_zoned_overpunch(rng: random.Random, digits: int, convention: str, s
     return digit_str + last_char
 
 
+def generate_dirty_numeric(
+    rng: random.Random, 
+    digits: int, 
+    dirty_chars: list[str], 
+    clean_weight: float = 0.7,
+    dirty_weight: float = 0.3
+) -> str:
+    """
+    Generate a numeric string that may contain one invalid character.
+    
+    Used for testing REDEFINES of invalid numeric data (trap T5).
+    
+    Args:
+        rng: Random number generator
+        digits: Total number of digit positions
+        dirty_chars: List of non-digit characters to inject (e.g., ['A', 'B', 'J', 'Z', ' '])
+        clean_weight: Probability of generating clean digits only
+        dirty_weight: Probability of generating one invalid character
+        
+    Returns:
+        String with digits characters, either all digits or one replaced with a dirty char
+    """
+    # Decide if this value should be clean or dirty
+    is_clean = rng.random() < (clean_weight / (clean_weight + dirty_weight))
+    
+    # Generate base digits
+    digit_str = ''
+    for _ in range(digits):
+        digit = draw_int(rng, 0, 9)
+        digit_str += str(digit)
+    
+    if is_clean or not dirty_chars:
+        # Return clean numeric string
+        return digit_str
+    else:
+        # Inject one invalid character at a random position
+        # (not the first position to keep it readable)
+        pos = draw_int(rng, 1, digits - 1) if digits > 1 else 0
+        dirty_char = dirty_chars[draw_int(rng, 0, len(dirty_chars) - 1)]
+        
+        # Replace the digit at pos with the dirty character
+        char_list = list(digit_str)
+        char_list[pos] = dirty_char
+        return ''.join(char_list)
+
+
 def generate_cases(
     schema: Schema,
     cobol_structure: dict,
@@ -601,6 +647,22 @@ def generate_cases(
                             convention = col.zoned_overpunch['convention']
                             sign_share = col.zoned_overpunch.get('sign_share', 0.5)
                             row[col.name] = generate_zoned_overpunch(rng, digits, convention, sign_share)
+                        elif hasattr(col, 'domain') and col.domain == 'dirty_numeric':
+                            # Generate numeric text with possible invalid characters
+                            # For string PIC X(n), extract the length
+                            import re
+                            pic_match = re.search(r'X\((\d+)\)', col.pic) if col.pic else None
+                            if pic_match:
+                                digits = int(pic_match.group(1))
+                            elif col.pic == 'X':
+                                digits = 1
+                            else:
+                                digits = 7  # Default
+                            dirty_chars = getattr(col, 'dirty_chars', ['A', 'B', 'J', 'Z', ' '])
+                            domain_weights = getattr(col, 'domain_weights', {})
+                            clean_weight = domain_weights.get('clean', 0.7)
+                            dirty_weight = domain_weights.get('dirty', 0.3)
+                            row[col.name] = generate_dirty_numeric(rng, digits, dirty_chars, clean_weight, dirty_weight)
                         else:
                             row[col.name] = ''
             
@@ -693,6 +755,22 @@ def generate_cases(
                         convention = col.zoned_overpunch['convention']
                         sign_share = col.zoned_overpunch.get('sign_share', 0.5)
                         row[col.name] = generate_zoned_overpunch(rng, digits, convention, sign_share)
+                    elif hasattr(col, 'domain') and col.domain == 'dirty_numeric':
+                        # Generate numeric text with possible invalid characters
+                        # For string PIC X(n), extract the length
+                        import re
+                        pic_match = re.search(r'X\((\d+)\)', col.pic) if col.pic else None
+                        if pic_match:
+                            digits = int(pic_match.group(1))
+                        elif col.pic == 'X':
+                            digits = 1
+                        else:
+                            digits = 7  # Default
+                        dirty_chars = getattr(col, 'dirty_chars', ['A', 'B', 'J', 'Z', ' '])
+                        domain_weights = getattr(col, 'domain_weights', {})
+                        clean_weight = domain_weights.get('clean', 0.7)
+                        dirty_weight = domain_weights.get('dirty', 0.3)
+                        row[col.name] = generate_dirty_numeric(rng, digits, dirty_chars, clean_weight, dirty_weight)
                     else:
                         # Use empty string
                         row[col.name] = ''

@@ -132,7 +132,7 @@ Generated and certified cases use only the preferred sign nibbles: C for positiv
 - Decodes hex to bytes, reads the 5 bytes with 9 digit nibbles and a sign nibble: C positive, D negative, F negative (or rejects).
 
 ### Correct Java design
-- Decodes the 5 bytes using the low nibble of each byte as the digit value (9 digit nibbles plus 1 sign nibble), interpreting the sign nibble: C positive, D negative, F positive, B positive (matches GnuCOBOL; document in a comment that IBM documentation treats B as negative, GnuCOBOL differs, and certified cases use only C, D, F).
+- Decodes the 5 bytes as packed decimal: 9 digit nibbles (high and low nibbles of the first 4.5 bytes) plus the sign nibble (low nibble of the last byte), interpreting the sign nibble: C positive, D negative, F positive, B positive (matches GnuCOBOL; document in a comment that IBM documentation treats B as negative, GnuCOBOL differs, and certified cases use only C, D, F).
 
 ### Fixture
 At least 3 hex values: one with C, one with D, one with F. Expected output from COBOL.

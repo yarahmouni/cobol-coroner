@@ -447,3 +447,8 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Calls ct5 and ct5fix (sonnet). BUG found by the trap's own test: the certificate did not record cobc_flags (required since trap-catalog task 1). Fixed: recorded, hashed, re-applied on replay. Operator forgery: a T4 certificate with cobc_flags emptied and its hash recomputed replays INVALID ("expected ALIVE, got ZOMBIE"), the real one VALID. An empty stray file NAME at the root was removed.
 - Measured: correct ALIVE (200 and 2000); faulty ZOMBIE 2000 of 2000 (every signed value of an extract carries an overpunch letter, so an ASCII reading damages every row).
 - Kiro balance (2026-11-16): plan 405.95 of 531 used (125.05 left); kiroween2026 215.23 of 4000 used (3784.77 left); trial 0.00 of 500 used.
+
+### R-71 2026-11-16: trap T5 (REDEFINES and invalid numeric data)
+- Call ct6 (sonnet). Low-nibble rule with carry (evidence file); output value plus fee and a NUMERIC-OK flag; dirty-numeric generator option (minority of values with one invalid byte). Spec sentence about T3 packed decoding corrected (two digit nibbles per byte).
+- Operator verification: fixture rows 0012345, 0012A45, 0012J45, 0012 45 give 124.45, 122.45, 131.45, 121.45 (COBOL output, consistent with the evidence); correct Java byte-identical; verify 2000: faulty ZOMBIE 602 (0.3010), correct ALIVE; credit-fees hash and make zombie 86 unchanged.
+- Kiro balance (2026-11-16): plan 405.95 of 531 used (125.05 left); kiroween2026 215.23 of 4000 used (3784.77 left); trial 0.00 of 500 used.

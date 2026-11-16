@@ -1,0 +1,51 @@
+{
+  "program": "REDEFINES-INVALID",
+  "description": "Trap 5: REDEFINES of invalid numeric data demonstration",
+  "input": {
+    "file": "input.csv",
+    "columns": [
+      {
+        "name": "CASE-ID",
+        "type": "string",
+        "pic": "X(10)",
+        "description": "Case identifier"
+      },
+      {
+        "name": "AMOUNT-TEXT",
+        "type": "string",
+        "pic": "X(7)",
+        "description": "Numeric text that may contain invalid characters",
+        "domain": "dirty_numeric",
+        "domain_weights": {
+          "clean": 0.7,
+          "dirty": 0.3
+        },
+        "dirty_chars": ["A", "B", "J", "Z", " "]
+      }
+    ]
+  },
+  "output": {
+    "file": "output.csv",
+    "columns": [
+      {
+        "name": "CASE-ID",
+        "type": "string",
+        "pic": "X(10)",
+        "description": "Case identifier"
+      },
+      {
+        "name": "AMOUNT",
+        "type": "decimal",
+        "pic": "+9(7).99",
+        "scale": 2,
+        "description": "Computed amount (redefined value + 1.00)"
+      },
+      {
+        "name": "NUMERIC-OK",
+        "type": "string",
+        "pic": "X",
+        "description": "Y if IS NUMERIC passed, N otherwise"
+      }
+    ]
+  }
+}
