@@ -203,7 +203,7 @@ def test_compare_row_count_mismatch(tmp_path):
 
 
 def test_compare_missing_column(tmp_path):
-    """Test that missing columns are marked divergent."""
+    """Test that missing columns in Java output raise clear error."""
     schema = Schema(
         program_name="TEST",
         description="Test",
@@ -231,14 +231,9 @@ def test_compare_missing_column(tmp_path):
         writer.writeheader()
         writer.writerow({"CASE-ID": "TEST-001"})
     
-    result = compare_outputs(str(cobol_csv), str(java_csv), schema, 0, 0)
-    
-    assert result.total_divergent == 1
-    assert result.cases[0].divergent is True
-    field_name, cobol_val, java_val = result.cases[0].divergent_fields[0]
-    assert field_name == "AMOUNT"
-    assert cobol_val == "12.35"
-    assert java_val == "missing"
+    # Missing column in Java should raise clear error
+    with pytest.raises(ValueError, match="column AMOUNT not found in Java output header"):
+        compare_outputs(str(cobol_csv), str(java_csv), schema, 0, 0)
 
 
 def test_compare_return_codes(tmp_path):
@@ -501,3 +496,117 @@ def test_e2e_detect_divergence(tmp_path):
     divergent_fields = divergent_cases[0].divergent_fields
     assert len(divergent_fields) == 1
     assert divergent_fields[0][0] == "FEE-AMOUNT"
+
+
+
+def test_compare_padded_header_cobol_only(tmp_path):
+    """Test that padded headers on COBOL side are handled correctly."""
+    schema = Schema(
+        program_name="TEST",
+        description="Test",
+        input_file="input.csv",
+        input_columns=[
+            SchemaColumn(name="CASE-ID", type="string", pic="X(10)", description="ID")
+        ],
+        output_file="output.csv",
+        output_columns=[
+            SchemaColumn(name="CASE-ID", type="string", pic="X(10)", description="ID"),
+            SchemaColumn(name="VALUE", type="string", pic="X(5)", description="Value"),
+        ]
+    )
+    
+    cobol_csv = tmp_path / "cobol.csv"
+    java_csv = tmp_path / "java.csv"
+    
+    # COBOL header with trailing spaces (realistic legacy output)
+    with open(cobol_csv, 'w', encoding='utf-8') as f:
+        f.write("CASE-ID   ,VALUE     \n")
+        f.write("TEST-001,ABC\n")
+    
+    # Java header without trailing spaces
+    with open(java_csv, 'w', encoding='utf-8') as f:
+        writer = csv.DictWriter(f, fieldnames=["CASE-ID", "VALUE"])
+        writer.writeheader()
+        writer.writerow({"CASE-ID": "TEST-001", "VALUE": "ABC"})
+    
+    result = compare_outputs(str(cobol_csv), str(java_csv), schema, 0, 0)
+    
+    assert result.total_divergent == 0
+    assert result.row_count_match is True
+
+
+def test_compare_padded_header_both_sides(tmp_path):
+    """Test that padded headers on both sides are handled correctly."""
+    schema = Schema(
+        program_name="TEST",
+        description="Test",
+        input_file="input.csv",
+        input_columns=[
+            SchemaColumn(name="CASE-ID", type="string", pic="X(10)", description="ID")
+        ],
+        output_file="output.csv",
+        output_columns=[
+            SchemaColumn(name="CASE-ID", type="string", pic="X(10)", description="ID"),
+            SchemaColumn(name="AMOUNT", type="decimal", pic="S9(7)V99", description="Amount", scale=2),
+        ]
+    )
+    
+    cobol_csv = tmp_path / "cobol.csv"
+    java_csv = tmp_path / "java.csv"
+    
+    # Both headers with trailing spaces
+    with open(cobol_csv, 'w', encoding='utf-8') as f:
+        f.write("CASE-ID   ,AMOUNT        \n")
+        f.write("TEST-001,12.35\n")
+    
+    with open(java_csv, 'w', encoding='utf-8') as f:
+        f.write("CASE-ID   ,AMOUNT        \n")
+        f.write("TEST-001,12.35\n")
+    
+    result = compare_outputs(str(cobol_csv), str(java_csv), schema, 0, 0)
+    
+    assert result.total_divergent == 0
+    assert result.row_count_match is True
+
+
+def test_compare_missing_column_after_trim(tmp_path):
+    """Test that missing column error is clear after trimming."""
+    schema = Schema(
+        program_name="TEST",
+        description="Test",
+        input_file="input.csv",
+        input_columns=[
+            SchemaColumn(name="CASE-ID", type="string", pic="X(10)", description="ID")
+        ],
+        output_file="output.csv",
+        output_columns=[
+            SchemaColumn(name="CASE-ID", type="string", pic="X(10)", description="ID"),
+            SchemaColumn(name="MISSING-COL", type="string", pic="X(5)", description="Missing"),
+        ]
+    )
+    
+    cobol_csv = tmp_path / "cobol.csv"
+    
+    # Header with only CASE-ID
+    with open(cobol_csv, 'w', encoding='utf-8') as f:
+        f.write("CASE-ID\n")
+        f.write("TEST-001\n")
+    
+    java_csv = tmp_path / "java.csv"
+    with open(java_csv, 'w', encoding='utf-8') as f:
+        f.write("CASE-ID\n")
+        f.write("TEST-001\n")
+    
+    # COBOL should raise clear error
+    with pytest.raises(ValueError, match="column MISSING-COL not found in COBOL output header"):
+        compare_outputs(str(cobol_csv), str(java_csv), schema, 0, 0)
+    
+    # Java should also raise clear error
+    cobol_csv_ok = tmp_path / "cobol_ok.csv"
+    with open(cobol_csv_ok, 'w', encoding='utf-8') as f:
+        writer = csv.DictWriter(f, fieldnames=["CASE-ID", "MISSING-COL"])
+        writer.writeheader()
+        writer.writerow({"CASE-ID": "TEST-001", "MISSING-COL": "X"})
+    
+    with pytest.raises(ValueError, match="column MISSING-COL not found in Java output header"):
+        compare_outputs(str(cobol_csv_ok), str(java_csv), schema, 0, 0)

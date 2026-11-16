@@ -1,6 +1,7 @@
 {
   "program": "ROUNDING-CALC",
   "description": "Trap 2: Rounding mode divergence demonstration",
+  "tie_strategy": "product_pairs",
   "input": {
     "file": "input.csv",
     "columns": [

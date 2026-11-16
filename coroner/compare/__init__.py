@@ -89,14 +89,38 @@ def compare_outputs(
     cobol_rows = {}
     java_rows = {}
     
+    # Read COBOL output
     with open(cobol_csv, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
+        # Strip column names from header
+        if reader.fieldnames:
+            reader.fieldnames = [name.rstrip() for name in reader.fieldnames]
+        
+        # Verify all required columns are present
+        for col in schema.output_columns:
+            if col.name not in reader.fieldnames:
+                raise ValueError(
+                    f"column {col.name} not found in COBOL output header: {reader.fieldnames}"
+                )
+        
         for row in reader:
             case_id = row[schema.output_columns[0].name]
             cobol_rows[case_id] = row
     
+    # Read Java output
     with open(java_csv, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
+        # Strip column names from header
+        if reader.fieldnames:
+            reader.fieldnames = [name.rstrip() for name in reader.fieldnames]
+        
+        # Verify all required columns are present
+        for col in schema.output_columns:
+            if col.name not in reader.fieldnames:
+                raise ValueError(
+                    f"column {col.name} not found in Java output header: {reader.fieldnames}"
+                )
+        
         for row in reader:
             case_id = row[schema.output_columns[0].name]
             java_rows[case_id] = row
@@ -191,14 +215,38 @@ def compare_outputs_with_key(
     cobol_rows = {}
     java_rows = {}
     
+    # Read COBOL output
     with open(cobol_csv, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
+        # Strip column names from header
+        if reader.fieldnames:
+            reader.fieldnames = [name.rstrip() for name in reader.fieldnames]
+        
+        # Verify all required columns are present
+        for col in schema.output_columns:
+            if col.name not in reader.fieldnames:
+                raise ValueError(
+                    f"column {col.name} not found in COBOL output header: {reader.fieldnames}"
+                )
+        
         for row in reader:
             key = tuple(row[field] for field in schema.output_key)
             cobol_rows[key] = row
     
+    # Read Java output
     with open(java_csv, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
+        # Strip column names from header
+        if reader.fieldnames:
+            reader.fieldnames = [name.rstrip() for name in reader.fieldnames]
+        
+        # Verify all required columns are present
+        for col in schema.output_columns:
+            if col.name not in reader.fieldnames:
+                raise ValueError(
+                    f"column {col.name} not found in Java output header: {reader.fieldnames}"
+                )
+        
         for row in reader:
             key = tuple(row[field] for field in schema.output_key)
             java_rows[key] = row

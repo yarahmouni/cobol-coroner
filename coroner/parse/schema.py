@@ -18,6 +18,7 @@ class SchemaColumn:
     comp3: bool = False
     domain: list[str] | None = None  # Optional domain list for string columns
     domain_weights: list[int] | None = None  # Optional weights for domain values
+    packed_hex: dict | None = None  # Optional packed hex domain spec for COMP-3 decoding
 
 
 @dataclass
@@ -36,6 +37,7 @@ class Schema:
     subtotal: str | None = None  # "SUBTOTAL"
     grand_total_key: str | None = None  # "TOTAL"
     cobc_flags: list[str] | None = None  # ["-fsign=EBCDIC"]
+    tie_strategy: str | None = None  # "product_pairs" for T2 trap
 
 
 def parse_pic(pic: str) -> tuple[bool, int, int]:
@@ -166,7 +168,8 @@ def load_schema(path: str) -> Schema:
             signed=signed,
             comp3=False,  # Will be set from internal_precision if present
             domain=col_data.get('domain'),  # Optional domain list
-            domain_weights=col_data.get('domain_weights')  # Optional weights
+            domain_weights=col_data.get('domain_weights'),  # Optional weights
+            packed_hex=col_data.get('packed_hex')  # Optional packed hex spec
         ))
     
     # Parse output columns
@@ -223,6 +226,10 @@ def load_schema(path: str) -> Schema:
     if cobc_flags is not None and not isinstance(cobc_flags, list):
         raise ValueError("cobc_flags must be a list of strings")
     
+    tie_strategy = data.get('tie_strategy')
+    if tie_strategy is not None and not isinstance(tie_strategy, str):
+        raise ValueError("tie_strategy must be a string")
+    
     return Schema(
         program_name=data['program'],
         description=data['description'],
@@ -236,5 +243,6 @@ def load_schema(path: str) -> Schema:
         group_key=group_key,
         subtotal=subtotal,
         grand_total_key=grand_total_key,
-        cobc_flags=cobc_flags
+        cobc_flags=cobc_flags,
+        tie_strategy=tie_strategy
     )
