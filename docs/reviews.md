@@ -467,3 +467,9 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - BUGs fixed: the first version silently left T2, T3 and T5 out of the matrix while Kiro reported success (now every trap folder must appear, a failing trap stops the catalog with exit 2); a duplicate card generator in coroner/traps.py (now the reviewed card module); missing copybooks folders made the run fail (trap folder used); cause and fix printed twice; fix sentences that were not Java-side fixes (T4 compile flag, T5 "validate inputs") rewritten. Four stray report and scratch files at the root removed.
 - Measured (2000 cases, seed 42): T1 262 (0.1310, exposure sum 666358.16, max 666357.81, 2 branches, grand total matches); T2 856 (0.4280); T3 429 (0.2145); T4 2000 (1.0000); T5 602 (0.3010); every correct port ALIVE; T6 not measured.
 - Kiro balance (2026-11-16): plan 405.95 of 531 used (125.05 left); kiroween2026 215.23 of 4000 used (3784.77 left); trial 0.00 of 500 used.
+
+### R-75 2026-11-16: MCP get_detection_matrix on the measured catalog
+- Calls ct10 and ct10fix (sonnet). The tool returns runs/trap_catalog.json (all traps or one trap_id).
+- INTEGRITY issue fixed: the tests wrote a hand-made catalog with invented numbers into the real runs/ folder and then deleted runs/trap_catalog.json (the real matrix disappeared) and removed real run directories. Now the server reads CORONER_BASE_DIR, the tests use a pytest tmp_path with a catalog produced by the real runner, and never touch the repository's runs/.
+- Operator check: stdio server started from /tmp returns T1 262, T2 856, T3 429, T4 2000, T5 602, T6 without numbers; trap_id T1 returns T1 only; T9 gives "Trap T9 not found in catalog"; the real catalog file is unchanged after the MCP tests (14 passed).
+- Kiro balance (2026-11-16): plan 405.95 of 531 used (125.05 left); kiroween2026 215.23 of 4000 used (3784.77 left); trial 0.00 of 500 used.

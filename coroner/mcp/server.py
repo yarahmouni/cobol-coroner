@@ -1,5 +1,14 @@
-"""MCP server for Coroner with 7 tools."""
+"""MCP server for Coroner with 7 tools.
+
+The server reads and writes data (runs/, build/) under a base directory:
+- CORONER_BASE_DIR environment variable when set
+- Otherwise the repository root (for production use)
+
+Tests should set CORONER_BASE_DIR to a temporary directory to avoid
+writing invented data or deleting real run artifacts.
+"""
 import json
+import os
 import re
 from pathlib import Path
 
@@ -14,7 +23,14 @@ server = MCPServer(
     version="0.2.0"
 )
 
-# Determine repository root
+# Determine base directory for runs/ and build/
+# Use CORONER_BASE_DIR when set (for tests), otherwise the repository root
+if os.environ.get("CORONER_BASE_DIR"):
+    BASE_DIR = Path(os.environ["CORONER_BASE_DIR"]).resolve()
+else:
+    BASE_DIR = Path(__file__).parent.parent.parent.resolve()
+
+# Repository root is always needed for validating paths and finding samples
 REPO_ROOT = Path(__file__).parent.parent.parent.resolve()
 
 
@@ -98,7 +114,7 @@ def run_differential_check(
     
     # Run verification, catching SystemExit for broken reference
     try:
-        verdict, run_dir = run_verify(cobol_path, java_path, schema_path, copybooks_path, cases, seed, timings=False, base_dir=str(REPO_ROOT))
+        verdict, run_dir = run_verify(cobol_path, java_path, schema_path, copybooks_path, cases, seed, timings=False, base_dir=str(BASE_DIR))
     except SystemExit as e:
         if e.code == 2:
             # Broken reference: read error from run directory if available
@@ -124,7 +140,7 @@ def run_differential_check(
         "cases_divergent": verdict.cases_divergent,
         "paragraph_coverage": f"{coverage['paragraphs_covered']}/{coverage['paragraphs_total']}",
         "branch_coverage": f"{coverage['branches_covered']}/{coverage['branches_total']}",
-        "certificate_path": str(certificate_path.resolve().relative_to(REPO_ROOT))
+        "certificate_path": str(certificate_path.relative_to(BASE_DIR))
     }
 
 
@@ -143,7 +159,7 @@ def get_verdict(run_id: str) -> dict:
     """
     validate_run_id(run_id)
     
-    verdict_path = REPO_ROOT / "runs" / run_id / "verdict.json"
+    verdict_path = BASE_DIR / "runs" / run_id / "verdict.json"
     if not verdict_path.exists():
         raise ToolError(f"Verdict not found for run_id {run_id}")
     
@@ -167,14 +183,14 @@ def get_failure_report(run_id: str) -> dict:
     validate_run_id(run_id)
     
     # Check verdict first
-    verdict_path = REPO_ROOT / "runs" / run_id / "verdict.json"
+    verdict_path = BASE_DIR / "runs" / run_id / "verdict.json"
     if verdict_path.exists():
         with open(verdict_path, 'r') as f:
             verdict_data = json.load(f)
             if verdict_data.get("status") == "ALIVE":
                 raise ToolError("No failure report: the run was ALIVE")
     
-    failure_path = REPO_ROOT / "runs" / run_id / "failure_report.json"
+    failure_path = BASE_DIR / "runs" / run_id / "failure_report.json"
     if not failure_path.exists():
         raise ToolError("No failure report: the run was ALIVE")
     
@@ -183,8 +199,11 @@ def get_failure_report(run_id: str) -> dict:
 
 
 @server.tool(description="Get the trap catalog detection matrix")
-def get_detection_matrix() -> dict:
+def get_detection_matrix(trap_id: str = None) -> dict:
     """Get detection matrix for the trap catalog.
+    
+    Args:
+        trap_id: Optional trap identifier (T1 to T6) to return only one trap
     
     Returns:
         Detection matrix with trap counts and rates
@@ -192,7 +211,22 @@ def get_detection_matrix() -> dict:
     Raises:
         ToolError: Detection matrix not yet available (catalog not built)
     """
-    raise ToolError("Detection Matrix not available yet: the trap catalog has not been run")
+    catalog_path = BASE_DIR / "runs" / "trap_catalog.json"
+    if not catalog_path.exists():
+        raise ToolError("Detection Matrix not available yet: the trap catalog has not been run")
+    
+    with open(catalog_path, 'r') as f:
+        catalog = json.load(f)
+    
+    # catalog is already {"traps": [...]}
+    # If trap_id is specified, return only that trap
+    if trap_id:
+        for trap in catalog["traps"]:
+            if trap.get("id") == trap_id:
+                return trap
+        raise ToolError(f"Trap {trap_id} not found in catalog")
+    
+    return catalog
 
 
 @server.tool(description="Export JUnit regression test for a ZOMBIE run")
@@ -210,7 +244,7 @@ def export_junit_test(run_id: str) -> dict:
     """
     validate_run_id(run_id)
     
-    test_path = REPO_ROOT / "runs" / run_id / "ZombieRegressionTest.java"
+    test_path = BASE_DIR / "runs" / run_id / "ZombieRegressionTest.java"
     if not test_path.exists():
         raise ToolError("No JUnit test: the run was ALIVE or the test was not generated")
     
@@ -218,7 +252,7 @@ def export_junit_test(run_id: str) -> dict:
         test_content = f.read()
     
     return {
-        "path": str(test_path.relative_to(REPO_ROOT)),
+        "path": str(test_path.relative_to(BASE_DIR)),
         "content": test_content
     }
 
@@ -240,7 +274,7 @@ def generate_certificate(run_id: str) -> dict:
     
     validate_run_id(run_id)
     
-    run_dir = REPO_ROOT / "runs" / run_id
+    run_dir = BASE_DIR / "runs" / run_id
     if not run_dir.exists():
         raise ToolError(f"Run directory not found for run_id {run_id}")
     
@@ -259,7 +293,7 @@ def generate_certificate(run_id: str) -> dict:
     schema_file = inputs_data.get("schema_file", "")
     
     # Regenerate certificate
-    gen_cert(run_id, cobol_file, copybook_dir, java_file, schema_file, str(REPO_ROOT))
+    gen_cert(run_id, cobol_file, copybook_dir, java_file, schema_file, str(BASE_DIR))
     
     certificate_path = run_dir / "certificate.json"
     
@@ -268,7 +302,7 @@ def generate_certificate(run_id: str) -> dict:
         cert_data = json.load(f)
     
     return {
-        "path": str(certificate_path.relative_to(REPO_ROOT)),
+        "path": str(certificate_path.relative_to(BASE_DIR)),
         "certificate_sha256": cert_data.get("certificate_sha256", "")
     }
 

@@ -14,13 +14,14 @@ TRAPS_DIR = Path("samples/traps")
 RUNS_DIR = Path("runs")
 
 
-def run_catalog(seed: int = 42, cases: int = 2000) -> dict[str, Any]:
+def run_catalog(seed: int = 42, cases: int = 2000, base_dir: str = ".") -> dict[str, Any]:
     """
     Run the catalog on all built traps.
     
     Args:
         seed: Random seed
         cases: Number of cases to generate
+        base_dir: Base directory for runs/ and build/ (default current directory)
         
     Returns:
         Catalog dict with results for all traps
@@ -87,7 +88,8 @@ def run_catalog(seed: int = 42, cases: int = 2000) -> dict[str, Any]:
                 copybooks_dir=str(copybooks_dir),
                 num_cases=cases,
                 seed=seed,
-                timings=False
+                timings=False,
+                base_dir=base_dir
             )
             faulty_run_id = faulty_run_dir.name
         except Exception as e:
@@ -190,7 +192,8 @@ def run_catalog(seed: int = 42, cases: int = 2000) -> dict[str, Any]:
                 copybooks_dir=str(copybooks_dir),
                 num_cases=cases,
                 seed=seed,
-                timings=False
+                timings=False,
+                base_dir=base_dir
             )
             correct_run_id = correct_run_dir.name
         except Exception as e:
@@ -225,23 +228,25 @@ def _trap_folder_name(trap_id: str) -> str:
     return names.get(trap_id, "")
 
 
-def write_catalog_files(catalog: dict[str, Any]) -> None:
+def write_catalog_files(catalog: dict[str, Any], base_dir: str = ".") -> None:
     """
     Write catalog JSON and text files.
     
     Args:
         catalog: Catalog dict with trap results
+        base_dir: Base directory for runs/ (default current directory)
     """
-    RUNS_DIR.mkdir(exist_ok=True)
+    runs_dir = Path(base_dir) / "runs"
+    runs_dir.mkdir(exist_ok=True)
     
     # Write JSON with sorted keys
-    json_path = RUNS_DIR / "trap_catalog.json"
+    json_path = runs_dir / "trap_catalog.json"
     with open(json_path, "w") as f:
         json.dump(catalog, f, indent=2, sort_keys=True)
     print(f"\nWrote {json_path}")
     
     # Write text rendering
-    txt_path = RUNS_DIR / "trap_catalog.txt"
+    txt_path = runs_dir / "trap_catalog.txt"
     with open(txt_path, "w") as f:
         f.write("Six banking migration traps that silently corrupt amounts, signs, ordering or control totals.\n")
         f.write("targeted regression traps within its supported COBOL subset.\n\n")

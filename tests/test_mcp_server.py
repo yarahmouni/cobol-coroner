@@ -1,5 +1,6 @@
 """Tests for Coroner MCP server with 7 tools."""
 import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -7,12 +8,22 @@ from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
 
-async def run_mcp_session(coro):
-    """Open stdio session to coroner.mcp and run a coroutine."""
+async def run_mcp_session(coro, base_dir=None):
+    """Open stdio session to coroner.mcp and run a coroutine.
+    
+    Args:
+        coro: Coroutine to run with the session
+        base_dir: Optional base directory for runs/ and build/
+    """
+    env = os.environ.copy()
+    if base_dir:
+        env["CORONER_BASE_DIR"] = str(base_dir)
+    
     server_params = StdioServerParameters(
         command=sys.executable,
         args=["-m", "coroner.mcp"],
-        cwd=Path(__file__).parent.parent
+        cwd=Path(__file__).parent.parent,
+        env=env
     )
     async with stdio_client(server_params) as (read, write):
         async with ClientSession(read, write) as session:
@@ -43,7 +54,7 @@ def test_list_tools():
     asyncio.run(run_mcp_session(check))
 
 
-def test_run_differential_check_alive():
+def test_run_differential_check_alive(tmp_path):
     """Run differential check on demo sample, expect ALIVE."""
     async def check(session):
         result = await session.call_tool("run_differential_check", arguments={
@@ -66,10 +77,10 @@ def test_run_differential_check_alive():
         
         return content["run_id"]
     
-    asyncio.run(run_mcp_session(check))
+    asyncio.run(run_mcp_session(check, base_dir=tmp_path))
 
 
-def test_get_verdict():
+def test_get_verdict(tmp_path):
     """Get verdict for a run."""
     async def check(session):
         # First run the check
@@ -93,10 +104,10 @@ def test_get_verdict():
         verdict_data = json.loads(verdict_result.content[0].text)
         assert verdict_data["status"] == "ALIVE"
     
-    asyncio.run(run_mcp_session(check))
+    asyncio.run(run_mcp_session(check, base_dir=tmp_path))
 
 
-def test_verify_certificate():
+def test_verify_certificate(tmp_path):
     """Verify a certificate."""
     async def check(session):
         # First run the check
@@ -121,22 +132,22 @@ def test_verify_certificate():
         assert cert_data["valid"] is True, "Certificate should be valid"
         assert cert_data["status"] == "ALIVE"
     
-    asyncio.run(run_mcp_session(check))
+    asyncio.run(run_mcp_session(check, base_dir=tmp_path))
 
 
-def test_get_detection_matrix_not_available():
+def test_get_detection_matrix_not_available(tmp_path):
     """Detection matrix should return error until catalog is built."""
     async def check(session):
+        # With an empty tmp base, catalog doesn't exist
         result = await session.call_tool("get_detection_matrix", arguments={})
         assert result.is_error is True
-        # Check error message is present
         error_text = result.content[0].text if result.content else ""
         assert "Detection Matrix not available yet" in error_text, f"Expected error message, got: {error_text}"
     
-    asyncio.run(run_mcp_session(check))
+    asyncio.run(run_mcp_session(check, base_dir=tmp_path))
 
 
-def test_run_differential_check_zombie():
+def test_run_differential_check_zombie(tmp_path):
     """Run differential check on legacy variant, expect ZOMBIE."""
     async def check(session):
         result = await session.call_tool("run_differential_check", arguments={
@@ -158,10 +169,10 @@ def test_run_differential_check_zombie():
         
         return content["run_id"]
     
-    asyncio.run(run_mcp_session(check))
+    asyncio.run(run_mcp_session(check, base_dir=tmp_path))
 
 
-def test_get_failure_report():
+def test_get_failure_report(tmp_path):
     """Get failure report for a ZOMBIE run."""
     async def check(session):
         # First run the check
@@ -187,10 +198,10 @@ def test_get_failure_report():
         assert "cobol_output" in failure_data
         assert "java_output" in failure_data
     
-    asyncio.run(run_mcp_session(check))
+    asyncio.run(run_mcp_session(check, base_dir=tmp_path))
 
 
-def test_export_junit_test():
+def test_export_junit_test(tmp_path):
     """Export JUnit test for a ZOMBIE run."""
     async def check(session):
         # First run the check
@@ -216,7 +227,7 @@ def test_export_junit_test():
         assert "content" in junit_data
         assert "ZombieRegressionTest" in junit_data["content"]
     
-    asyncio.run(run_mcp_session(check))
+    asyncio.run(run_mcp_session(check, base_dir=tmp_path))
 
 
 def test_path_validation():
@@ -236,7 +247,7 @@ def test_path_validation():
     asyncio.run(run_mcp_session(check))
 
 
-def test_invalid_run_id():
+def test_invalid_run_id(tmp_path):
     """Invalid run_id should be rejected."""
     async def check(session):
         result = await session.call_tool("get_verdict", arguments={"run_id": "invalid_id"})
@@ -244,10 +255,10 @@ def test_invalid_run_id():
         error_text = result.content[0].text if result.content else ""
         assert "Invalid run_id" in error_text, f"Expected invalid run_id error, got: {error_text}"
     
-    asyncio.run(run_mcp_session(check))
+    asyncio.run(run_mcp_session(check, base_dir=tmp_path))
 
 
-def test_get_failure_report_alive():
+def test_get_failure_report_alive(tmp_path):
     """Get failure report should fail on ALIVE run."""
     async def check(session):
         # First run the check to get an ALIVE run
@@ -270,10 +281,10 @@ def test_get_failure_report_alive():
         error_text = failure_result.content[0].text if failure_result.content else ""
         assert "No failure report: the run was ALIVE" in error_text, f"Expected ALIVE error, got: {error_text}"
     
-    asyncio.run(run_mcp_session(check))
+    asyncio.run(run_mcp_session(check, base_dir=tmp_path))
 
 
-def test_export_junit_test_alive():
+def test_export_junit_test_alive(tmp_path):
     """Export JUnit test should fail on ALIVE run."""
     async def check(session):
         # First run the check to get an ALIVE run
@@ -296,8 +307,60 @@ def test_export_junit_test_alive():
         error_text = junit_result.content[0].text if junit_result.content else ""
         assert "No JUnit test: the run was ALIVE" in error_text, f"Expected ALIVE error, got: {error_text}"
     
-    asyncio.run(run_mcp_session(check))
+    asyncio.run(run_mcp_session(check, base_dir=tmp_path))
 
+
+def test_get_detection_matrix_with_catalog(tmp_path):
+    """Get detection matrix when catalog exists (runs real catalog at 200 cases)."""
+    import json
+    from coroner.traps import run_catalog, write_catalog_files
+    
+    # Generate real catalog at 200 cases, seed 42
+    catalog_dict = run_catalog(seed=42, cases=200, base_dir=str(tmp_path))
+    write_catalog_files(catalog_dict, base_dir=str(tmp_path))
+    
+    async def check(session):
+        # Get full detection matrix
+        result = await session.call_tool("get_detection_matrix", arguments={})
+        assert result.is_error is False, f"Tool call failed: {result.content if result.is_error else ''}"
+        
+        matrix_data = json.loads(result.content[0].text)
+        assert "traps" in matrix_data, "Matrix should have 'traps' key"
+        assert len(matrix_data["traps"]) == 6, f"Expected 6 traps, got {len(matrix_data['traps'])}"
+        
+        # Verify T1 to T5 have measured numbers
+        for trap in matrix_data["traps"][:5]:
+            assert trap["status"] == "measured", f"Trap {trap['id']} should be measured"
+            assert "cases_generated" in trap, f"Trap {trap['id']} should have cases_generated"
+            assert trap["cases_generated"] == 200, f"Trap {trap['id']} should have 200 cases"
+            assert "cases_detected" in trap, f"Trap {trap['id']} should have cases_detected"
+            assert "detection_rate" in trap, f"Trap {trap['id']} should have detection_rate"
+            # Verify detection_rate formula
+            expected_rate = trap["cases_detected"] / trap["cases_generated"]
+            actual_rate = float(trap["detection_rate"])
+            assert abs(actual_rate - expected_rate) < 0.0001, f"Trap {trap['id']} rate mismatch"
+        
+        # Verify T6 has no numeric fields (placeholder)
+        t6 = matrix_data["traps"][5]
+        assert t6["id"] == "T6", f"Expected T6, got {t6['id']}"
+        assert "cases_generated" not in t6, "T6 should not have cases_generated"
+        assert "cases_detected" not in t6, "T6 should not have cases_detected"
+        
+        # Get single trap T1
+        t1_result = await session.call_tool("get_detection_matrix", arguments={"trap_id": "T1"})
+        assert t1_result.is_error is False
+        
+        t1_data = json.loads(t1_result.content[0].text)
+        assert t1_data["id"] == "T1", f"Expected T1, got {t1_data.get('id')}"
+        assert t1_data["cases_generated"] == 200
+        
+        # Get unknown trap should fail
+        unknown_result = await session.call_tool("get_detection_matrix", arguments={"trap_id": "T99"})
+        assert unknown_result.is_error is True
+        error_text = unknown_result.content[0].text if unknown_result.content else ""
+        assert "not found" in error_text, f"Expected not found error, got: {error_text}"
+    
+    asyncio.run(run_mcp_session(check, base_dir=tmp_path))
 
 
 def test_server_from_temp_directory():
@@ -371,9 +434,3 @@ def test_server_from_temp_directory():
         # Verify no runs/ directory was created in /tmp
         tmp_runs = Path(tmpdir) / "runs"
         assert not tmp_runs.exists(), f"Server should not write to {tmp_runs}"
-        
-        # Clean up the run directory
-        run_dir = repo_root / "runs" / run_id
-        if run_dir.exists():
-            import shutil
-            shutil.rmtree(run_dir)
