@@ -1,0 +1,44 @@
+{
+  "program": "COMP3-SIGN",
+  "description": "COMP-3 sign nibble trap: COBOL reads sign nibble F as positive (evidence file), faulty Java treats F as negative or rejects it",
+  "input": {
+    "file": "INPUT_FILE",
+    "columns": [
+      {
+        "name": "CASE-ID",
+        "type": "string",
+        "pic": "X(10)",
+        "description": "Case identifier"
+      },
+      {
+        "name": "HEX-VALUE",
+        "type": "string",
+        "pic": "X(10)",
+        "description": "Hex text (10 digits = 5 packed bytes) representing PIC S9(7)V99 COMP-3",
+        "packed_hex": {
+          "digits": 9,
+          "sign_nibbles": ["C", "D", "F"],
+          "sign_weights": [40, 40, 20]
+        }
+      }
+    ]
+  },
+  "output": {
+    "file": "OUTPUT_FILE",
+    "columns": [
+      {
+        "name": "CASE-ID",
+        "type": "string",
+        "pic": "X(10)",
+        "description": "Case identifier"
+      },
+      {
+        "name": "DECODED-VALUE",
+        "type": "decimal",
+        "pic": "+9(7).99",
+        "scale": 2,
+        "description": "Decoded value from packed bytes"
+      }
+    ]
+  }
+}

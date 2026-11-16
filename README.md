@@ -112,6 +112,10 @@ Work in progress for Kiroween 2026 (category: Resurrection). See `docs/sprints.m
 
 CICS, DB2, IMS, VSAM, JCL, EBCDIC-encoded data (the EBCDIC collating sequence trap is in scope), multi-program applications, Pacbase, target languages other than Java 17.
 
+## Limitations
+
+- COMP-3 sign nibbles B, A, E and other non-preferred nibbles are excluded from certified cases (GnuCOBOL reads B as positive, IBM documentation treats B as negative). Coroner tests use only preferred sign nibbles C (positive), D (negative), and F (unsigned/positive).
+
 ## How Kiro was used
 
 To be completed during the build: specs, steering, hooks and MCP server, see `/.kiro`.

@@ -435,3 +435,9 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Also fixed in this commit: the comparator matches output columns after trimming trailing spaces (real COBOL writes padded headers; T3 failed with KeyError 'CASE-ID'), with a clear error for a missing column; T2 tie path uses the trap's own columns; T2 tests compiled correct and faulty Java into the same folder (order-dependent results), now separate folders.
 - Operator checks: credit-fees seed 42 and 123 hashes equal the b5f10da outputs (also through the CLI run directory); make zombie 86; make acceptance 23 passed with the R-55 counts; pytest 227 passed. Watch item: one acceptance run took 140.5 s for seed 123 (others about 4.5 s); the 60 s limit is not asserted per run, to harden.
 - Kiro balance (2026-11-16): plan 405.95 of 531 used (125.05 left); kiroween2026 215.23 of 4000 used (3784.77 left); trial 0.00 of 500 used.
+
+### R-69 2026-11-16: trap T3 (COMP-3 sign nibble)
+- Calls ct4 and ct4fix (sonnet). Packed values as 10 hex digits decoded with HEX-TO-CHAR into PIC S9(7)V99 COMP-3; generated cases use only the preferred nibbles C, D, F (packed_hex schema option); README limitation on nibble B (GnuCOBOL positive, IBM negative).
+- Kiro first reported the trap as untestable through the engine; the cause was the padded-header comparator bug (fixed in R-68).
+- Operator verification: cobc rc 0; COBOL from /tmp with only INPUT_FILE/OUTPUT_FILE rc 0, 6 rows; expected equals a fresh run; correct Java byte-identical; verify 200: correct ALIVE, faulty ZOMBIE 44; 2000: faulty ZOMBIE 429 (0.2145); trap tests pass.
+- Kiro balance (2026-11-16): plan 405.95 of 531 used (125.05 left); kiroween2026 215.23 of 4000 used (3784.77 left); trial 0.00 of 500 used.
