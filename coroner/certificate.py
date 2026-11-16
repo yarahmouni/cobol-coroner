@@ -135,6 +135,7 @@ def generate_certificate(
         "cases_file_line_ending": inputs["cases_file_line_ending"],
         "case_count": inputs["case_count"],
         "random_seed": inputs["random_seed"],
+        "cobc_flags": inputs.get("cobc_flags", []),
         "python_version": inputs["python_version"],
         "cobc_version": inputs["cobc_version"],
         "javac_version": inputs["javac_version"],
@@ -333,20 +334,8 @@ def replay_certificate(certificate_path: str) -> ReplayResult:
         schema_obj = load_schema(schema_file)
         cobol_structure = parse_cobol_structure(cobol_file, copybook_dir)
         
-        # Check cobc_flags if present in certificate
-        cobol_flags = []
-        if "cobc_flags" in cert:
-            cobol_flags = cert["cobc_flags"]
-            # Verify schema has matching flags
-            schema_flags = schema_obj.cobc_flags or []
-            if schema_flags != cobol_flags:
-                return ReplayResult(
-                    valid=False, reason=f"cobc_flags mismatch (certificate: {cobol_flags}, schema: {schema_flags})",
-                    verdict=None, cases_total=0, cases_divergent=0,
-                    paragraph_coverage_reached=0, paragraph_coverage_total=0,
-                    branch_coverage_reached=0, branch_coverage_total=0,
-                    cases_file="", warnings=[]
-                )
+        # Get cobc_flags from certificate (default empty list)
+        cobol_flags = cert.get("cobc_flags", [])
         
         # Create temporary build directory for replay
         import tempfile

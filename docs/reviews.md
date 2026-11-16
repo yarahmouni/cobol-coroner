@@ -441,3 +441,9 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Kiro first reported the trap as untestable through the engine; the cause was the padded-header comparator bug (fixed in R-68).
 - Operator verification: cobc rc 0; COBOL from /tmp with only INPUT_FILE/OUTPUT_FILE rc 0, 6 rows; expected equals a fresh run; correct Java byte-identical; verify 200: correct ALIVE, faulty ZOMBIE 44; 2000: faulty ZOMBIE 429 (0.2145); trap tests pass.
 - Kiro balance (2026-11-16): plan 405.95 of 531 used (125.05 left); kiroween2026 215.23 of 4000 used (3784.77 left); trial 0.00 of 500 used.
+
+### R-70 2026-11-16: trap T4 (EBCDIC zoned overpunch), cobc_flags in the certificate
+- Operator verified the full overpunch table on GnuCOBOL 3.2.0 before the build (added to docs/evidence/gnucobol-encodings.md): under -fsign=EBCDIC "{" and A to I are +0 to +9, "}" and J to R are -0 to -9, a plain last digit is positive, ASCII-convention letters lose their sign; reading the field rewrites its stored last byte.
+- Calls ct5 and ct5fix (sonnet). BUG found by the trap's own test: the certificate did not record cobc_flags (required since trap-catalog task 1). Fixed: recorded, hashed, re-applied on replay. Operator forgery: a T4 certificate with cobc_flags emptied and its hash recomputed replays INVALID ("expected ALIVE, got ZOMBIE"), the real one VALID. An empty stray file NAME at the root was removed.
+- Measured: correct ALIVE (200 and 2000); faulty ZOMBIE 2000 of 2000 (every signed value of an extract carries an overpunch letter, so an ASCII reading damages every row).
+- Kiro balance (2026-11-16): plan 405.95 of 531 used (125.05 left); kiroween2026 215.23 of 4000 used (3784.77 left); trial 0.00 of 500 used.

@@ -40,6 +40,7 @@ def compute_run_id(inputs: dict) -> str:
         ),
         "seed": inputs["seed"],
         "case_count": inputs["case_count"],
+        "cobc_flags": inputs.get("cobc_flags", []),
         "tool_versions": {
             "cobc": inputs["cobc_version"],
             "javac": inputs["javac_version"],
@@ -48,10 +49,6 @@ def compute_run_id(inputs: dict) -> str:
             "coroner": inputs["coroner_version"]
         }
     }
-    
-    # Include cobc_flags if present (D-36: part of certificate content)
-    if "cobc_flags" in inputs:
-        data["cobc_flags"] = inputs["cobc_flags"]
     
     canonical = json.dumps(data, sort_keys=True, separators=(',', ':'))
     hasher.update(canonical.encode('utf-8'))
@@ -181,11 +178,9 @@ def collect_inputs(
         "java_version": java_version,
         "coroner_version": coroner_version,
         "comparison_engine_sha256": comparison_engine_sha256,
-        "timestamp": timestamp
+        "timestamp": timestamp,
+        "cobc_flags": cobc_flags if cobc_flags else []
     }
-    
-    if cobc_flags:
-        result["cobc_flags"] = cobc_flags
     
     return result
 

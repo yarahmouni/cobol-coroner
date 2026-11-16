@@ -440,6 +440,57 @@ def generate_packed_hex(rng: random.Random, digits: int, sign_nibbles: list[str]
     return digit_str + sign_nibble
 
 
+def generate_zoned_overpunch(rng: random.Random, digits: int, convention: str, sign_share: float) -> str:
+    """
+    Generate a zoned decimal string with EBCDIC overpunch convention.
+    
+    Args:
+        rng: Random number generator
+        digits: Total number of digit positions (e.g., 9 for S9(7)V99)
+        convention: Must be "EBCDIC"
+        sign_share: Probability of negative sign (0.5 = half negative)
+        
+    Returns:
+        String with digits characters, last character carrying the sign per EBCDIC overpunch table
+        
+    EBCDIC overpunch table (docs/evidence/gnucobol-encodings.md):
+        '{' and 'A' to 'I' = +0 to +9
+        '}' and 'J' to 'R' = -0 to -9
+        Plain digit '0' to '9' = positive
+    """
+    if convention != "EBCDIC":
+        raise ValueError(f"Only EBCDIC convention is supported, got {convention}")
+    
+    # Generate all but last digit
+    digit_str = ''
+    for _ in range(digits - 1):
+        digit = draw_int(rng, 0, 9)
+        digit_str += str(digit)
+    
+    # Last digit carries the sign
+    last_digit = draw_int(rng, 0, 9)
+    
+    # Determine sign
+    is_negative = rng.random() < sign_share
+    
+    if is_negative:
+        # Use EBCDIC negative overpunch: } = -0, J to R = -1 to -9
+        if last_digit == 0:
+            last_char = '}'
+        else:
+            # J=1, K=2, ..., R=9
+            last_char = chr(ord('J') + last_digit - 1)
+    else:
+        # Use EBCDIC positive overpunch: { = +0, A to I = +1 to +9
+        if last_digit == 0:
+            last_char = '{'
+        else:
+            # A=1, B=2, ..., I=9
+            last_char = chr(ord('A') + last_digit - 1)
+    
+    return digit_str + last_char
+
+
 def generate_cases(
     schema: Schema,
     cobol_structure: dict,
@@ -545,6 +596,11 @@ def generate_cases(
                             sign_nibbles = col.packed_hex['sign_nibbles']
                             sign_weights = col.packed_hex.get('sign_weights')
                             row[col.name] = generate_packed_hex(rng, digits, sign_nibbles, sign_weights)
+                        elif hasattr(col, 'zoned_overpunch') and col.zoned_overpunch:
+                            digits = col.zoned_overpunch['digits']
+                            convention = col.zoned_overpunch['convention']
+                            sign_share = col.zoned_overpunch.get('sign_share', 0.5)
+                            row[col.name] = generate_zoned_overpunch(rng, digits, convention, sign_share)
                         else:
                             row[col.name] = ''
             
@@ -632,6 +688,11 @@ def generate_cases(
                         sign_nibbles = col.packed_hex['sign_nibbles']
                         sign_weights = col.packed_hex.get('sign_weights')
                         row[col.name] = generate_packed_hex(rng, digits, sign_nibbles, sign_weights)
+                    elif hasattr(col, 'zoned_overpunch') and col.zoned_overpunch:
+                        digits = col.zoned_overpunch['digits']
+                        convention = col.zoned_overpunch['convention']
+                        sign_share = col.zoned_overpunch.get('sign_share', 0.5)
+                        row[col.name] = generate_zoned_overpunch(rng, digits, convention, sign_share)
                     else:
                         # Use empty string
                         row[col.name] = ''

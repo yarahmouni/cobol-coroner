@@ -1,0 +1,45 @@
+{
+  "program": "ZONED-OVERPUNCH",
+  "description": "Zoned decimal with EBCDIC overpunch convention trap",
+  "cobc_flags": ["-fsign=EBCDIC"],
+  "input": {
+    "file": "input.csv",
+    "columns": [
+      {
+        "name": "CASE-ID",
+        "type": "string",
+        "pic": "X(20)",
+        "description": "Unique case identifier"
+      },
+      {
+        "name": "ZONED-VALUE",
+        "type": "string",
+        "pic": "X(9)",
+        "description": "Text form of PIC S9(7)V99 zoned field with EBCDIC overpunch sign",
+        "zoned_overpunch": {
+          "digits": 9,
+          "convention": "EBCDIC",
+          "sign_share": 0.5
+        }
+      }
+    ]
+  },
+  "output": {
+    "file": "output.csv",
+    "columns": [
+      {
+        "name": "CASE-ID",
+        "type": "string",
+        "pic": "X(20)",
+        "description": "Case identifier from input"
+      },
+      {
+        "name": "DECODED-VALUE",
+        "type": "decimal",
+        "pic": "+9(7).99",
+        "scale": 2,
+        "description": "Decoded value with leading sign and decimal point"
+      }
+    ]
+  }
+}

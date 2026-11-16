@@ -334,3 +334,69 @@ def test_certificate_no_em_dash(small_run_alive):
     
     # Em dash is Unicode U+2014
     assert '\u2014' not in content, "Certificate contains em dash character"
+
+
+def test_certificate_cobc_flags_tampering(tmp_path):
+    """Certificate with tampered cobc_flags is detected on replay."""
+    import subprocess
+    
+    # Run T4 verification to get a certificate with cobc_flags
+    t4_dir = Path("samples/traps/T4-zoned-overpunch")
+    result = subprocess.run(
+        [
+            ".venv/bin/python", "-m", "coroner", "verify",
+            "--cobol", str(t4_dir / "ZONED-OVERPUNCH.cob"),
+            "--copybooks", str(t4_dir / "copybooks"),
+            "--java", str(t4_dir / "java/correct/ZonedOverpunch.java"),
+            "--schema", str(t4_dir / "schema.json"),
+            "--cases", "100",
+            "--seed", "42"
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60
+    )
+    
+    assert result.returncode == 0
+    
+    # Find the run directory
+    import re
+    match = re.search(r'runs/([a-f0-9]{12})', result.stdout)
+    assert match, f"Could not find run_id in output: {result.stdout}"
+    run_id = match.group(1)
+    
+    cert_path = Path(f"runs/{run_id}/certificate.json")
+    assert cert_path.exists()
+    
+    # Load certificate and verify cobc_flags
+    with open(cert_path, 'r') as f:
+        cert_orig = json.load(f)
+    
+    assert cert_orig["cobc_flags"] == ["-fsign=EBCDIC"]
+    
+    # First verify the original certificate replays as VALID
+    from coroner.certificate import replay_certificate
+    result_orig = replay_certificate(str(cert_path))
+    assert result_orig.valid is True
+    assert result_orig.verdict.status == "ALIVE"
+    
+    # Now tamper with cobc_flags and recompute hash
+    temp_cert = tmp_path / "cert_tampered.json"
+    cert_tampered = cert_orig.copy()
+    cert_tampered.pop("certificate_sha256")
+    
+    # Change flags to empty list
+    cert_tampered["cobc_flags"] = []
+    
+    # Recompute hash
+    canonical = json.dumps(cert_tampered, sort_keys=True, separators=(',', ':'))
+    cert_tampered["certificate_sha256"] = hashlib.sha256(canonical.encode('utf-8')).hexdigest()
+    
+    with open(temp_cert, 'w') as f:
+        json.dump(cert_tampered, f, indent=2, sort_keys=True)
+    
+    # Replay should detect the mismatch (outputs differ when compiled without -fsign=EBCDIC)
+    result_tampered = replay_certificate(str(temp_cert))
+    
+    assert result_tampered.valid is False
+    assert "replay mismatch" in result_tampered.reason

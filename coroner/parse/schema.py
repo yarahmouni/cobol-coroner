@@ -19,6 +19,7 @@ class SchemaColumn:
     domain: list[str] | None = None  # Optional domain list for string columns
     domain_weights: list[int] | None = None  # Optional weights for domain values
     packed_hex: dict | None = None  # Optional packed hex domain spec for COMP-3 decoding
+    zoned_overpunch: dict | None = None  # Optional zoned overpunch spec {"digits": 9, "convention": "EBCDIC", "sign_share": 0.5}
 
 
 @dataclass
@@ -169,7 +170,8 @@ def load_schema(path: str) -> Schema:
             comp3=False,  # Will be set from internal_precision if present
             domain=col_data.get('domain'),  # Optional domain list
             domain_weights=col_data.get('domain_weights'),  # Optional weights
-            packed_hex=col_data.get('packed_hex')  # Optional packed hex spec
+            packed_hex=col_data.get('packed_hex'),  # Optional packed hex spec
+            zoned_overpunch=col_data.get('zoned_overpunch')  # Optional zoned overpunch spec
         ))
     
     # Parse output columns
