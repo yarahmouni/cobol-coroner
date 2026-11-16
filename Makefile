@@ -1,4 +1,4 @@
-.PHONY: test smoke demo zombie serve java-sample hooks junit-jars acceptance precommit
+.PHONY: test smoke demo zombie serve java-sample hooks junit-jars acceptance precommit traps
 
 test:
 	.venv/bin/pytest -q
@@ -16,6 +16,9 @@ zombie:
 	@mkdir -p build/variants
 	@.venv/bin/python -m coroner.catalog.legacy_variant samples/credit-fees/java/CreditFees.java build/variants/CreditFees.java
 	@.venv/bin/python -m coroner verify --cobol samples/credit-fees/CREDIT-FEES.cob --copybooks samples/credit-fees/copybooks --java build/variants/CreditFees.java --schema samples/credit-fees/schema.json; exit $$?
+
+traps:
+	@.venv/bin/python -m coroner traps
 
 serve:
 	@echo "serve: not available yet (planned for S2)" >&2; exit 2

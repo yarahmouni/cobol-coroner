@@ -403,6 +403,11 @@ def main():
     verify_parser.add_argument("--tie-share", type=float, default=0.06, help="Fraction of cases that are rounding ties (default: 0.06)")
     verify_parser.add_argument("--timings", action="store_true", help="Print per-step timings")
     
+    # traps command
+    traps_parser = subparsers.add_parser("traps", help="Run trap catalog")
+    traps_parser.add_argument("--cases", type=int, default=2000, help="Number of test cases (default: 2000)")
+    traps_parser.add_argument("--seed", type=int, default=42, help="Random seed (default: 42)")
+    
     args = parser.parse_args()
     
     if args.command == "verify":
@@ -450,6 +455,21 @@ def main():
             timings=args.timings
         )
         return exit_code
+    
+    elif args.command == "traps":
+        # Run trap catalog
+        from coroner.traps import run_catalog, write_catalog_files
+        
+        try:
+            catalog = run_catalog(seed=args.seed, cases=args.cases)
+            write_catalog_files(catalog)
+            return 0
+        except Exception as e:
+            print(f"Error: {e}", file=sys.stderr)
+            import traceback
+            traceback.print_exc()
+            return 2
+    
     else:
         parser.print_help()
         return 2

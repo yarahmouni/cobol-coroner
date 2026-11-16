@@ -1,0 +1,6 @@
+{
+  "id": "T4",
+  "title": "Zoned decimal EBCDIC overpunch sign",
+  "probable_cause": "Faulty Java applies the ASCII convention or strips the last character for EBCDIC-encoded data.",
+  "fix_sentence": "Decode the last character with the EBCDIC overpunch table ({ and A to I positive 0 to 9, } and J to R negative 0 to 9)."
+}

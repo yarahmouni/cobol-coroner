@@ -1,0 +1,6 @@
+{
+  "id": "T5",
+  "title": "Numeric field read through REDEFINES of invalid data",
+  "probable_cause": "Faulty Java rejects invalid numeric data under REDEFINES.",
+  "fix_sentence": "Use the low nibble of each byte as the digit value, as the GnuCOBOL reference does."
+}

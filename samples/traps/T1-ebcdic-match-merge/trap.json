@@ -1,0 +1,6 @@
+{
+  "id": "T1",
+  "title": "EBCDIC vs ASCII collating order in sequential match-merge",
+  "probable_cause": "Faulty Java sorts by ASCII String.compareTo instead of EBCDIC byte order.",
+  "fix_sentence": "Use IBM1047 Charset or a custom Comparator for EBCDIC byte order."
+}

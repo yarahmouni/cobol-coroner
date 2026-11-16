@@ -1,0 +1,6 @@
+{
+  "id": "T3",
+  "title": "COMP-3 sign nibble F treated as negative",
+  "probable_cause": "Faulty Java treats sign nibble F as negative or rejects it.",
+  "fix_sentence": "Read sign nibble F as positive (C and F positive, D negative), as the GnuCOBOL reference does."
+}
