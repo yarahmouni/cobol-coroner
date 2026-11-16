@@ -404,7 +404,9 @@ def verify_junit_test(test_path: str, java_path: str, junit_jar: str, work_dir: 
                 "-jar", str(junit_jar_path),
                 "execute",
                 "--classpath", str(work_path),
-                "--select-class", test_class
+                "--select-class", test_class,
+                "--disable-ansi-colors",
+                "--disable-banner"
             ],
             capture_output=True,
             text=True,

@@ -122,6 +122,33 @@ Detection rates depend on the generator settings of each trap (schema.json domai
 
 The branch-code mix of T1 is a generator setting (schema.json domain_weights), not a real-world statistic.
 
+## Demo
+
+The integrated demo runs trap T1 (EBCDIC collating order) with both faulty and correct Java ports, verifies the JUnit regression test, and replays the certificate.
+
+Run the demo:
+
+```bash
+make demo-ebcdic
+```
+
+The demo performs five steps: verify the faulty port, print the Given/When/Then card of the minimal case with its COBOL lines, run the exported JUnit test against both ports, replay the certificate, and verify the correct port.
+
+Measured output (operator run 2026-11-16, 2000 cases, seed 42):
+
+```
+ZOMBIE: FAIL: business behavior diverged on 262 cases
+Unreconciled branch exposure: sum 666358.16, max 666357.81, 2 branches affected, grand total matches: yes
+Then COBOL writes row BRANCH=9ZZ with SUBTOTAL=+0000201.86, Java does not
+Then Java writes row BRANCH=SUSP with SUBTOTAL=+0000201.86, COBOL does not
+JUnit against faulty port: failed (1 tests found, 0 successful, 1 failed)
+JUnit against correct port: passed (1 tests found, 1 successful, 0 failed)
+Certificate: VALID
+ALIVE: PASS: business behavior preserved on 2000 cases
+```
+
+The grand total matches in both the faulty and correct runs, which is why a total-only reconciliation would not catch this faulty port.
+
 ## Status
 
 Work in progress for Kiroween 2026 (category: Resurrection). See `docs/sprints.md`.
