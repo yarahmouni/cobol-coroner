@@ -111,7 +111,7 @@ def test_compile_cobol(temp_dir):
     output = temp_dir / "CREDIT-FEES"
     
     # Compile without instrumentation
-    compile_cobol(source, copybooks, str(output), [])
+    compile_cobol(source, copybooks, str(output), [], str(temp_dir))
     
     # Check binary was created
     assert output.exists()
@@ -125,7 +125,7 @@ def test_compile_cobol_instrumented(temp_dir):
     output = temp_dir / "CREDIT-FEES-traced"
     
     # Compile with instrumentation
-    compile_cobol(source, copybooks, str(output), ['-ftraceall'])
+    compile_cobol(source, copybooks, str(output), ['-ftraceall'], str(temp_dir))
     
     # Check binary was created
     assert output.exists()
@@ -138,11 +138,67 @@ def test_compile_java(temp_dir):
     output_dir = temp_dir / "java"
     
     # Compile Java
-    compile_java(source, str(output_dir))
+    compile_java(source, str(output_dir), str(temp_dir))
     
     # Check .class file was created
     class_file = output_dir / "CreditFees.class"
     assert class_file.exists()
+
+
+@pytest.mark.skipif(not shutil.which("cobc"), reason="cobc not available")
+def test_compile_cobol_cache(temp_dir):
+    """Test build cache: second identical compile is a cache hit."""
+    source = "samples/credit-fees/CREDIT-FEES.cob"
+    copybooks = "samples/credit-fees/copybooks"
+    
+    # First compile
+    output1 = temp_dir / "CREDIT-FEES-1"
+    compile_cobol(source, copybooks, str(output1), [], str(temp_dir))
+    assert output1.exists()
+    
+    # Read binary bytes
+    with open(output1, 'rb') as f:
+        binary1_bytes = f.read()
+    
+    # Second compile with same inputs (cache hit)
+    output2 = temp_dir / "CREDIT-FEES-2"
+    compile_cobol(source, copybooks, str(output2), [], str(temp_dir))
+    assert output2.exists()
+    
+    # Binary bytes must be identical
+    with open(output2, 'rb') as f:
+        binary2_bytes = f.read()
+    assert binary1_bytes == binary2_bytes
+    
+    # Modify flags (cache miss)
+    output3 = temp_dir / "CREDIT-FEES-3"
+    compile_cobol(source, copybooks, str(output3), ["-ftraceall"], str(temp_dir))
+    assert output3.exists()
+
+
+@pytest.mark.skipif(not shutil.which("javac"), reason="javac not available")
+def test_compile_java_cache(temp_dir):
+    """Test Java build cache."""
+    source = "samples/credit-fees/java/CreditFees.java"
+    
+    # First compile
+    output1 = temp_dir / "out1"
+    compile_java(source, str(output1), str(temp_dir))
+    assert (output1 / "CreditFees.class").exists()
+    
+    # Read class bytes
+    with open(output1 / "CreditFees.class", 'rb') as f:
+        class1_bytes = f.read()
+    
+    # Second compile (cache hit)
+    output2 = temp_dir / "out2"
+    compile_java(source, str(output2), str(temp_dir))
+    assert (output2 / "CreditFees.class").exists()
+    
+    # Bytes must be identical
+    with open(output2 / "CreditFees.class", 'rb') as f:
+        class2_bytes = f.read()
+    assert class1_bytes == class2_bytes
 
 
 @pytest.mark.skipif(not shutil.which("cobc"), reason="cobc not available")
@@ -152,7 +208,7 @@ def test_run_cobol(temp_dir):
     source = "samples/credit-fees/CREDIT-FEES.cob"
     copybooks = "samples/credit-fees/copybooks"
     binary = temp_dir / "CREDIT-FEES"
-    compile_cobol(source, copybooks, str(binary), [])
+    compile_cobol(source, copybooks, str(binary), [], str(temp_dir))
     
     # Run on rounding-ties fixture
     input_csv = "samples/credit-fees/fixtures/rounding-ties.csv"
@@ -175,7 +231,7 @@ def test_run_cobol_validation_errors(temp_dir):
     source = "samples/credit-fees/CREDIT-FEES.cob"
     copybooks = "samples/credit-fees/copybooks"
     binary = temp_dir / "CREDIT-FEES"
-    compile_cobol(source, copybooks, str(binary), [])
+    compile_cobol(source, copybooks, str(binary), [], str(temp_dir))
     
     # Run on validation-errors fixture
     input_csv = "samples/credit-fees/fixtures/validation-errors.csv"
@@ -194,7 +250,7 @@ def test_run_java(temp_dir):
     # Compile first
     source = "samples/credit-fees/java/CreditFees.java"
     java_dir = temp_dir / "java"
-    compile_java(source, str(java_dir))
+    compile_java(source, str(java_dir), str(temp_dir))
     
     # Run on rounding-ties fixture
     input_csv = "samples/credit-fees/fixtures/rounding-ties.csv"
@@ -218,12 +274,12 @@ def test_cobol_and_java_byte_identical_rounding_ties(temp_dir):
     cobol_source = "samples/credit-fees/CREDIT-FEES.cob"
     copybooks = "samples/credit-fees/copybooks"
     cobol_binary = temp_dir / "CREDIT-FEES"
-    compile_cobol(cobol_source, copybooks, str(cobol_binary), [])
+    compile_cobol(cobol_source, copybooks, str(cobol_binary), [], str(temp_dir))
     
     # Compile Java
     java_source = "samples/credit-fees/java/CreditFees.java"
     java_dir = temp_dir / "java"
-    compile_java(java_source, str(java_dir))
+    compile_java(java_source, str(java_dir), str(temp_dir))
     
     # Run both on rounding-ties
     input_csv = "samples/credit-fees/fixtures/rounding-ties.csv"
@@ -250,12 +306,12 @@ def test_cobol_and_java_byte_identical_validation_errors(temp_dir):
     cobol_source = "samples/credit-fees/CREDIT-FEES.cob"
     copybooks = "samples/credit-fees/copybooks"
     cobol_binary = temp_dir / "CREDIT-FEES"
-    compile_cobol(cobol_source, copybooks, str(cobol_binary), [])
+    compile_cobol(cobol_source, copybooks, str(cobol_binary), [], str(temp_dir))
     
     # Compile Java
     java_source = "samples/credit-fees/java/CreditFees.java"
     java_dir = temp_dir / "java"
-    compile_java(java_source, str(java_dir))
+    compile_java(java_source, str(java_dir), str(temp_dir))
     
     # Run both on validation-errors
     input_csv = "samples/credit-fees/fixtures/validation-errors.csv"
@@ -281,7 +337,7 @@ def test_run_cobol_instrumented_produces_trace(temp_dir):
     source = "samples/credit-fees/CREDIT-FEES.cob"
     copybooks = "samples/credit-fees/copybooks"
     binary = temp_dir / "CREDIT-FEES-traced"
-    compile_cobol(source, copybooks, str(binary), ['-ftraceall'])
+    compile_cobol(source, copybooks, str(binary), ['-ftraceall'], str(temp_dir))
     
     # Run instrumented
     input_csv = "samples/credit-fees/fixtures/rounding-ties.csv"
@@ -314,7 +370,7 @@ def test_run_cobol_instrumented_single_case(temp_dir):
     source = "samples/credit-fees/CREDIT-FEES.cob"
     copybooks = "samples/credit-fees/copybooks"
     binary = temp_dir / "CREDIT-FEES-traced"
-    compile_cobol(source, copybooks, str(binary), ['-ftraceall'])
+    compile_cobol(source, copybooks, str(binary), ['-ftraceall'], str(temp_dir))
     
     # Create single-case input (header + one row)
     single_case_input = temp_dir / "single_case.csv"
@@ -358,7 +414,7 @@ def test_timeout_cobol(temp_dir):
     # Compile
     binary = temp_dir / "sleeper"
     try:
-        compile_cobol(str(sleep_cobol), str(temp_dir), str(binary), [])
+        compile_cobol(str(sleep_cobol), str(temp_dir), str(binary), [], str(temp_dir))
     except RuntimeError:
         # C$SLEEP might not be available, skip test
         pytest.skip("C$SLEEP not available in this GnuCOBOL build")
@@ -387,7 +443,7 @@ public class Sleeper {
     
     # Compile
     java_dir = temp_dir / "java"
-    compile_java(str(sleep_java), str(java_dir))
+    compile_java(str(sleep_java), str(java_dir), str(temp_dir))
     
     # Run with 1 second timeout (should timeout)
     input_csv = temp_dir / "dummy.csv"

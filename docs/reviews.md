@@ -484,3 +484,12 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - make acceptance: 25 passed in 573.50 s (the catalog runs twice). Default suite: 254 passed, 25 deselected in 754.61 s (too slow for the 60 s target: hardening item).
 - Priority 8 (six-trap catalog and Detection Matrix): done, T6 waits for the owner's field trap.
 - Kiro balance (2026-11-16): plan 405.95 of 531 used (125.05 left); kiroween2026 215.23 of 4000 used (3784.77 left); trial 0.00 of 500 used.
+
+### R-78 2026-11-16: faster default test suite (target under 60 s not reached yet)
+- Owner request before priority 9. Calls speed, speed2, speed3 (sonnet).
+- speed: 26 tests marked slow (full catalog, 2000 cases, make demo / make zombie, 500-case pre-commit, replays), case counts reduced to 30 where many cases are not needed, `make test-all` added, README states which targets run the slow tests. Default run 146.77 s.
+- speed2: build cache in coroner/run (build/cache/<key>, key = SHA-256 of sources, copybooks, flags and tool version; atomic creation), tool versions read once per process. It BROKE certificate replay (every replay INVALID: "name 'base_dir' is not defined"), a cache test read a file name the cache never writes, and a module-scoped MCP session produced 6 errors. Not committed in that state.
+- speed3: replay fixed (fresh credit-fees certificate VALID), cache test reads the returned path, MCP tests grouped into one session per workflow with every assertion kept (6 tests merged into 2, total 279 to 275 tests).
+- Operator measurements: default `pytest -q` 754.61 s before; now 229 passed, 46 deselected in 108.95 s and 110.02 s. Slow tests: 46 passed in 294.20 s (none failing). make zombie 86 (2.7 s); generator fingerprint tests unchanged and green. Every trap T1 to T5 keeps 4 or 5 fast tests that compile and run the real COBOL program.
+- Status: the 60 s target failed on three attempts, so it is "blocked, to retry". Remaining cost: about 15 tests each perform their own 30-case engine run of about 2.5 to 3 s. Next approach: session fixtures with one ALIVE and one ZOMBIE run shared by the certificate, diag, hooks, junit and e2e tests (tests that tamper copy the run into tmp_path).
+- Kiro balance (2026-11-16): plan 405.95 of 531 used; kiroween2026 252.49 of 4000 used; trial 0.00 of 500 used.

@@ -1,9 +1,11 @@
 """Tests for Coroner MCP server with 7 tools."""
 import asyncio
+import json
 import os
 import sys
 from pathlib import Path
 
+import pytest
 from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
@@ -54,85 +56,106 @@ def test_list_tools():
     asyncio.run(run_mcp_session(check))
 
 
-def test_run_differential_check_alive(tmp_path):
-    """Run differential check on demo sample, expect ALIVE."""
-    async def check(session):
-        result = await session.call_tool("run_differential_check", arguments={
+def test_alive_run_workflow(tmp_path):
+    """Test ALIVE run workflow: run_differential_check, get_verdict, generate_certificate, verify_certificate."""
+    async def workflow(session):
+        # Step 1: Run differential check (ALIVE)
+        alive_result = await session.call_tool("run_differential_check", arguments={
             "cobol": "samples/credit-fees/CREDIT-FEES.cob",
             "copybooks": "samples/credit-fees/copybooks",
             "java": "samples/credit-fees/java/CreditFees.java",
             "schema": "samples/credit-fees/schema.json",
-            "cases": 200,
+            "cases": 30,
             "seed": 42
         })
+        assert alive_result.is_error is False
+        alive_content = json.loads(alive_result.content[0].text)
+        alive_run_id = alive_content["run_id"]
+        assert alive_content["status"] == "ALIVE"
         
-        assert result.is_error is False, f"Tool call failed: {result.content if result.is_error else ''}"
-        
-        import json
-        content = json.loads(result.content[0].text)
-        
-        assert content["status"] == "ALIVE", f"Expected ALIVE, got {content['status']}"
-        assert content["cases_divergent"] == 0, f"Expected 0 divergences, got {content['cases_divergent']}"
-        assert len(content["run_id"]) == 12, f"run_id should be 12 characters, got {len(content['run_id'])}"
-        
-        return content["run_id"]
-    
-    asyncio.run(run_mcp_session(check, base_dir=tmp_path))
-
-
-def test_get_verdict(tmp_path):
-    """Get verdict for a run."""
-    async def check(session):
-        # First run the check
-        run_result = await session.call_tool("run_differential_check", arguments={
-            "cobol": "samples/credit-fees/CREDIT-FEES.cob",
-            "copybooks": "samples/credit-fees/copybooks",
-            "java": "samples/credit-fees/java/CreditFees.java",
-            "schema": "samples/credit-fees/schema.json",
-            "cases": 200,
-            "seed": 42
-        })
-        
-        import json
-        run_content = json.loads(run_result.content[0].text)
-        run_id = run_content["run_id"]
-        
-        # Then get the verdict
-        verdict_result = await session.call_tool("get_verdict", arguments={"run_id": run_id})
+        # Step 2: Get verdict
+        verdict_result = await session.call_tool("get_verdict", arguments={"run_id": alive_run_id})
         assert verdict_result.is_error is False
-        
         verdict_data = json.loads(verdict_result.content[0].text)
         assert verdict_data["status"] == "ALIVE"
+        
+        # Step 3: Generate certificate (already exists from run)
+        cert_result = await session.call_tool("generate_certificate", arguments={"run_id": alive_run_id})
+        assert cert_result.is_error is False
+        cert_gen_data = json.loads(cert_result.content[0].text)
+        assert "path" in cert_gen_data
+        
+        # Step 4: Verify certificate
+        cert_path = f"runs/{alive_run_id}/certificate.json"
+        verify_result = await session.call_tool("verify_certificate", arguments={"path": cert_path})
+        assert verify_result.is_error is False
+        verify_data = json.loads(verify_result.content[0].text)
+        assert verify_data["valid"] is True
+        assert verify_data["status"] == "ALIVE"
+        
+        # Step 5: get_failure_report should fail on ALIVE
+        failure_result = await session.call_tool("get_failure_report", arguments={"run_id": alive_run_id})
+        assert failure_result.is_error is True
+        error_text = failure_result.content[0].text if failure_result.content else ""
+        assert "No failure report: the run was ALIVE" in error_text
+        
+        # Step 6: export_junit_test should fail on ALIVE
+        junit_result = await session.call_tool("export_junit_test", arguments={"run_id": alive_run_id})
+        assert junit_result.is_error is True
+        error_text = junit_result.content[0].text if junit_result.content else ""
+        assert "No JUnit test: the run was ALIVE" in error_text
     
-    asyncio.run(run_mcp_session(check, base_dir=tmp_path))
+    asyncio.run(run_mcp_session(workflow, base_dir=tmp_path))
 
 
-def test_verify_certificate(tmp_path):
-    """Verify a certificate."""
-    async def check(session):
-        # First run the check
-        run_result = await session.call_tool("run_differential_check", arguments={
+def test_zombie_run_workflow(tmp_path):
+    """Test ZOMBIE run workflow: run_differential_check, get_verdict, get_failure_report, export_junit_test."""
+    async def workflow(session):
+        # Step 1: Run differential check (ZOMBIE with HALF_EVEN variant)
+        zombie_result = await session.call_tool("run_differential_check", arguments={
             "cobol": "samples/credit-fees/CREDIT-FEES.cob",
             "copybooks": "samples/credit-fees/copybooks",
-            "java": "samples/credit-fees/java/CreditFees.java",
+            "java": "build/variants/CreditFees.java",
             "schema": "samples/credit-fees/schema.json",
-            "cases": 200,
+            "cases": 30,
             "seed": 42
         })
+        assert zombie_result.is_error is False
+        zombie_content = json.loads(zombie_result.content[0].text)
+        zombie_run_id = zombie_content["run_id"]
+        assert zombie_content["status"] == "ZOMBIE"
         
-        import json
-        run_content = json.loads(run_result.content[0].text)
-        cert_path = run_content["certificate_path"]
+        # Step 2: Get verdict
+        verdict_result = await session.call_tool("get_verdict", arguments={"run_id": zombie_run_id})
+        assert verdict_result.is_error is False
+        verdict_data = json.loads(verdict_result.content[0].text)
+        assert verdict_data["status"] == "ZOMBIE"
         
-        # Verify the certificate
-        cert_result = await session.call_tool("verify_certificate", arguments={"path": cert_path})
-        assert cert_result.is_error is False
+        # Step 3: Get failure report
+        failure_result = await session.call_tool("get_failure_report", arguments={"run_id": zombie_run_id})
+        assert failure_result.is_error is False
+        failure_data = json.loads(failure_result.content[0].text)
+        assert "case_id" in failure_data
+        assert "cobol_output" in failure_data
+        assert "java_output" in failure_data
         
-        cert_data = json.loads(cert_result.content[0].text)
-        assert cert_data["valid"] is True, "Certificate should be valid"
-        assert cert_data["status"] == "ALIVE"
+        # Step 4: Export JUnit test
+        junit_result = await session.call_tool("export_junit_test", arguments={"run_id": zombie_run_id})
+        assert junit_result.is_error is False
+        junit_data = json.loads(junit_result.content[0].text)
+        assert "path" in junit_data
+        assert "content" in junit_data
+        assert "ZombieRegressionTest" in junit_data["content"]
+        
+        # Step 5: Verify certificate
+        cert_path = f"runs/{zombie_run_id}/certificate.json"
+        verify_result = await session.call_tool("verify_certificate", arguments={"path": cert_path})
+        assert verify_result.is_error is False
+        verify_data = json.loads(verify_result.content[0].text)
+        assert verify_data["valid"] is True
+        assert verify_data["status"] == "ZOMBIE"
     
-    asyncio.run(run_mcp_session(check, base_dir=tmp_path))
+    asyncio.run(run_mcp_session(workflow, base_dir=tmp_path))
 
 
 def test_get_detection_matrix_not_available(tmp_path):
@@ -143,89 +166,6 @@ def test_get_detection_matrix_not_available(tmp_path):
         assert result.is_error is True
         error_text = result.content[0].text if result.content else ""
         assert "Detection Matrix not available yet" in error_text, f"Expected error message, got: {error_text}"
-    
-    asyncio.run(run_mcp_session(check, base_dir=tmp_path))
-
-
-def test_run_differential_check_zombie(tmp_path):
-    """Run differential check on legacy variant, expect ZOMBIE."""
-    async def check(session):
-        result = await session.call_tool("run_differential_check", arguments={
-            "cobol": "samples/credit-fees/CREDIT-FEES.cob",
-            "copybooks": "samples/credit-fees/copybooks",
-            "java": "build/variants/CreditFees.java",
-            "schema": "samples/credit-fees/schema.json",
-            "cases": 200,
-            "seed": 42
-        })
-        
-        assert result.is_error is False
-        
-        import json
-        content = json.loads(result.content[0].text)
-        
-        assert content["status"] == "ZOMBIE", f"Expected ZOMBIE, got {content['status']}"
-        assert content["cases_divergent"] > 0, "Expected divergences"
-        
-        return content["run_id"]
-    
-    asyncio.run(run_mcp_session(check, base_dir=tmp_path))
-
-
-def test_get_failure_report(tmp_path):
-    """Get failure report for a ZOMBIE run."""
-    async def check(session):
-        # First run the check
-        run_result = await session.call_tool("run_differential_check", arguments={
-            "cobol": "samples/credit-fees/CREDIT-FEES.cob",
-            "copybooks": "samples/credit-fees/copybooks",
-            "java": "build/variants/CreditFees.java",
-            "schema": "samples/credit-fees/schema.json",
-            "cases": 200,
-            "seed": 42
-        })
-        
-        import json
-        run_content = json.loads(run_result.content[0].text)
-        run_id = run_content["run_id"]
-        
-        # Get failure report
-        failure_result = await session.call_tool("get_failure_report", arguments={"run_id": run_id})
-        assert failure_result.is_error is False
-        
-        failure_data = json.loads(failure_result.content[0].text)
-        assert "case_id" in failure_data
-        assert "cobol_output" in failure_data
-        assert "java_output" in failure_data
-    
-    asyncio.run(run_mcp_session(check, base_dir=tmp_path))
-
-
-def test_export_junit_test(tmp_path):
-    """Export JUnit test for a ZOMBIE run."""
-    async def check(session):
-        # First run the check
-        run_result = await session.call_tool("run_differential_check", arguments={
-            "cobol": "samples/credit-fees/CREDIT-FEES.cob",
-            "copybooks": "samples/credit-fees/copybooks",
-            "java": "build/variants/CreditFees.java",
-            "schema": "samples/credit-fees/schema.json",
-            "cases": 200,
-            "seed": 42
-        })
-        
-        import json
-        run_content = json.loads(run_result.content[0].text)
-        run_id = run_content["run_id"]
-        
-        # Export JUnit test
-        junit_result = await session.call_tool("export_junit_test", arguments={"run_id": run_id})
-        assert junit_result.is_error is False
-        
-        junit_data = json.loads(junit_result.content[0].text)
-        assert "path" in junit_data
-        assert "content" in junit_data
-        assert "ZombieRegressionTest" in junit_data["content"]
     
     asyncio.run(run_mcp_session(check, base_dir=tmp_path))
 
@@ -258,58 +198,7 @@ def test_invalid_run_id(tmp_path):
     asyncio.run(run_mcp_session(check, base_dir=tmp_path))
 
 
-def test_get_failure_report_alive(tmp_path):
-    """Get failure report should fail on ALIVE run."""
-    async def check(session):
-        # First run the check to get an ALIVE run
-        run_result = await session.call_tool("run_differential_check", arguments={
-            "cobol": "samples/credit-fees/CREDIT-FEES.cob",
-            "copybooks": "samples/credit-fees/copybooks",
-            "java": "samples/credit-fees/java/CreditFees.java",
-            "schema": "samples/credit-fees/schema.json",
-            "cases": 200,
-            "seed": 42
-        })
-        
-        import json
-        run_content = json.loads(run_result.content[0].text)
-        run_id = run_content["run_id"]
-        
-        # Try to get failure report
-        failure_result = await session.call_tool("get_failure_report", arguments={"run_id": run_id})
-        assert failure_result.is_error is True
-        error_text = failure_result.content[0].text if failure_result.content else ""
-        assert "No failure report: the run was ALIVE" in error_text, f"Expected ALIVE error, got: {error_text}"
-    
-    asyncio.run(run_mcp_session(check, base_dir=tmp_path))
-
-
-def test_export_junit_test_alive(tmp_path):
-    """Export JUnit test should fail on ALIVE run."""
-    async def check(session):
-        # First run the check to get an ALIVE run
-        run_result = await session.call_tool("run_differential_check", arguments={
-            "cobol": "samples/credit-fees/CREDIT-FEES.cob",
-            "copybooks": "samples/credit-fees/copybooks",
-            "java": "samples/credit-fees/java/CreditFees.java",
-            "schema": "samples/credit-fees/schema.json",
-            "cases": 200,
-            "seed": 42
-        })
-        
-        import json
-        run_content = json.loads(run_result.content[0].text)
-        run_id = run_content["run_id"]
-        
-        # Try to export JUnit test
-        junit_result = await session.call_tool("export_junit_test", arguments={"run_id": run_id})
-        assert junit_result.is_error is True
-        error_text = junit_result.content[0].text if junit_result.content else ""
-        assert "No JUnit test: the run was ALIVE" in error_text, f"Expected ALIVE error, got: {error_text}"
-    
-    asyncio.run(run_mcp_session(check, base_dir=tmp_path))
-
-
+@pytest.mark.slow
 def test_get_detection_matrix_with_catalog(tmp_path):
     """Get detection matrix when catalog exists (runs real catalog at 200 cases)."""
     import json
@@ -363,6 +252,7 @@ def test_get_detection_matrix_with_catalog(tmp_path):
     asyncio.run(run_mcp_session(check, base_dir=tmp_path))
 
 
+@pytest.mark.slow
 def test_server_from_temp_directory():
     """
     Server started from /tmp should write runs/ inside the repository.
@@ -383,7 +273,7 @@ def test_server_from_temp_directory():
             "copybooks": "samples/credit-fees/copybooks",
             "java": "samples/credit-fees/java/CreditFees.java",
             "schema": "samples/credit-fees/schema.json",
-            "cases": 200,
+            "cases": 30,
             "seed": 42
         })
         

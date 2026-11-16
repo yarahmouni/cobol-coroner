@@ -345,16 +345,16 @@ def replay_certificate(certificate_path: str) -> ReplayResult:
             
             # Compile COBOL reference
             cobol_binary = f"{replay_build}/{program_name}"
-            compile_cobol(cobol_file, copybook_dir, cobol_binary, cobol_flags)
+            compile_cobol(cobol_file, copybook_dir, cobol_binary, cobol_flags, replay_build)
             
             # Compile COBOL coverage
             os.makedirs(f"{replay_build}/coverage", exist_ok=True)
             cobol_coverage_binary = f"{replay_build}/coverage/{program_name}"
-            compile_cobol(cobol_file, copybook_dir, cobol_coverage_binary, cobol_flags + ["-ftraceall"])
+            compile_cobol(cobol_file, copybook_dir, cobol_coverage_binary, cobol_flags + ["-ftraceall"], replay_build)
             
             # Compile Java
             os.makedirs(f"{replay_build}/java", exist_ok=True)
-            compile_java(java_file, f"{replay_build}/java")
+            compile_java(java_file, f"{replay_build}/java", replay_build)
             
             # Run COBOL reference
             cobol_output = f"{replay_build}/cobol_output.csv"

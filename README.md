@@ -34,6 +34,8 @@ make acceptance
 make junit-jars
 ```
 
+The default `make test` runs fast tests in under 60 seconds. `make test-all` runs all tests including slow ones. `make acceptance` runs the 2,000-case acceptance tests (10 seeds, catalog, takes about 10 minutes).
+
 CLI form:
 
 ```bash

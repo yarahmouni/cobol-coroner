@@ -162,6 +162,7 @@ def test_faulty_java_differs():
     assert cobol_dict['FIX-02'] == java_dict['FIX-02'], "FIX-02 should match (D nibble)"
 
 
+@pytest.mark.slow
 def test_verify_correct_alive():
     """Verify with correct Java gives ALIVE on 200 cases."""
     result = subprocess.run(
@@ -184,6 +185,7 @@ def test_verify_correct_alive():
     assert 'ZOMBIE' not in result.stdout, f"Unexpected ZOMBIE verdict: {result.stdout}"
 
 
+@pytest.mark.slow
 def test_verify_faulty_zombie():
     """Verify with faulty Java gives ZOMBIE on 200 cases."""
     result = subprocess.run(

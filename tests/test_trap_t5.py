@@ -145,6 +145,7 @@ def test_t5_faulty_java_differs_from_cobol_fixture():
     assert java_content != cobol_content, "Faulty Java output should differ from COBOL"
 
 
+@pytest.mark.slow
 def test_t5_correct_java_alive_200_cases():
     """T5 correct Java gives ALIVE on 200 generated cases."""
     result = subprocess.run(
@@ -164,6 +165,7 @@ def test_t5_correct_java_alive_200_cases():
     assert "ALIVE" in result.stdout, f"Expected ALIVE: {result.stdout}"
 
 
+@pytest.mark.slow
 def test_t5_faulty_java_zombie_200_cases():
     """T5 faulty Java gives ZOMBIE on 200 generated cases."""
     result = subprocess.run(

@@ -29,7 +29,7 @@ def tools_available():
 
 def test_e2e_alive(tools_available, tmp_path):
     """
-    E2E test: runs engine on correct Java with 200 cases, asserts exit 0 and ALIVE.
+    E2E test: runs engine on correct Java with 30 cases, asserts exit 0 and ALIVE.
     """
     # Run verify command
     result = subprocess.run(
@@ -39,7 +39,7 @@ def test_e2e_alive(tools_available, tmp_path):
             '--copybooks', 'samples/credit-fees/copybooks',
             '--java', 'samples/credit-fees/java/CreditFees.java',
             '--schema', 'samples/credit-fees/schema.json',
-            '--cases', '200',
+            '--cases', '30',
             '--seed', '42'
         ],
         capture_output=True,
@@ -52,7 +52,7 @@ def test_e2e_alive(tools_available, tmp_path):
     
     # Assert ALIVE in output
     assert 'ALIVE' in result.stdout, f"Expected ALIVE in stdout: {result.stdout}"
-    assert 'PASS: business behavior preserved on 200 cases' in result.stdout
+    assert 'PASS: business behavior preserved on 30 cases' in result.stdout
     
     # Assert coverage lines present
     assert 'Paragraph coverage' in result.stdout
@@ -87,7 +87,7 @@ def test_e2e_alive(tools_available, tmp_path):
 
 def test_e2e_zombie(tools_available, tmp_path):
     """
-    E2E test: runs engine on HALF_EVEN variant with 200 cases, asserts exit 1 and ZOMBIE.
+    E2E test: runs engine on HALF_EVEN variant with 30 cases, asserts exit 1 and ZOMBIE.
     """
     # Generate HALF_EVEN variant
     variant_dir = 'build/test_variants'
@@ -111,7 +111,7 @@ def test_e2e_zombie(tools_available, tmp_path):
             '--copybooks', 'samples/credit-fees/copybooks',
             '--java', variant_path,
             '--schema', 'samples/credit-fees/schema.json',
-            '--cases', '200',
+            '--cases', '30',
             '--seed', '42'
         ],
         capture_output=True,
@@ -194,7 +194,7 @@ def test_e2e_deterministic_run_id(tools_available, tmp_path):
                 '--copybooks', 'samples/credit-fees/copybooks',
                 '--java', 'samples/credit-fees/java/CreditFees.java',
                 '--schema', 'samples/credit-fees/schema.json',
-                '--cases', '200',
+                '--cases', '30',
                 '--seed', '999'
             ],
             capture_output=True,

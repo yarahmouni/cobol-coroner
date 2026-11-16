@@ -9,9 +9,9 @@ from pathlib import Path
 from coroner.certificate import generate_certificate, replay_certificate
 
 
-@pytest.fixture
-def small_run_alive(tmp_path):
-    """Generate a small ALIVE run for testing (200 cases)."""
+@pytest.fixture(scope="module")
+def small_run_alive(tmp_path_factory):
+    """Generate a small ALIVE run for testing (30 cases)."""
     from coroner.cli import verify_command
     
     cobol = "samples/credit-fees/CREDIT-FEES.cob"
@@ -19,8 +19,8 @@ def small_run_alive(tmp_path):
     java = "samples/credit-fees/java/CreditFees.java"
     schema = "samples/credit-fees/schema.json"
     
-    # Run verification with 200 cases
-    exit_code = verify_command(cobol, copybooks, java, schema, cases=200, seed=123)
+    # Run verification with 30 cases
+    exit_code = verify_command(cobol, copybooks, java, schema, cases=30, seed=123)
     
     # Find the run directory
     runs_dir = Path("runs")
@@ -38,9 +38,9 @@ def small_run_alive(tmp_path):
     }
 
 
-@pytest.fixture
-def small_run_zombie(tmp_path):
-    """Generate a small ZOMBIE run for testing (200 cases with legacy variant)."""
+@pytest.fixture(scope="module")
+def small_run_zombie(tmp_path_factory):
+    """Generate a small ZOMBIE run for testing (30 cases with legacy variant)."""
     from coroner.cli import verify_command
     from coroner.catalog.legacy_variant import generate_half_even_variant
     
@@ -54,8 +54,8 @@ def small_run_zombie(tmp_path):
     java_variant = "build/test_variants/CreditFees.java"
     generate_half_even_variant(java_orig, java_variant)
     
-    # Run verification with 200 cases
-    exit_code = verify_command(cobol, copybooks, java_variant, schema, cases=200, seed=123)
+    # Run verification with 30 cases
+    exit_code = verify_command(cobol, copybooks, java_variant, schema, cases=30, seed=123)
     
     # Find the run directory
     runs_dir = Path("runs")
@@ -123,7 +123,7 @@ def test_certificate_generated_alive(small_run_alive):
     # Check verdict fields
     assert cert["status"] == "ALIVE"
     assert "PASS:" in cert["sub_label"]
-    assert cert["cases_total"] == 200
+    assert cert["cases_total"] == 30
     assert cert["cases_divergent"] == 0
     assert "run_return_codes" in cert
     # Return codes may be non-zero if generated cases include validation errors
@@ -181,7 +181,7 @@ def test_replay_valid_alive(small_run_alive):
     assert result.reason == ""
     assert result.verdict is not None
     assert result.verdict.status == "ALIVE"
-    assert result.cases_total == 200
+    assert result.cases_total == 30
     assert result.cases_divergent == 0
     assert result.paragraph_coverage_reached > 0
     assert result.paragraph_coverage_total > 0
@@ -201,7 +201,7 @@ def test_replay_valid_zombie(small_run_zombie):
     assert result.reason == ""
     assert result.verdict is not None
     assert result.verdict.status == "ZOMBIE"
-    assert result.cases_total == 200
+    assert result.cases_total == 30
     assert result.cases_divergent > 0
 
 
@@ -336,6 +336,7 @@ def test_certificate_no_em_dash(small_run_alive):
     assert '\u2014' not in content, "Certificate contains em dash character"
 
 
+@pytest.mark.slow
 def test_certificate_cobc_flags_tampering(tmp_path):
     """Certificate with tampered cobc_flags is detected on replay."""
     import subprocess

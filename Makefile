@@ -1,7 +1,10 @@
-.PHONY: test smoke demo zombie serve java-sample hooks junit-jars acceptance precommit traps
+.PHONY: test test-all smoke demo zombie serve java-sample hooks junit-jars acceptance precommit traps
 
 test:
 	.venv/bin/pytest -q
+
+test-all:
+	.venv/bin/pytest -q -m ''
 
 acceptance:
 	.venv/bin/pytest -m slow -s

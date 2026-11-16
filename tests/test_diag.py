@@ -370,12 +370,12 @@ def test_end_to_end_half_even_divergence():
         run_dir = Path(tmpdir) / "run"
         run_dir.mkdir()
         
-        # Generate 2,000 cases with seed 42
+        # Generate 30 cases with seed 42
         cases_csv = generate_cases(
             schema=schema,
             cobol_structure=cobol_structure,
             seed=42,
-            num_cases=2000,
+            num_cases=30,
             tie_share=0.05
         )
         
@@ -389,15 +389,15 @@ def test_end_to_end_half_even_divergence():
         
         # Compile COBOL (reference and instrumented)
         cobol_binary = Path(tmpdir) / "credit_fees"
-        compile_cobol(cobol_source, copybook_dir, str(cobol_binary), [])
+        compile_cobol(cobol_source, copybook_dir, str(cobol_binary), [], tmpdir)
         
         cobol_instrumented = Path(tmpdir) / "credit_fees_instrumented"
-        compile_cobol(cobol_source, copybook_dir, str(cobol_instrumented), ["-ftraceall"])
+        compile_cobol(cobol_source, copybook_dir, str(cobol_instrumented), ["-ftraceall"], tmpdir)
         
         # Compile Java HALF_EVEN variant
         java_dir = Path(tmpdir) / "java"
         java_dir.mkdir()
-        compile_java(str(half_even_source), str(java_dir))
+        compile_java(str(half_even_source), str(java_dir), tmpdir)
         
         # Run both programs
         cobol_output = Path(tmpdir) / "cobol_output.csv"
@@ -624,18 +624,18 @@ def test_coverage_uncovered_error_path():
     cobol_structure = parse_cobol_structure(cobol_source, copybook_dir)
     
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Generate 2,000 valid cases
+        # Generate 30 valid cases
         cases_csv = generate_cases(
             schema=schema,
             cobol_structure=cobol_structure,
             seed=42,
-            num_cases=2000,
+            num_cases=30,
             tie_share=0.05
         )
         
         # Compile instrumented COBOL
         cobol_instrumented = Path(tmpdir) / "credit_fees_instrumented"
-        compile_cobol(cobol_source, copybook_dir, str(cobol_instrumented), ["-ftraceall"])
+        compile_cobol(cobol_source, copybook_dir, str(cobol_instrumented), ["-ftraceall"], tmpdir)
         
         # Run and capture trace
         cobol_output = Path(tmpdir) / "cobol_output.csv"

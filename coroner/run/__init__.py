@@ -3,6 +3,10 @@
 import os
 import subprocess
 import time
+import hashlib
+import shutil
+import tempfile
+import functools
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -14,6 +18,111 @@ class RunResult:
     return_code: int
     stderr: str
     wall_time: float
+
+
+@functools.lru_cache(maxsize=1)
+def get_cobc_version() -> str:
+    """Get cobc version string, cached per process."""
+    result = subprocess.run(
+        ['cobc', '--version'],
+        capture_output=True,
+        text=True,
+        timeout=10.0
+    )
+    return result.stdout.strip()
+
+
+@functools.lru_cache(maxsize=1)
+def get_javac_version() -> str:
+    """Get javac version string, cached per process."""
+    result = subprocess.run(
+        ['javac', '-version'],
+        capture_output=True,
+        text=True,
+        timeout=10.0
+    )
+    return result.stderr.strip()
+
+
+@functools.lru_cache(maxsize=1)
+def get_java_version() -> str:
+    """Get java version string, cached per process."""
+    result = subprocess.run(
+        ['java', '-version'],
+        capture_output=True,
+        text=True,
+        timeout=10.0
+    )
+    return result.stderr.strip()
+
+
+def _compute_cache_key(source_path: str, copybook_paths: list[str], flags: list[str], version: str) -> str:
+    """
+    Compute cache key from source, copybooks, flags and tool version.
+    
+    Args:
+        source_path: Path to source file
+        copybook_paths: List of copybook paths (sorted)
+        flags: Compiler flags (sorted)
+        version: Tool version string
+        
+    Returns:
+        SHA-256 hex string
+    """
+    h = hashlib.sha256()
+    
+    # Hash source bytes
+    with open(source_path, 'rb') as f:
+        h.update(f.read())
+    
+    # Hash copybook bytes in sorted order
+    for cp_path in sorted(copybook_paths):
+        with open(cp_path, 'rb') as f:
+            h.update(f.read())
+    
+    # Hash flags
+    h.update('|'.join(sorted(flags)).encode('utf-8'))
+    
+    # Hash version
+    h.update(version.encode('utf-8'))
+    
+    return h.hexdigest()
+
+
+def _get_cache_dir(base_dir: str, cache_key: str) -> Path:
+    """Get cache directory for a given key."""
+    return Path(base_dir) / "build" / "cache" / cache_key
+
+
+def _atomic_cache_create(cache_dir: Path, build_fn) -> None:
+    """
+    Atomically create cache entry.
+    
+    Args:
+        cache_dir: Target cache directory
+        build_fn: Function that builds outputs in given temp directory
+    """
+    if cache_dir.exists():
+        return  # Another process created it
+    
+    # Build in temp directory
+    cache_dir.parent.mkdir(parents=True, exist_ok=True)
+    temp_dir = Path(tempfile.mkdtemp(prefix='cache_', dir=cache_dir.parent))
+    
+    try:
+        build_fn(temp_dir)
+        
+        # Atomic rename
+        try:
+            temp_dir.rename(cache_dir)
+        except FileExistsError:
+            # Another process won the race, clean up
+            shutil.rmtree(temp_dir)
+    except Exception:
+        # Clean up on failure
+        if temp_dir.exists():
+            shutil.rmtree(temp_dir)
+        raise
 
 
 def _build_subprocess_env(**extra: str) -> dict[str, str]:
@@ -57,73 +166,122 @@ def _build_subprocess_env(**extra: str) -> dict[str, str]:
     return env
 
 
-def compile_cobol(source: str, copybooks: str, output: str, flags: list[str]) -> None:
+def compile_cobol(source: str, copybooks: str, output: str, flags: list[str], base_dir: str = ".") -> None:
     """
-    Compile COBOL source with cobc.
+    Compile COBOL source with cobc, using build cache.
     
     Args:
         source: Path to COBOL source file
         copybooks: Path to copybook directory
         output: Path to output binary
         flags: Additional compiler flags (e.g., ['-ftraceall'])
+        base_dir: Base directory for cache (default ".")
         
     Raises:
         RuntimeError: If compilation fails or times out
     """
-    # Build directory if needed
-    Path(output).parent.mkdir(parents=True, exist_ok=True)
+    # Collect copybook paths
+    copybook_paths = []
+    for entry in sorted(os.listdir(copybooks)):
+        path = os.path.join(copybooks, entry)
+        if os.path.isfile(path):
+            copybook_paths.append(path)
     
-    # Build command: cobc -x -Wall -I <copybooks> -o <output> <source> [additional flags]
-    # Base flags are always -x -Wall
-    cmd = ['cobc', '-x', '-Wall', '-I', copybooks, '-o', output, source] + flags
+    # Compute cache key
+    version = get_cobc_version()
+    cache_key = _compute_cache_key(source, copybook_paths, flags, version)
+    cache_dir = _get_cache_dir(base_dir, cache_key)
     
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=60.0,
-            env=_build_subprocess_env()
-        )
+    # Binary name from output path
+    binary_name = Path(output).name
+    
+    # Check cache (find any binary in cache dir)
+    if cache_dir.exists():
+        cached_binaries = list(cache_dir.iterdir())
+        if cached_binaries:
+            # Cache hit: copy to output
+            Path(output).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(cached_binaries[0], output)
+            return
+    
+    # Cache miss: compile
+    def build_fn(temp_dir: Path):
+        temp_output = temp_dir / binary_name
+        cmd = ['cobc', '-x', '-Wall', '-I', copybooks, '-o', str(temp_output), source] + flags
         
-        if result.returncode != 0:
-            raise RuntimeError(f"COBOL compilation failed\n{result.stderr}")
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=60.0,
+                env=_build_subprocess_env()
+            )
             
-    except subprocess.TimeoutExpired:
-        raise RuntimeError("COBOL compilation timed out after 60s")
+            if result.returncode != 0:
+                raise RuntimeError(f"COBOL compilation failed\n{result.stderr}")
+                
+        except subprocess.TimeoutExpired:
+            raise RuntimeError("COBOL compilation timed out after 60s")
+    
+    _atomic_cache_create(cache_dir, build_fn)
+    
+    # Copy from cache to output
+    Path(output).parent.mkdir(parents=True, exist_ok=True)
+    cached_binaries = list(cache_dir.iterdir())
+    shutil.copy2(cached_binaries[0], output)
 
 
-def compile_java(source: str, output_dir: str) -> None:
+def compile_java(source: str, output_dir: str, base_dir: str = ".") -> None:
     """
-    Compile Java source with javac.
+    Compile Java source with javac, using build cache.
     
     Args:
         source: Path to Java source file
         output_dir: Directory for compiled .class files
+        base_dir: Base directory for cache (default ".")
         
     Raises:
         RuntimeError: If compilation fails or times out
     """
-    # Build output directory
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    # Compute cache key (no copybooks, no flags for Java)
+    version = get_javac_version()
+    cache_key = _compute_cache_key(source, [], [], version)
+    cache_dir = _get_cache_dir(base_dir, cache_key)
     
-    # Build command: javac -Xlint:all -d <output_dir> <source>
-    cmd = ['javac', '-Xlint:all', '-d', output_dir, source]
+    # Check cache (look for .class files)
+    if cache_dir.exists() and any(cache_dir.glob('*.class')):
+        # Cache hit: copy to output
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+        for class_file in cache_dir.glob('*.class'):
+            shutil.copy2(class_file, output_dir)
+        return
     
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=60.0,
-            env=_build_subprocess_env()
-        )
+    # Cache miss: compile
+    def build_fn(temp_dir: Path):
+        cmd = ['javac', '-Xlint:all', '-d', str(temp_dir), source]
         
-        if result.returncode != 0:
-            raise RuntimeError(f"Java compilation failed\n{result.stderr}")
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=60.0,
+                env=_build_subprocess_env()
+            )
             
-    except subprocess.TimeoutExpired:
-        raise RuntimeError("Java compilation timed out after 60s")
+            if result.returncode != 0:
+                raise RuntimeError(f"Java compilation failed\n{result.stderr}")
+                
+        except subprocess.TimeoutExpired:
+            raise RuntimeError("Java compilation timed out after 60s")
+    
+    _atomic_cache_create(cache_dir, build_fn)
+    
+    # Copy from cache to output
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    for class_file in cache_dir.glob('*.class'):
+        shutil.copy2(class_file, output_dir)
 
 
 def validate_reference_output(

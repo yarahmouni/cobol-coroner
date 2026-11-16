@@ -147,18 +147,18 @@ def run_verify(
     step_start = time.time()
     cobol_binary = str(build_dir / program_name)
     cobol_flags = schema_obj.cobc_flags or []
-    compile_cobol(cobol_path, copybooks_dir, cobol_binary, cobol_flags)
+    compile_cobol(cobol_path, copybooks_dir, cobol_binary, cobol_flags, base_dir)
     record_step("Compile COBOL reference", step_start)
     
     # Step 5b: Compile COBOL coverage
     step_start = time.time()
     cobol_coverage_binary = str(build_dir / "coverage" / program_name)
-    compile_cobol(cobol_path, copybooks_dir, cobol_coverage_binary, cobol_flags + ["-ftraceall"])
+    compile_cobol(cobol_path, copybooks_dir, cobol_coverage_binary, cobol_flags + ["-ftraceall"], base_dir)
     record_step("Compile COBOL coverage", step_start)
     
     # Step 5c: Compile Java
     step_start = time.time()
-    compile_java(java_path, str(build_dir / "java"))
+    compile_java(java_path, str(build_dir / "java"), base_dir)
     record_step("Compile Java", step_start)
     
     # Extract Java class name from file

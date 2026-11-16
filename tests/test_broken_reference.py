@@ -173,6 +173,7 @@ def test_credit_fees_exit_4_still_works():
         assert not (run_dir / "run_error.txt").exists()
 
 
+@pytest.mark.slow
 def test_make_demo_unchanged():
     """Test 4a: make demo should still work (ALIVE on 2000 cases)."""
     from coroner.cli import run_verify
@@ -206,6 +207,7 @@ def test_make_demo_unchanged():
         assert (run_dir / "certificate.json").exists()
 
 
+@pytest.mark.slow
 def test_make_zombie_unchanged():
     """Test 4b: make zombie should still work (ZOMBIE on 86 divergences)."""
     from coroner.cli import run_verify

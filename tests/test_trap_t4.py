@@ -177,6 +177,7 @@ def test_t4_faulty_java_differs(t4_dir):
     assert java_content != cobol_content, "Faulty Java should differ from COBOL"
 
 
+@pytest.mark.slow
 def test_t4_engine_correct_alive(t4_dir):
     """Engine gives ALIVE on correct Java (200 cases)."""
     result = subprocess.run(
@@ -198,6 +199,7 @@ def test_t4_engine_correct_alive(t4_dir):
     assert "ALIVE" in result.stdout
 
 
+@pytest.mark.slow
 def test_t4_engine_faulty_zombie(t4_dir):
     """Engine gives ZOMBIE on faulty Java (200 cases)."""
     result = subprocess.run(
@@ -219,6 +221,7 @@ def test_t4_engine_faulty_zombie(t4_dir):
     assert "ZOMBIE" in result.stdout
 
 
+@pytest.mark.slow
 def test_t4_certificate_records_cobc_flags(t4_dir):
     """Certificate of a T4 run records cobc_flags -fsign=EBCDIC."""
     import json

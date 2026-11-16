@@ -7,6 +7,7 @@ import pytest
 from coroner.traps import run_catalog
 
 
+@pytest.mark.slow
 def test_catalog_runner_200_cases():
     """Test catalog runner with 200 cases."""
     # Run catalog with small case count
@@ -62,6 +63,7 @@ def test_catalog_runner_200_cases():
     assert "global_detection_rate" not in catalog
 
 
+@pytest.mark.slow
 def test_catalog_json_written():
     """Test that catalog JSON is written."""
     catalog = run_catalog(seed=42, cases=200)

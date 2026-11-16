@@ -8,6 +8,9 @@ from pathlib import Path
 import pytest
 
 
+pytestmark = pytest.mark.slow
+
+
 def setup_test_repo():
     """
     Create a temporary Git repository with the demo sample.

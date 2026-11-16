@@ -159,6 +159,7 @@ def test_faulty_java_diverges_from_cobol():
     assert cobol_subtotals != java_subtotals, "No subtotal divergence found"
 
 
+@pytest.mark.slow
 def test_coroner_correct_java_alive():
     """Coroner verify with correct Java returns ALIVE."""
     result = subprocess.run(
@@ -179,6 +180,7 @@ def test_coroner_correct_java_alive():
     assert "return code differs" not in result.stdout
 
 
+@pytest.mark.slow
 def test_coroner_faulty_java_zombie():
     """Coroner verify with faulty Java returns ZOMBIE with matching grand totals."""
     result = subprocess.run(
