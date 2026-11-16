@@ -473,3 +473,8 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - INTEGRITY issue fixed: the tests wrote a hand-made catalog with invented numbers into the real runs/ folder and then deleted runs/trap_catalog.json (the real matrix disappeared) and removed real run directories. Now the server reads CORONER_BASE_DIR, the tests use a pytest tmp_path with a catalog produced by the real runner, and never touch the repository's runs/.
 - Operator check: stdio server started from /tmp returns T1 262, T2 856, T3 429, T4 2000, T5 602, T6 without numbers; trap_id T1 returns T1 only; T9 gives "Trap T9 not found in catalog"; the real catalog file is unchanged after the MCP tests (14 passed).
 - Kiro balance (2026-11-16): plan 405.95 of 531 used (125.05 left); kiroween2026 215.23 of 4000 used (3784.77 left); trial 0.00 of 500 used.
+
+### R-76 2026-11-16: README Detection Matrix
+- Calls ct11, ct11b, ct11c (haiku). Trap catalog section with the D-46 header sentence and wording limit, per-trap table (detected of 2000, rate, correct port verdict), T1 exposure line, generator-setting caveat, GnuCOBOL vs IBM limitations.
+- Haiku miscopied the T3 rate (0.2150 instead of 0.2145); corrected; the operator checked every README number against runs/trap_catalog.json with a script (all match).
+- Kiro balance (2026-11-16): plan 405.95 of 531 used (125.05 left); kiroween2026 215.23 of 4000 used (3784.77 left); trial 0.00 of 500 used.

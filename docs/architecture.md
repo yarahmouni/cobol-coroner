@@ -29,6 +29,8 @@ COBOL + copybooks + Java 17 + schema.json
 - `coroner/verdict.py`: verdict type definition and computation (ALIVE, ZOMBIE).
 - `coroner/store.py`: run storage, inputs.json, verdict.json, comparison results to runs/<run_id>/.
 - `coroner/diag`: coverage report, minimal case selection, failure report, JUnit test generation.
+- `coroner/diag/card.py`: Given/When/Then card generation from minimal case.
+- `coroner/traps.py`: trap catalog runner and detection matrix computation.
 - `coroner/catalog/legacy_variant.py`: HALF_EVEN variant generation for test purposes.
 - `coroner/cli.py`: command-line interface and pipeline orchestration.
 - `coroner/mcp`: MCP server with thin layer over the engine.

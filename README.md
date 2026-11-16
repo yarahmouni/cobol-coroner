@@ -95,6 +95,29 @@ Three skills guide the coroner-auditor agent:
 
 ## Trap catalog
 
+Six banking migration traps that silently corrupt amounts, signs, ordering or control totals.
+
+Coroner prioritizes high-impact banking migration traps, such as EBCDIC collating sequence and control-break errors, and demonstrates their detection with executable differential tests: targeted regression traps within its supported COBOL subset.
+
+| Trap | Description | Detected (faulty port) | Rate | Correct port |
+|------|-------------|--------|------|---|
+| T1 | EBCDIC vs ASCII collating order breaks control-break subtotals | 262 of 2000 | 0.1310 | ALIVE |
+| T2 | Truncation without ROUNDED, and ROUNDED ported as HALF_EVEN | 856 of 2000 | 0.4280 | ALIVE |
+| T3 | COMP-3 sign nibble (C positive, D negative, F unsigned) | 429 of 2000 | 0.2145 | ALIVE |
+| T4 | Zoned sign overpunch in input files; reference compiled with -fsign=EBCDIC | 2000 of 2000 | 1.0000 | ALIVE |
+| T5 | REDEFINES and invalid numeric data | 602 of 2000 | 0.3010 | ALIVE |
+| T6 | placeholder, owner field trap pending | not measured | not measured | not measured |
+
+Run all traps:
+
+```bash
+make traps
+```
+
+T1 Unreconciled branch exposure (faulty port): sum 666358.16, max 666357.81, 2 branches affected, grand total matches: yes.
+
+Detection rates depend on the generator settings of each trap (schema.json domain_weights for T1, tie_share for T2, etc.) and are not real-world statistics.
+
 The branch-code mix of T1 is a generator setting (schema.json domain_weights), not a real-world statistic.
 
 ## Status
@@ -105,7 +128,7 @@ Work in progress for Kiroween 2026 (category: Resurrection). See `docs/sprints.m
 
 - Not a converter.
 - Not a formal proof of equivalence. An ALIVE verdict means "business behavior preserved on N cases", nothing more.
-- Validated under GnuCOBOL 3.x only, not IBM Enterprise COBOL.
+- Validated under GnuCOBOL 3.x only, not IBM Enterprise COBOL. GnuCOBOL vs IBM differences are documented in docs/evidence/gnucobol-encodings.md (sign nibble B, sign conventions). Coroner does not emulate z/OS. No S0C7 is raised by GnuCOBOL.
 - Return codes are compared as OS exit statuses, which are limited to 0 to 255 (a COBOL RETURN-CODE outside that range is reduced by the operating system).
 
 ## Out of scope (V1)

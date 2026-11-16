@@ -126,7 +126,7 @@ Done when:
 - tests/test_mcp_server.py: test_get_detection_matrix_success (with a real trap_catalog.json) and test_get_detection_matrix_not_built (missing file, assert is_error).
 - pytest passes.
 
-- [ ] 11. Documentation
+- [x] 11. Documentation
 
 _Requirements: Req 11. README, architecture.md, Makefile target._
 
