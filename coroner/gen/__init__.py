@@ -7,6 +7,10 @@ from pathlib import Path
 
 from coroner.parse.schema import Schema, SchemaColumn
 
+# Generator version for regression testing
+# Increment when generation logic changes in a way that affects output bytes
+GENERATOR_VERSION = 1
+
 
 def draw_int(rng: random.Random, lo: int, hi: int) -> int:
     """
