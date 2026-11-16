@@ -105,6 +105,40 @@ def test_generate_junit_test_includes_header_comment(test_schema, minimal_case, 
     assert "Java value: -0000000.04" in content
 
 
+def test_generate_junit_test_with_card(test_schema, minimal_case, input_row, expected_output, tmp_path):
+    """Test that generated test includes Given/When/Then card as header comment."""
+    output_path = tmp_path / "ZombieRegressionTest.java"
+    
+    card_text = """Given CASE-ID=GEN-001213, AMOUNT=-0.21
+When the COBOL reference and the Java port process this case
+Then COBOL returns RESULT=-0000000.05 and Java returns RESULT=-0000000.04
+COBOL lines involved: test.cob:100, test.cob:105"""
+    
+    generate_junit_test(
+        minimal_case=minimal_case,
+        input_row=input_row,
+        expected_output=expected_output,
+        java_class="TestClass",
+        schema=test_schema,
+        output_path=str(output_path),
+        card=card_text
+    )
+    
+    content = output_path.read_text()
+    
+    # Verify card appears in the header comment before the class
+    assert "Given/When/Then card:" in content
+    assert "Given CASE-ID=GEN-001213, AMOUNT=-0.21" in content
+    assert "When the COBOL reference and the Java port process this case" in content
+    assert "Then COBOL returns RESULT=-0000000.05 and Java returns RESULT=-0000000.04" in content
+    assert "COBOL lines involved: test.cob:100, test.cob:105" in content
+    
+    # Verify card comes before the class definition
+    card_position = content.find("Given/When/Then card:")
+    class_position = content.find("public class ZombieRegressionTest")
+    assert card_position < class_position, "Card should appear before class definition"
+
+
 def test_generate_junit_test_compiles_with_junit_jar(test_schema, minimal_case, input_row, expected_output, tmp_path):
     """Test that generated test compiles with JUnit jar."""
     junit_jar = Path("build/junit/junit-platform-console-standalone-6.1.3.jar")

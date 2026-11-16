@@ -456,3 +456,8 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 ### R-72 2026-11-16: trap T6 placeholder
 - Call ct7 (sonnet). samples/traps/T6-reserved/README.md only, status "placeholder: owner field trap pending", no numbers; test asserts it.
 - Kiro balance (2026-11-16): plan 405.95 of 531 used (125.05 left); kiroween2026 215.23 of 4000 used (3784.77 left); trial 0.00 of 500 used.
+
+### R-73 2026-11-16: Given/When/Then card (D-43)
+- Calls ct8 and ct8fix (sonnet). coroner/diag/card.py: deterministic card from the failure report; card.txt in the run directory, in failure_report.json and as the header comment of ZombieRegressionTest.java.
+- Fix: the first version listed the first 10 of all 106 executed lines; now only the statements that can change the divergent field. Real make zombie card: "Then COBOL returns FEE-AMOUNT=-0000000.05 and Java returns FEE-AMOUNT=-0000000.04", lines CREDIT-FEES.cob:293 COMPUTE WS-BASE-FEE ROUNDED, :303 MOVE, :319 MOVE to OUT-FEE-AMOUNT, :332 COMPUTE WS-DISCOUNTED-FEE ROUNDED (the discount-step tie). A stray root file left by Kiro is excluded from this commit.
+- Kiro balance (2026-11-16): plan 405.95 of 531 used (125.05 left); kiroween2026 215.23 of 4000 used (3784.77 left); trial 0.00 of 500 used.

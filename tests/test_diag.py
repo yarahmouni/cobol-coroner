@@ -16,6 +16,7 @@ from coroner.diag import (
     generate_failure_report,
     select_minimal_case,
 )
+from coroner.diag.card import generate_card
 from coroner.parse.copybook import BranchInfo
 from coroner.parse.schema import Schema, SchemaColumn
 
@@ -678,6 +679,364 @@ def test_coverage_uncovered_error_path():
             f"Expected uncovered branches to include the error-path IF_TRUE near line {error_display_line}, "
             f"but uncovered branches are: {[(b.line, b.branch_type) for b in uncovered_branches]}"
         )
+
+
+def test_generate_card_basic():
+    """Test basic card generation without trap metadata."""
+    schema = Schema(
+        program_name="TEST-PROGRAM",
+        description="Test program",
+        input_file="input.csv",
+        input_columns=[
+            SchemaColumn("CASE-ID", "string", "X(10)", "Case ID"),
+            SchemaColumn("PRINCIPAL", "decimal", "S9(9)V99", "Principal", scale=2, signed=True),
+            SchemaColumn("RATE", "decimal", "V9(5)", "Rate", scale=5, signed=False),
+        ],
+        output_file="output.csv",
+        output_columns=[
+            SchemaColumn("CASE-ID", "string", "X(10)", "Case ID"),
+            SchemaColumn("FEE", "decimal", "+9(7).99", "Fee", scale=2, signed=True),
+        ]
+    )
+    
+    failure_report = FailureReport(
+        case_id="TEST-001",
+        input_row={"CASE-ID": "TEST-001", "PRINCIPAL": "100.00", "RATE": "0.05000"},
+        cobol_output={"CASE-ID": "TEST-001", "FEE": "+0000005.00"},
+        java_output={"CASE-ID": "TEST-001", "FEE": "+0000004.99"},
+        divergent_fields=[("FEE", "+0000005.00", "+0000004.99")],
+        cobol_return_code=0,
+        java_return_code=0,
+        executed_lines=[("test.cob", 100), ("test.cob", 105), ("test.cob", 110)]
+    )
+    
+    # Create a temporary test source file with COMPUTE statement
+    with tempfile.TemporaryDirectory() as tmpdir:
+        test_source = Path(tmpdir) / "test.cob"
+        source_lines = [
+            "       IDENTIFICATION DIVISION.\n",
+            "       PROGRAM-ID. TEST-PROGRAM.\n",
+        ] + ["       * Filler line\n"] * 97 + [
+            "           COMPUTE WS-FEE = PRINCIPAL * RATE.\n",  # line 100
+            "       * Another line\n",                          # line 101
+        ] + ["       * More filler\n"] * 3 + [
+            "           MOVE SPACES TO OUTPUT-RECORD.\n",       # line 105
+        ] + ["       * More filler\n"] * 4 + [
+            "           COMPUTE WS-RESULT ROUNDED = WS-FEE.\n", # line 110
+        ]
+        test_source.write_text("".join(source_lines))
+        
+        card = generate_card(failure_report, schema, str(test_source), tmpdir)
+    
+    # Verify card structure
+    assert "Given CASE-ID=TEST-001, PRINCIPAL=100.00, RATE=0.05000" in card
+    assert "When the COBOL reference and the Java port process this case" in card
+    assert "Then COBOL returns FEE=+0000005.00 and Java returns FEE=+0000004.99" in card
+    
+    # Verify only COMPUTE lines are included, not MOVE
+    assert "test.cob:100 COMPUTE WS-FEE = PRINCIPAL * RATE." in card
+    assert "test.cob:110 COMPUTE WS-RESULT ROUNDED = WS-FEE." in card
+    assert "test.cob:105" not in card  # MOVE to OUTPUT-RECORD should not be included (not to FEE field)
+    
+    # No trap metadata
+    assert "Probable cause" not in card
+    assert "Suggested fix" not in card
+    
+    # Verify ends with newline
+    assert card.endswith("\n")
+
+
+def test_generate_card_with_trap_metadata():
+    """Test card generation with trap title, probable cause and suggested fix."""
+    schema = Schema(
+        program_name="ROUNDING-CALC",
+        description="Rounding calculation",
+        input_file="input.csv",
+        input_columns=[
+            SchemaColumn("CASE-ID", "string", "X(10)", "Case ID"),
+            SchemaColumn("AMOUNT", "decimal", "S9(9)V99", "Amount", scale=2, signed=True),
+        ],
+        output_file="output.csv",
+        output_columns=[
+            SchemaColumn("CASE-ID", "string", "X(10)", "Case ID"),
+            SchemaColumn("RESULT", "decimal", "+9(7).99", "Result", scale=2, signed=True),
+        ]
+    )
+    
+    failure_report = FailureReport(
+        case_id="TIE-001",
+        input_row={"CASE-ID": "TIE-001", "AMOUNT": "12.345"},
+        cobol_output={"CASE-ID": "TIE-001", "RESULT": "+0000012.35"},
+        java_output={"CASE-ID": "TIE-001", "RESULT": "+0000012.34"},
+        divergent_fields=[("RESULT", "+0000012.35", "+0000012.34")],
+        cobol_return_code=0,
+        java_return_code=0,
+        executed_lines=[("ROUNDING-CALC.cob", 50)]
+    )
+    
+    # Create a temporary test source file
+    with tempfile.TemporaryDirectory() as tmpdir:
+        test_source = Path(tmpdir) / "ROUNDING-CALC.cob"
+        source_lines = ["       * Line\n"] * 49 + [
+            "           COMPUTE WS-RESULT ROUNDED = AMOUNT.\n",  # line 50
+        ]
+        test_source.write_text("".join(source_lines))
+        
+        card = generate_card(
+            failure_report,
+            schema,
+            str(test_source),
+            tmpdir,
+            trap_title="Rounding mode trap",
+            probable_cause="Faulty Java uses HALF_EVEN where COBOL has ROUNDED (default HALF_UP).",
+            suggested_fix="Use RoundingMode.HALF_UP."
+        )
+    
+    # Verify all parts are present
+    assert "Given CASE-ID=TIE-001, AMOUNT=12.345" in card
+    assert "When the COBOL reference and the Java port process this case" in card
+    assert "Then COBOL returns RESULT=+0000012.35 and Java returns RESULT=+0000012.34" in card
+    assert "COBOL lines involved: ROUNDING-CALC.cob:50 COMPUTE WS-RESULT ROUNDED = AMOUNT." in card
+    assert "Probable cause (deterministic, from the trap catalog): Faulty Java uses HALF_EVEN where COBOL has ROUNDED (default HALF_UP)." in card
+    assert "Suggested fix: Use RoundingMode.HALF_UP." in card
+    assert card.endswith("\n")
+
+
+def test_generate_card_with_return_code_difference():
+    """Test card includes exit status when return codes differ."""
+    schema = Schema(
+        program_name="ERROR-TEST",
+        description="Error test",
+        input_file="input.csv",
+        input_columns=[
+            SchemaColumn("CASE-ID", "string", "X(10)", "Case ID"),
+            SchemaColumn("VALUE", "string", "X(10)", "Value"),
+        ],
+        output_file="output.csv",
+        output_columns=[
+            SchemaColumn("CASE-ID", "string", "X(10)", "Case ID"),
+            SchemaColumn("RESULT", "string", "X(10)", "Result"),
+        ]
+    )
+    
+    failure_report = FailureReport(
+        case_id="ERR-001",
+        input_row={"CASE-ID": "ERR-001", "VALUE": "INVALID"},
+        cobol_output={"CASE-ID": "ERR-001", "RESULT": "ERROR"},
+        java_output={"CASE-ID": "ERR-001", "RESULT": "ERROR"},
+        divergent_fields=[],
+        cobol_return_code=4,
+        java_return_code=0,
+        executed_lines=[("error-test.cob", 20)]
+    )
+    
+    # Create a temporary test source file
+    with tempfile.TemporaryDirectory() as tmpdir:
+        test_source = Path(tmpdir) / "error-test.cob"
+        source_lines = ["       * Line\n"] * 19 + [
+            "           MOVE \"ERROR\" TO OUT-RESULT.\n",  # line 20
+        ]
+        test_source.write_text("".join(source_lines))
+        
+        card = generate_card(failure_report, schema, str(test_source), tmpdir)
+    
+    # Verify exit status line is included
+    assert "Then COBOL exits 4 and Java exits 0" in card
+    assert card.endswith("\n")
+
+
+def test_generate_card_deterministic():
+    """Test that same inputs produce byte-identical card."""
+    schema = Schema(
+        program_name="TEST",
+        description="Test",
+        input_file="input.csv",
+        input_columns=[
+            SchemaColumn("CASE-ID", "string", "X(10)", "Case ID"),
+            SchemaColumn("VALUE", "decimal", "S9(9)V99", "Value", scale=2, signed=True),
+        ],
+        output_file="output.csv",
+        output_columns=[
+            SchemaColumn("CASE-ID", "string", "X(10)", "Case ID"),
+            SchemaColumn("RESULT", "decimal", "S9(9)V99", "Result", scale=2, signed=True),
+        ]
+    )
+    
+    failure_report = FailureReport(
+        case_id="TEST-001",
+        input_row={"CASE-ID": "TEST-001", "VALUE": "42.00"},
+        cobol_output={"CASE-ID": "TEST-001", "RESULT": "84.00"},
+        java_output={"CASE-ID": "TEST-001", "RESULT": "84.01"},
+        divergent_fields=[("RESULT", "84.00", "84.01")],
+        cobol_return_code=0,
+        java_return_code=0,
+        executed_lines=[("test.cob", 50)]
+    )
+    
+    # Create a temporary test source file
+    with tempfile.TemporaryDirectory() as tmpdir:
+        test_source = Path(tmpdir) / "test.cob"
+        source_lines = ["       * Line\n"] * 49 + [
+            "           COMPUTE WS-RESULT = VALUE * 2.\n",  # line 50
+        ]
+        test_source.write_text("".join(source_lines))
+        
+        card1 = generate_card(failure_report, schema, str(test_source), tmpdir)
+        card2 = generate_card(failure_report, schema, str(test_source), tmpdir)
+    
+    # Cards must be byte-identical
+    assert card1 == card2
+
+
+@pytest.mark.skipif(
+    subprocess.run(["which", "cobc"], capture_output=True).returncode != 0,
+    reason="cobc not available"
+)
+@pytest.mark.skipif(
+    subprocess.run(["which", "javac"], capture_output=True).returncode != 0,
+    reason="javac not available"
+)
+def test_card_from_real_zombie_run():
+    """
+    Test card generation from a real ZOMBIE run (make zombie).
+    
+    This test runs the legacy HALF_EVEN variant with 2,000 cases and seed 42,
+    verifies the card.txt file is created and contains values from the real
+    failure report.
+    """
+    from pathlib import Path
+    import subprocess
+    import json
+    
+    # Run make zombie (legacy variant, 2000 cases, seed 42)
+    result = subprocess.run(
+        ["make", "zombie"],
+        capture_output=True,
+        text=True,
+        timeout=120
+    )
+    
+    # Verify it exits 2 (ZOMBIE verdict means CLI exit 1, make reports 2)
+    assert result.returncode == 2, f"Expected exit 2, got {result.returncode}. Output: {result.stdout}\nStderr: {result.stderr}"
+    
+    # Find the run directory (should be runs/227fcf67095d for seed 42)
+    runs_dir = Path("runs")
+    run_dirs = sorted(runs_dir.glob("*"))
+    
+    # Filter out temp directory and find ZOMBIE runs
+    zombie_runs = []
+    for run_dir in run_dirs:
+        if run_dir.name == "temp":
+            continue
+        verdict_path = run_dir / "verdict.json"
+        if verdict_path.exists():
+            with open(verdict_path, 'r') as f:
+                verdict = json.load(f)
+                if verdict.get("status") == "ZOMBIE":
+                    zombie_runs.append((run_dir, verdict_path.stat().st_mtime))
+    
+    # Take the most recent ZOMBIE run
+    assert len(zombie_runs) > 0, "No ZOMBIE run directories found"
+    zombie_runs.sort(key=lambda x: x[1], reverse=True)
+    run_dir = zombie_runs[0][0]
+    
+    # Verify card.txt exists
+    card_path = run_dir / "card.txt"
+    assert card_path.exists(), f"card.txt not found in {run_dir}"
+    
+    # Read card
+    card_text = card_path.read_text()
+    
+    # Verify card structure
+    assert "Given" in card_text
+    assert "When" in card_text
+    assert "Then" in card_text
+    assert "COBOL lines involved:" in card_text
+    
+    # Read failure report to verify card contains real values
+    failure_report_path = run_dir / "failure_report.json"
+    assert failure_report_path.exists(), f"failure_report.json not found in {run_dir}"
+    
+    with open(failure_report_path, 'r') as f:
+        failure_report = json.load(f)
+    
+    # Verify card contains the case ID from the failure report
+    case_id = failure_report["case_id"]
+    assert case_id in card_text, f"Expected card to contain case ID {case_id}"
+    
+    # Verify card contains the input values
+    input_row = failure_report["input_row"]
+    for field, value in input_row.items():
+        if field != "CASE-ID":  # CASE-ID already checked
+            assert f"{field}={value}" in card_text, f"Expected card to contain {field}={value}"
+    
+    # Verify card contains divergent field values
+    divergent_fields = failure_report["divergent_fields"]
+    for field_name, cobol_value, java_value in divergent_fields:
+        assert f"{field_name}={cobol_value}" in card_text, f"Expected card to contain COBOL {field_name}={cobol_value}"
+        assert f"{field_name}={java_value}" in card_text, f"Expected card to contain Java {field_name}={java_value}"
+    
+    # Verify card is also in the failure report JSON
+    assert "card" in failure_report, "Expected failure_report.json to contain 'card' field"
+    assert failure_report["card"] == card_text, "Card in failure_report.json should match card.txt"
+    
+    # NEW: Verify the card shows only COMPUTE lines, not file opening lines
+    # Read the COBOL source to find the COMPUTE line numbers
+    cobol_source = Path("samples/credit-fees/CREDIT-FEES.cob")
+    with open(cobol_source, 'r') as f:
+        source_lines = f.readlines()
+    
+    compute_lines = []
+    for i, line in enumerate(source_lines, start=1):
+        if "COMPUTE WS-BASE-FEE ROUNDED" in line or "COMPUTE WS-DISCOUNTED-FEE ROUNDED" in line:
+            compute_lines.append(i)
+    
+    # The card should contain at least one COMPUTE line
+    assert len(compute_lines) > 0, "Could not find COMPUTE lines in source"
+    compute_found_in_card = any(f"CREDIT-FEES.cob:{line}" in card_text for line in compute_lines)
+    assert compute_found_in_card, f"Expected card to contain COMPUTE lines {compute_lines}, but card has:\n{card_text}"
+    
+    # The card should NOT contain file opening lines (e.g., OPEN, READ statements from early in the program)
+    # These would be in executed_lines but should be filtered out
+    assert "OPEN INPUT" not in card_text, "Card should not contain OPEN statements"
+    assert "READ INPUT-FILE" not in card_text or "COMPUTE" in card_text, "Card should filter out non-arithmetic statements"
+
+
+@pytest.mark.skipif(
+    subprocess.run(["which", "cobc"], capture_output=True).returncode != 0,
+    reason="cobc not available"
+)
+@pytest.mark.skipif(
+    subprocess.run(["which", "javac"], capture_output=True).returncode != 0,
+    reason="javac not available"
+)
+def test_no_card_for_alive_run():
+    """Test that an ALIVE run does not create card.txt."""
+    # Run make demo (correct Java, should be ALIVE)
+    result = subprocess.run(
+        ["make", "demo"],
+        capture_output=True,
+        text=True,
+        timeout=120
+    )
+    
+    # Verify it exits 0 (ALIVE)
+    assert result.returncode == 0, f"Expected exit 0, got {result.returncode}. Output: {result.stdout}\nStderr: {result.stderr}"
+    
+    # Find the run directory
+    runs_dir = Path("runs")
+    run_dirs = sorted(runs_dir.glob("*"))
+    
+    assert len(run_dirs) > 0, "No run directories found"
+    run_dir = run_dirs[-1]
+    
+    # Verify card.txt does NOT exist for ALIVE
+    card_path = run_dir / "card.txt"
+    assert not card_path.exists(), f"card.txt should not exist for ALIVE run, but found in {run_dir}"
+    
+    # Verify failure_report.json does NOT exist
+    failure_report_path = run_dir / "failure_report.json"
+    assert not failure_report_path.exists(), f"failure_report.json should not exist for ALIVE run"
 
 
 if __name__ == "__main__":

@@ -276,7 +276,15 @@ def run_verify(
             str(run_dir)
         )
         
-        # Store failure report
+        # Generate Given/When/Then card
+        from coroner.diag.card import generate_card
+        card_text = generate_card(failure_report, schema_obj, cobol_path, copybooks_dir)
+        
+        # Write card to card.txt
+        with open(run_dir / "card.txt", 'w') as f:
+            f.write(card_text)
+        
+        # Store failure report with card
         with open(run_dir / "failure_report.json", 'w') as f:
             json.dump({
                 "case_id": failure_report.case_id,
@@ -286,10 +294,11 @@ def run_verify(
                 "divergent_fields": failure_report.divergent_fields,
                 "cobol_return_code": failure_report.cobol_return_code,
                 "java_return_code": failure_report.java_return_code,
-                "executed_lines": [(src, line) for src, line in failure_report.executed_lines]
+                "executed_lines": [(src, line) for src, line in failure_report.executed_lines],
+                "card": card_text
             }, f, indent=2)
         
-        # Generate JUnit regression test
+        # Generate JUnit regression test with card as header comment
         from coroner.diag.junit import generate_junit_test
         generate_junit_test(
             minimal_case,
@@ -297,7 +306,8 @@ def run_verify(
             failure_report.cobol_output,
             java_class,
             schema_obj,
-            str(run_dir / "ZombieRegressionTest.java")
+            str(run_dir / "ZombieRegressionTest.java"),
+            card_text
         )
     
     record_step("Generate reports", step_start)
