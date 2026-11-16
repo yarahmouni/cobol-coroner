@@ -4,6 +4,7 @@ import csv
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from coroner.compare import CaseResult
 from coroner.parse.schema import Schema
@@ -18,10 +19,11 @@ class FailureReport:
     input_row: dict[str, str]
     cobol_output: dict[str, str]
     java_output: dict[str, str]
-    divergent_fields: list[tuple[str, str, str]]  # (field_name, cobol_value, java_value)
+    divergent_fields: list[dict[str, Any]]  # Structured divergence information
     cobol_return_code: int
     java_return_code: int
     executed_lines: list[tuple[str, int]]  # (source_file, line_number)
+    minimal_case_trace: str | None = None  # Path to trace file
     original_case_rows: list[dict] | None = None  # For multi-row cases
     minimal_case_rows: list[dict] | None = None  # For multi-row cases
 
@@ -183,6 +185,7 @@ def generate_failure_report(
         cobol_return_code=cobol_result.return_code,
         java_return_code=java_result.return_code,
         executed_lines=executed_lines,
+        minimal_case_trace=str(trace_path) if trace_path.exists() else None,
         original_case_rows=original_rows,
         minimal_case_rows=minimal_rows
     )

@@ -34,7 +34,15 @@ def generate_junit_test(
         raise ValueError("Minimal case has no divergent fields")
     
     first_divergent = minimal_case.divergent_fields[0]
-    divergent_field, cobol_value, java_value = first_divergent
+    
+    # Handle structured divergent_fields
+    if isinstance(first_divergent, dict):
+        divergent_field = first_divergent.get("field_name", "<row>")
+        cobol_value = first_divergent.get("cobol_value", str(first_divergent.get("cobol_values", {})))
+        java_value = first_divergent.get("java_value", str(first_divergent.get("java_values", {})))
+    else:
+        # Legacy tuple format (shouldn't happen with new code)
+        divergent_field, cobol_value, java_value = first_divergent
     
     # Build card header if provided
     card_header = ""

@@ -6,19 +6,158 @@ from coroner.diag.report import FailureReport
 from coroner.parse.schema import Schema
 
 
+def _find_subtotal_paragraphs(cobol_source_path: str) -> set[str]:
+    """
+    Find paragraphs that contain ADD statements to subtotal or suspense accumulators.
+    
+    Returns a set of paragraph names (uppercase).
+    """
+    subtotal_paragraphs = set()
+    
+    try:
+        with open(cobol_source_path, 'r') as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        return subtotal_paragraphs
+    
+    current_paragraph = None
+    in_procedure_division = False
+    
+    for line in lines:
+        stripped = line.strip()
+        upper = stripped.upper()
+        
+        # Track when we enter PROCEDURE DIVISION
+        if 'PROCEDURE DIVISION' in upper:
+            in_procedure_division = True
+            continue
+        
+        if not in_procedure_division:
+            continue
+        
+        # Detect paragraph names: a line ending with a period that's not a statement
+        # Must be at the start of a line (or after leading spaces) and contain only word characters
+        # Skip lines that start with known verbs or keywords
+        if stripped and not stripped.startswith('*') and stripped.endswith('.'):
+            # Check if it looks like a paragraph header (single word or hyphenated name ending with period)
+            words = stripped.split()
+            if len(words) == 1 or (len(words) == 2 and words[1] == 'SECTION.'):
+                first_word = words[0].rstrip('.')
+                # Check it's not a verb or statement
+                if not any(first_word.startswith(verb) for verb in [
+                    'MOVE', 'ADD', 'SUBTRACT', 'MULTIPLY', 'DIVIDE', 'COMPUTE',
+                    'IF', 'ELSE', 'END-IF', 'PERFORM', 'ACCEPT', 'DISPLAY',
+                    'OPEN', 'CLOSE', 'READ', 'WRITE', 'STOP', 'CONTINUE',
+                    'RETURN', 'RELEASE', 'SORT', 'UNSTRING', 'STRING',
+                    'EVALUATE', 'WHEN', 'END-EVALUATE', 'SET', 'INITIALIZE',
+                    'GO', 'EXIT', 'GOBACK'
+                ]):
+                    # This looks like a paragraph name
+                    current_paragraph = first_word
+        
+        # Check for ADD statements that target subtotal or suspense accumulators
+        if current_paragraph and 'ADD' in upper and ' TO ' in upper:
+            # Extract the target field (after TO)
+            if ' TO ' in upper:
+                target_part = upper.split(' TO ', 1)[1]
+                # Remove END-ADD and other trailing keywords
+                target_part = target_part.split('END-ADD')[0]
+                target_part = target_part.split('END-IF')[0]
+                target_part = target_part.split('ELSE')[0]
+                # Check if the target contains subtotal or accumulator patterns
+                if any(pattern in target_part for pattern in [
+                    'SUBTOTAL', 'SUSP-', 'TOTAL', 'ACCUMULATOR', 'TABLE-', 'SUM', '-BALANCE'
+                ]):
+                    subtotal_paragraphs.add(current_paragraph)
+    
+    return subtotal_paragraphs
+
+
+def _get_paragraph_bounds_from_source(cobol_source_path: str) -> dict[str, tuple[int, int]]:
+    """
+    Extract paragraph bounds from COBOL source file.
+    
+    Returns a dict mapping paragraph name (uppercase) to (start_line, end_line).
+    A paragraph ends when the next paragraph begins or at end of file.
+    """
+    bounds = {}
+    
+    try:
+        with open(cobol_source_path, 'r') as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        return bounds
+    
+    in_procedure_division = False
+    paragraphs = []  # List of (name, line_number)
+    
+    for i, line in enumerate(lines, start=1):
+        stripped = line.strip()
+        upper = stripped.upper()
+        
+        # Track when we enter PROCEDURE DIVISION
+        if 'PROCEDURE DIVISION' in upper:
+            in_procedure_division = True
+            continue
+        
+        if not in_procedure_division:
+            continue
+        
+        # Detect paragraph names: a line ending with a period that's not a statement
+        # Must be at the start of a line (or after leading spaces) and contain only word characters
+        if stripped and not stripped.startswith('*') and stripped.endswith('.'):
+            # Check if it looks like a paragraph header (single word or hyphenated name ending with period)
+            words = stripped.split()
+            if len(words) == 1 or (len(words) == 2 and words[1] == 'SECTION.'):
+                first_word = words[0].rstrip('.')
+                # For hyphenated names, check the full name, not just the first part
+                # A paragraph name like READ-INPUT-SKIP-HEADER is not the verb READ
+                # Only exclude lines that are exactly a verb (no hyphens) or END-* markers
+                if first_word.startswith('END-'):
+                    # END-IF, END-PERFORM, etc. are not paragraphs
+                    continue
+                elif '-' in first_word:
+                    # Hyphenated name: this is a paragraph
+                    paragraphs.append((first_word, i))
+                elif not any(first_word == verb for verb in [
+                    'MOVE', 'ADD', 'SUBTRACT', 'MULTIPLY', 'DIVIDE', 'COMPUTE',
+                    'IF', 'ELSE', 'PERFORM', 'ACCEPT', 'DISPLAY',
+                    'OPEN', 'CLOSE', 'READ', 'WRITE', 'STOP', 'CONTINUE',
+                    'RETURN', 'RELEASE', 'SORT', 'UNSTRING', 'STRING',
+                    'EVALUATE', 'WHEN', 'SET', 'INITIALIZE',
+                    'GO', 'EXIT', 'GOBACK'
+                ]):
+                    paragraphs.append((first_word, i))
+    
+    # Calculate bounds: each paragraph extends until the next paragraph
+    for i, (name, start_line) in enumerate(paragraphs):
+        if i + 1 < len(paragraphs):
+            end_line = paragraphs[i + 1][1] - 1
+        else:
+            end_line = len(lines)
+        bounds[name] = (start_line, end_line)
+    
+    return bounds
+
+
 def _filter_relevant_lines(
     executed_lines: list[tuple[str, int]],
     divergent_field_names: list[str],
     cobol_source_path: str,
-    copybook_dir: str
+    copybook_dir: str,
+    has_group_key: bool = False,
+    trace_path: Optional[str] = None
 ) -> list[tuple[str, int, str]]:
     """
     Filter executed lines to keep only statements that can change divergent output fields.
     
-    Among the executed lines of the minimal case, keep:
+    For schemas without group_key:
     - Arithmetic statements: COMPUTE, ADD, SUBTRACT, MULTIPLY, DIVIDE
     - MOVE statements whose target is an output field or a field moved into it
-      (follow MOVE targets back from output record fields by name, one level)
+    
+    For schemas with group_key and subtotal:
+    - Keep only executed lines that belong to paragraphs containing ADD statements
+      to subtotal or suspense accumulators (table subtotals, SUSP-SUBTOTAL, etc.)
     
     Returns list of (source_file, line_number, statement_text) tuples in source order.
     
@@ -27,6 +166,8 @@ def _filter_relevant_lines(
         divergent_field_names: List of divergent output field names
         cobol_source_path: Path to COBOL source file
         copybook_dir: Directory containing copybooks
+        has_group_key: Whether schema has group_key (enables subtotal paragraph filtering)
+        trace_path: Optional path to trace file for extracting paragraph bounds
     """
     # Read all source files (main program and copybooks)
     source_cache = {}
@@ -64,7 +205,41 @@ def _filter_relevant_lines(
             line_text = source_lines[line_num - 1].strip()
             line_map[(source_file, line_num)] = (resolved_path, line_text)
     
-    # Filter to relevant statements
+    # For group_key schemas: filter by subtotal-accumulating paragraphs
+    if has_group_key:
+        # Find paragraphs that accumulate subtotals
+        subtotal_paragraphs = _find_subtotal_paragraphs(cobol_source_path)
+        
+        if not subtotal_paragraphs:
+            # No subtotal paragraphs found, return empty list
+            return []
+        
+        # Get paragraph bounds from source structure
+        para_bounds = _get_paragraph_bounds_from_source(cobol_source_path)
+        
+        # Filter executed lines to those within subtotal paragraphs
+        relevant = []
+        for source_file, line_num in executed_lines:
+            if (source_file, line_num) not in line_map:
+                continue
+            
+            resolved_path, line_text = line_map[(source_file, line_num)]
+            
+            # Only keep lines from the main source file
+            if Path(resolved_path).resolve() != Path(cobol_source_path).resolve():
+                continue
+            
+            # Check if this line is within any subtotal paragraph
+            for para_name in subtotal_paragraphs:
+                if para_name in para_bounds:
+                    start_line, end_line = para_bounds[para_name]
+                    if start_line <= line_num <= end_line:
+                        relevant.append((source_file, line_num, line_text))
+                        break
+        
+        return relevant
+    
+    # For non-group_key schemas: original logic
     relevant = []
     
     for source_file, line_num in executed_lines:
@@ -138,12 +313,24 @@ def generate_card(
     lines = []
     
     # Given: input fields in schema order
-    input_field_parts = []
-    for col in schema.input_columns:
-        value = failure_report.input_row.get(col.name, "")
-        input_field_parts.append(f"{col.name}={value}")
-    given_line = "Given " + ", ".join(input_field_parts)
-    lines.append(given_line)
+    # For multi-row cases, list all minimal rows
+    if failure_report.minimal_case_rows:
+        # Multi-row case: list each row
+        lines.append("Given the following input rows:")
+        for row in failure_report.minimal_case_rows:
+            row_parts = []
+            for col in schema.input_columns:
+                value = row.get(col.name, "")
+                row_parts.append(f"{col.name}={value}")
+            lines.append("  " + ", ".join(row_parts))
+    else:
+        # Single-row case
+        input_field_parts = []
+        for col in schema.input_columns:
+            value = failure_report.input_row.get(col.name, "")
+            input_field_parts.append(f"{col.name}={value}")
+        given_line = "Given " + ", ".join(input_field_parts)
+        lines.append(given_line)
     
     # When: operation from trap title or program name
     operation = trap_title if trap_title else f"processing {schema.program_name}"
@@ -152,10 +339,63 @@ def generate_card(
     
     # Then: divergent fields
     then_parts = []
-    for field_name, cobol_value, java_value in failure_report.divergent_fields:
-        then_parts.append(
-            f"COBOL returns {field_name}={cobol_value} and Java returns {field_name}={java_value}"
-        )
+    divergent_field_names = []
+    
+    for div_info in failure_report.divergent_fields:
+        # Handle both new dict format and legacy tuple format
+        if isinstance(div_info, dict):
+            kind = div_info.get("kind", "value_mismatch")
+            
+            if kind == "missing_in_java":
+                # Row present in COBOL, missing in Java
+                output_key = div_info.get("output_key", {})
+                cobol_values = div_info.get("cobol_values", {})
+                # Format key columns (excluding case id)
+                key_parts = [f"{k}={v}" for k, v in output_key.items() if k != "CASE-ID" and k in output_key]
+                key_desc = ", ".join(key_parts) if key_parts else "row"
+                # Format relevant values
+                value_parts = [f"{k}={v}" for k, v in cobol_values.items() if k not in output_key]
+                if value_parts:
+                    then_parts.append(
+                        f"COBOL writes row {key_desc} with {', '.join(value_parts)}, Java does not"
+                    )
+                else:
+                    then_parts.append(
+                        f"COBOL writes row {key_desc}, Java does not"
+                    )
+            elif kind == "missing_in_cobol":
+                # Row present in Java, missing in COBOL
+                output_key = div_info.get("output_key", {})
+                java_values = div_info.get("java_values", {})
+                # Format key columns (excluding case id)
+                key_parts = [f"{k}={v}" for k, v in output_key.items() if k != "CASE-ID" and k in output_key]
+                key_desc = ", ".join(key_parts) if key_parts else "row"
+                # Format relevant values
+                value_parts = [f"{k}={v}" for k, v in java_values.items() if k not in output_key]
+                if value_parts:
+                    then_parts.append(
+                        f"Java writes row {key_desc} with {', '.join(value_parts)}, COBOL does not"
+                    )
+                else:
+                    then_parts.append(
+                        f"Java writes row {key_desc}, COBOL does not"
+                    )
+            else:
+                # value_mismatch
+                field_name = div_info.get("field_name", "")
+                cobol_value = div_info.get("cobol_value", "")
+                java_value = div_info.get("java_value", "")
+                then_parts.append(
+                    f"COBOL returns {field_name}={cobol_value} and Java returns {field_name}={java_value}"
+                )
+                divergent_field_names.append(field_name)
+        else:
+            # Legacy tuple format: (field_name, cobol_value, java_value)
+            field_name, cobol_value, java_value = div_info
+            then_parts.append(
+                f"COBOL returns {field_name}={cobol_value} and Java returns {field_name}={java_value}"
+            )
+            divergent_field_names.append(field_name)
     
     # Add exit status comparison if they differ
     if failure_report.cobol_return_code != failure_report.java_return_code:
@@ -168,12 +408,20 @@ def generate_card(
     
     # COBOL lines involved: filter to relevant statements only
     if failure_report.executed_lines:
-        divergent_field_names = [field_name for field_name, _, _ in failure_report.divergent_fields]
+        has_group_key = hasattr(schema, 'group_key') and schema.group_key is not None
+        
+        # For group_key schemas, pass the trace path to extract paragraph bounds
+        trace_path = None
+        if has_group_key and hasattr(failure_report, 'minimal_case_trace') and failure_report.minimal_case_trace:
+            trace_path = failure_report.minimal_case_trace
+        
         relevant_lines = _filter_relevant_lines(
             failure_report.executed_lines,
             divergent_field_names,
             cobol_source_path,
-            copybook_dir
+            copybook_dir,
+            has_group_key,
+            trace_path
         )
         
         if relevant_lines:

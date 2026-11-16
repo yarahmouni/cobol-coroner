@@ -224,7 +224,7 @@ def test_store_comparison_with_divergences(tmp_path):
             case_id="GEN-00002",
             divergent=True,
             divergent_fields=[
-                ("FEE-AMOUNT", "12.35", "12.36")
+                {"field_name": "FEE-AMOUNT", "kind": "value_mismatch", "cobol_value": "12.35", "java_value": "12.36"}
             ]
         )
     ]

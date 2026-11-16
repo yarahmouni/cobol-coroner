@@ -256,3 +256,58 @@ def test_reduce_multirow_case_correct_port_nondivergent(t1_paths, tmp_path):
             cobol_binary=str(cobol_binary),
             java_classpath=str(java_classpath)
         )
+
+
+def test_t1_card_filters_to_balance_line_paragraph(t1_paths, tmp_path):
+    """Test that T1 card lists only lines from BALANCE-LINE paragraph.
+    
+    For group_key schemas, the card must list only executed lines from paragraphs
+    that accumulate subtotals (BALANCE-LINE for T1). This test verifies:
+    - Every listed line is within BALANCE-LINE (lines 201-219 per the source)
+    - Line 204 (the comparison IF) is listed
+    """
+    # Run a small T1 verification with faulty port
+    verdict, run_dir = run_verify(
+        t1_paths["cobol"],
+        t1_paths["java_faulty"],
+        t1_paths["schema"],
+        t1_paths["copybooks"],
+        num_cases=200,
+        seed=42,
+        base_dir=str(tmp_path)
+    )
+    
+    assert verdict.status == "ZOMBIE"
+    
+    # Read the card
+    card_path = Path(run_dir) / "card.txt"
+    assert card_path.exists(), "card.txt must exist for ZOMBIE"
+    
+    with open(card_path) as f:
+        card_text = f.read()
+    
+    # Extract COBOL lines from the card
+    # The card has a line starting with "COBOL lines involved: "
+    # followed by statements like "file:line text"
+    assert "COBOL lines involved:" in card_text
+    
+    lines_section = card_text.split("COBOL lines involved:", 1)[1].split("\n")[0]
+    
+    # Parse line numbers from the format "file:line statement; ..."
+    import re
+    line_refs = re.findall(r':(\d+)\s', lines_section)
+    line_numbers = [int(n) for n in line_refs]
+    
+    # BALANCE-LINE paragraph is lines 201-219 per the operator's ground truth
+    # (from the trace "Paragraph: BALANCE-LINE" section)
+    # Executed lines are 201-210 and 218-219
+    balance_line_range = set(range(201, 211)) | {218, 219}
+    
+    # Every listed line must be in BALANCE-LINE
+    for line_num in line_numbers:
+        assert line_num in balance_line_range, \
+            f"Line {line_num} is not in BALANCE-LINE paragraph (201-210, 218-219)"
+    
+    # Line 204 (the comparison IF) must be listed
+    assert 204 in line_numbers, \
+        "Line 204 (IF TABLE-CODE(TABLE-INDEX) < TXN-BRANCH) must be listed"

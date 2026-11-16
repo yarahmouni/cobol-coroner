@@ -252,10 +252,7 @@ def store_comparison(run_dir: str, comparison: ComparisonResult) -> None:
         case_data = {
             "case_id": case.case_id,
             "divergent": case.divergent,
-            "divergent_fields": [
-                {"field_name": fname, "cobol_value": cval, "java_value": jval}
-                for fname, cval, jval in case.divergent_fields
-            ]
+            "divergent_fields": case.divergent_fields  # Already structured
         }
         cases_data.append(case_data)
     

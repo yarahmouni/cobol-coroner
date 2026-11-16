@@ -13,7 +13,7 @@ class CaseResult:
     """Result of comparing one case."""
     case_id: str
     divergent: bool
-    divergent_fields: list[tuple[str, str, str]]  # (field_name, cobol_value, java_value)
+    divergent_fields: list[dict[str, Any]]  # Structured divergence information
 
 
 @dataclass
@@ -139,9 +139,19 @@ def compare_outputs(
         
         # Check if case is missing in either output
         if case_id not in cobol_rows:
-            divergent_fields.append(("<row>", "missing", "present"))
+            divergent_fields.append({
+                "field_name": "<row>",
+                "kind": "missing_in_cobol",
+                "cobol_value": "missing",
+                "java_value": "present"
+            })
         elif case_id not in java_rows:
-            divergent_fields.append(("<row>", "present", "missing"))
+            divergent_fields.append({
+                "field_name": "<row>",
+                "kind": "missing_in_java",
+                "cobol_value": "present",
+                "java_value": "missing"
+            })
         else:
             cobol_row = cobol_rows[case_id]
             java_row = java_rows[case_id]
@@ -156,10 +166,20 @@ def compare_outputs(
                 
                 # Check if column is missing
                 if cobol_val is None:
-                    divergent_fields.append((col_name, "missing", java_val or ""))
+                    divergent_fields.append({
+                        "field_name": col_name,
+                        "kind": "value_mismatch",
+                        "cobol_value": "missing",
+                        "java_value": java_val or ""
+                    })
                     continue
                 if java_val is None:
-                    divergent_fields.append((col_name, cobol_val, "missing"))
+                    divergent_fields.append({
+                        "field_name": col_name,
+                        "kind": "value_mismatch",
+                        "cobol_value": cobol_val,
+                        "java_value": "missing"
+                    })
                     continue
                 
                 # Normalize and compare based on type
@@ -169,16 +189,31 @@ def compare_outputs(
                     
                     # If either is divergent due to extra decimals, report divergence
                     if cobol_div or java_div:
-                        divergent_fields.append((col_name, cobol_val, java_val))
+                        divergent_fields.append({
+                            "field_name": col_name,
+                            "kind": "value_mismatch",
+                            "cobol_value": cobol_val,
+                            "java_value": java_val
+                        })
                     elif cobol_norm != java_norm:
-                        divergent_fields.append((col_name, cobol_val, java_val))
+                        divergent_fields.append({
+                            "field_name": col_name,
+                            "kind": "value_mismatch",
+                            "cobol_value": cobol_val,
+                            "java_value": java_val
+                        })
                 else:
                     # String or integer
                     cobol_norm = normalize_string(cobol_val)
                     java_norm = normalize_string(java_val)
                     
                     if cobol_norm != java_norm:
-                        divergent_fields.append((col_name, cobol_val, java_val))
+                        divergent_fields.append({
+                            "field_name": col_name,
+                            "kind": "value_mismatch",
+                            "cobol_value": cobol_val,
+                            "java_value": java_val
+                        })
         
         is_divergent = len(divergent_fields) > 0
         if is_divergent:
@@ -264,11 +299,30 @@ def compare_outputs_with_key(
         case_id = key[0]
         divergent_fields = []
         
+        # Build output_key dict (trimmed values)
+        output_key_dict = {}
+        for i, field_name in enumerate(schema.output_key):
+            output_key_dict[field_name] = key[i].rstrip() if isinstance(key[i], str) else key[i]
+        
         # Check if row is missing in either output
         if key not in cobol_rows:
-            divergent_fields.append(("<row>", "missing", "present"))
+            # Row present in Java, missing in COBOL
+            java_row = java_rows[key]
+            divergent_fields.append({
+                "kind": "missing_in_cobol",
+                "output_key": output_key_dict,
+                "cobol_values": {},
+                "java_values": {col.name: java_row.get(col.name, "") for col in schema.output_columns}
+            })
         elif key not in java_rows:
-            divergent_fields.append(("<row>", "present", "missing"))
+            # Row present in COBOL, missing in Java
+            cobol_row = cobol_rows[key]
+            divergent_fields.append({
+                "kind": "missing_in_java",
+                "output_key": output_key_dict,
+                "cobol_values": {col.name: cobol_row.get(col.name, "") for col in schema.output_columns},
+                "java_values": {}
+            })
         else:
             cobol_row = cobol_rows[key]
             java_row = java_rows[key]
@@ -283,10 +337,22 @@ def compare_outputs_with_key(
                 
                 # Check if column is missing
                 if cobol_val is None:
-                    divergent_fields.append((col_name, "missing", java_val or ""))
+                    divergent_fields.append({
+                        "field_name": col_name,
+                        "kind": "value_mismatch",
+                        "output_key": output_key_dict,
+                        "cobol_value": "missing",
+                        "java_value": java_val or ""
+                    })
                     continue
                 if java_val is None:
-                    divergent_fields.append((col_name, cobol_val, "missing"))
+                    divergent_fields.append({
+                        "field_name": col_name,
+                        "kind": "value_mismatch",
+                        "output_key": output_key_dict,
+                        "cobol_value": cobol_val,
+                        "java_value": "missing"
+                    })
                     continue
                 
                 # Normalize and compare based on type
@@ -295,16 +361,34 @@ def compare_outputs_with_key(
                     java_norm, java_div = normalize_decimal(java_val, col.scale)
                     
                     if cobol_div or java_div:
-                        divergent_fields.append((col_name, cobol_val, java_val))
+                        divergent_fields.append({
+                            "field_name": col_name,
+                            "kind": "value_mismatch",
+                            "output_key": output_key_dict,
+                            "cobol_value": cobol_val,
+                            "java_value": java_val
+                        })
                     elif cobol_norm != java_norm:
-                        divergent_fields.append((col_name, cobol_val, java_val))
+                        divergent_fields.append({
+                            "field_name": col_name,
+                            "kind": "value_mismatch",
+                            "output_key": output_key_dict,
+                            "cobol_value": cobol_val,
+                            "java_value": java_val
+                        })
                 else:
                     # String or integer
                     cobol_norm = normalize_string(cobol_val)
                     java_norm = normalize_string(java_val)
                     
                     if cobol_norm != java_norm:
-                        divergent_fields.append((col_name, cobol_val, java_val))
+                        divergent_fields.append({
+                            "field_name": col_name,
+                            "kind": "value_mismatch",
+                            "output_key": output_key_dict,
+                            "cobol_value": cobol_val,
+                            "java_value": java_val
+                        })
         
         # Track divergences per case
         if case_id not in case_divergences:

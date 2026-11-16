@@ -112,8 +112,23 @@ def generate_certificate(
         with open(f"{run_dir}/failure_report.json", 'r') as f:
             failure = json.load(f)
             minimal_case_id = failure["case_id"]
-            # divergent_fields is a list of lists: [[field_name, cobol_value, java_value], ...]
-            divergent_fields = [field[0] for field in failure["divergent_fields"]]
+            # divergent_fields is now a list of dicts
+            divergent_fields = []
+            for field_info in failure["divergent_fields"]:
+                if isinstance(field_info, dict):
+                    # Extract field_name from structured format
+                    # For row-level divergences, use output_key columns (excluding case id)
+                    if "output_key" in field_info:
+                        output_key = field_info.get("output_key", {})
+                        # Format as "COLUMN=value" for each non-case-id column
+                        key_parts = [f"{k}={v}" for k, v in output_key.items() if k != "CASE-ID"]
+                        field_name = ", ".join(key_parts) if key_parts else "<row>"
+                    else:
+                        field_name = field_info.get("field_name", "<unknown>")
+                    divergent_fields.append(field_name)
+                else:
+                    # Legacy format (shouldn't happen)
+                    divergent_fields.append(field_info[0])
     
     # Construct statement
     sub_label = verdict_data["sub_label"]

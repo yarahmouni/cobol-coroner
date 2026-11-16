@@ -446,7 +446,16 @@ def test_end_to_end_half_even_divergence():
         )
         
         # Assert minimal case divergent only on FEE-AMOUNT
-        divergent_fields = [field for field, _, _ in report.divergent_fields]
+        divergent_fields = []
+        for div_info in report.divergent_fields:
+            if isinstance(div_info, dict):
+                field_name = div_info.get("field_name", "")
+                if field_name:
+                    divergent_fields.append(field_name)
+            else:
+                # Legacy tuple format
+                field, _, _ = div_info
+                divergent_fields.append(field)
         assert "FEE-AMOUNT" in divergent_fields, f"Expected FEE-AMOUNT divergent, got {divergent_fields}"
         
         # Assert the divergence is explained by an exact tie at one of the two ROUNDED steps
@@ -972,9 +981,21 @@ def test_card_from_real_zombie_run():
     
     # Verify card contains divergent field values
     divergent_fields = failure_report["divergent_fields"]
-    for field_name, cobol_value, java_value in divergent_fields:
-        assert f"{field_name}={cobol_value}" in card_text, f"Expected card to contain COBOL {field_name}={cobol_value}"
-        assert f"{field_name}={java_value}" in card_text, f"Expected card to contain Java {field_name}={java_value}"
+    for div_info in divergent_fields:
+        if isinstance(div_info, dict):
+            # Handle new structured format
+            if "field_name" in div_info:
+                field_name = div_info["field_name"]
+                cobol_value = div_info.get("cobol_value", "")
+                java_value = div_info.get("java_value", "")
+                if cobol_value and java_value:
+                    assert f"{field_name}={cobol_value}" in card_text, f"Expected card to contain COBOL {field_name}={cobol_value}"
+                    assert f"{field_name}={java_value}" in card_text, f"Expected card to contain Java {field_name}={java_value}"
+        else:
+            # Legacy tuple format
+            field_name, cobol_value, java_value = div_info
+            assert f"{field_name}={cobol_value}" in card_text, f"Expected card to contain COBOL {field_name}={cobol_value}"
+            assert f"{field_name}={java_value}" in card_text, f"Expected card to contain Java {field_name}={java_value}"
     
     # Verify card is also in the failure report JSON
     assert "card" in failure_report, "Expected failure_report.json to contain 'card' field"

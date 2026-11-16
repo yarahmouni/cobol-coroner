@@ -147,7 +147,10 @@ def test_compare_divergent_field(tmp_path):
     assert len(result.cases) == 1
     assert result.cases[0].divergent is True
     assert len(result.cases[0].divergent_fields) == 1
-    field_name, cobol_val, java_val = result.cases[0].divergent_fields[0]
+    div_info = result.cases[0].divergent_fields[0]
+    field_name = div_info["field_name"]
+    cobol_val = div_info["cobol_value"]
+    java_val = div_info["java_value"]
     assert field_name == "AMOUNT"
     assert cobol_val == "12.36"
     assert java_val == "12.35"
@@ -194,7 +197,7 @@ def test_compare_row_count_mismatch(tmp_path):
     divergent_cases = [c for c in result.cases if c.divergent]
     assert len(divergent_cases) == 1
     assert divergent_cases[0].case_id == "C"
-    assert divergent_cases[0].divergent_fields == [("<row>", "present", "missing")]
+    assert divergent_cases[0].divergent_fields == [{"field_name": "<row>", "kind": "missing_in_java", "cobol_value": "present", "java_value": "missing"}]
     
     # Cases A and B should not be divergent
     non_divergent = [c for c in result.cases if not c.divergent]
@@ -495,7 +498,7 @@ def test_e2e_detect_divergence(tmp_path):
     # Check that FEE-AMOUNT is the divergent field
     divergent_fields = divergent_cases[0].divergent_fields
     assert len(divergent_fields) == 1
-    assert divergent_fields[0][0] == "FEE-AMOUNT"
+    assert divergent_fields[0]["field_name"] == "FEE-AMOUNT"
 
 
 
