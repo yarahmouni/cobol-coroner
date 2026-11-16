@@ -478,3 +478,9 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Calls ct11, ct11b, ct11c (haiku). Trap catalog section with the D-46 header sentence and wording limit, per-trap table (detected of 2000, rate, correct port verdict), T1 exposure line, generator-setting caveat, GnuCOBOL vs IBM limitations.
 - Haiku miscopied the T3 rate (0.2150 instead of 0.2145); corrected; the operator checked every README number against runs/trap_catalog.json with a script (all match).
 - Kiro balance (2026-11-16): plan 405.95 of 531 used (125.05 left); kiroween2026 215.23 of 4000 used (3784.77 left); trial 0.00 of 500 used.
+
+### R-77 2026-11-16: trap catalog acceptance; priority 8 complete
+- Call ct12 (sonnet). Slow test: the catalog at default settings in a tmp base must give T1 to T5 measured with correct port ALIVE and at least one detected case, consistent rates, T1 grand total matching, T6 without numbers, no global rate, and identical results on a second run (determinism).
+- make acceptance: 25 passed in 573.50 s (the catalog runs twice). Default suite: 254 passed, 25 deselected in 754.61 s (too slow for the 60 s target: hardening item).
+- Priority 8 (six-trap catalog and Detection Matrix): done, T6 waits for the owner's field trap.
+- Kiro balance (2026-11-16): plan 405.95 of 531 used (125.05 left); kiroween2026 215.23 of 4000 used (3784.77 left); trial 0.00 of 500 used.

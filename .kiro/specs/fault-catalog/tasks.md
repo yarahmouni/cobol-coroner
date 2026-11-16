@@ -135,7 +135,7 @@ Done when:
 - architecture.md: under "Modules" add coroner/traps.py, under "Repository layout" add samples/traps/T1-ebcdic-match-merge/ to T6-reserved/.
 - Makefile: target `traps` runs `python -m coroner traps`.
 
-- [ ] 12. Acceptance
+- [x] 12. Acceptance
 
 _Requirements: Req 12. Every trap T1 to T5 gives ZOMBIE on its faulty Java with at least one detected case and ALIVE on its correct Java; T1 shows divergent subtotals with a matching TOTAL row (verified with measured numbers) and non-zero exposure; catalog JSON and text are written; MCP tool returns the matrix._
 
