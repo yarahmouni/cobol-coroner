@@ -28,6 +28,7 @@ class ComparisonResult:
     affected_branches: int | None = None
     suspense_difference: Decimal | None = None
     grand_total_matches: bool | None = None
+    branch_reconciliation: dict | None = None
 
 
 def normalize_decimal(value: str, scale: int) -> tuple[str, bool]:
@@ -420,9 +421,13 @@ def compare_outputs_with_key(
     affected_branches = None
     suspense_difference = None
     grand_total_matches = None
+    branch_reconciliation = None
     
     if schema.group_key and schema.subtotal and schema.grand_total_key:
         exposure_sum, exposure_max, affected_branches, suspense_difference, grand_total_matches = compute_exposure(
+            cobol_rows, java_rows, schema
+        )
+        branch_reconciliation = build_branch_reconciliation(
             cobol_rows, java_rows, schema
         )
     
@@ -435,7 +440,8 @@ def compare_outputs_with_key(
         exposure_max=exposure_max,
         affected_branches=affected_branches,
         suspense_difference=suspense_difference,
-        grand_total_matches=grand_total_matches
+        grand_total_matches=grand_total_matches,
+        branch_reconciliation=branch_reconciliation
     )
 
 
@@ -534,3 +540,127 @@ def compute_exposure(
     grand_total_matches = (cobol_grand == java_grand)
     
     return (exposure_sum, exposure_max, affected_branches, suspense_difference, grand_total_matches)
+
+
+def build_branch_reconciliation(
+    cobol_rows: dict,
+    java_rows: dict,
+    schema: Schema
+) -> dict:
+    """
+    Build branch reconciliation data for display.
+    
+    Returns dict with branches list, suspense entry and grand_total fields.
+    Each branch has: branch, cobol_subtotal, java_subtotal, difference,
+    absolute_difference, status (MATCH/MISMATCH).
+    
+    Args:
+        cobol_rows: COBOL output rows keyed by output_key tuple
+        java_rows: Java output rows keyed by output_key tuple
+        schema: Schema with group_key, subtotal, grand_total_key
+        
+    Returns:
+        Dict with branches, suspense, and grand_total fields
+    """
+    from collections import defaultdict
+    
+    group_key_idx = schema.output_key.index(schema.group_key)
+    
+    # Find scale of subtotal column
+    subtotal_scale = 2  # default
+    for col in schema.output_columns:
+        if col.name == schema.subtotal:
+            subtotal_scale = col.scale if col.scale is not None else 2
+            break
+    
+    # Sum subtotals per group_key value across all cases (same as compute_exposure)
+    cobol_subtotals = defaultdict(lambda: Decimal(0))
+    java_subtotals = defaultdict(lambda: Decimal(0))
+    
+    for key, row in cobol_rows.items():
+        group_val = key[group_key_idx].rstrip()  # Trim trailing spaces
+        if group_val == schema.grand_total_key:
+            continue
+        subtotal_str = row[schema.subtotal]
+        try:
+            subtotal = Decimal(subtotal_str.strip())
+        except Exception as e:
+            raise RuntimeError(f"Failed to parse subtotal '{subtotal_str}' as Decimal: {e}")
+        cobol_subtotals[group_val] += subtotal
+    
+    for key, row in java_rows.items():
+        group_val = key[group_key_idx].rstrip()  # Trim trailing spaces
+        if group_val == schema.grand_total_key:
+            continue
+        subtotal_str = row[schema.subtotal]
+        try:
+            subtotal = Decimal(subtotal_str.strip())
+        except Exception as e:
+            raise RuntimeError(f"Failed to parse subtotal '{subtotal_str}' as Decimal: {e}")
+        java_subtotals[group_val] += subtotal
+    
+    # Trim suspense_key for comparison
+    suspense_key_trimmed = schema.suspense_key.rstrip() if schema.suspense_key else None
+    
+    # Build per-branch data (excluding suspense and grand total)
+    all_groups = sorted(set(cobol_subtotals.keys()) | set(java_subtotals.keys()))
+    branches = []
+    suspense_entry = None
+    
+    for group in all_groups:
+        cobol_val = cobol_subtotals.get(group, Decimal(0))
+        java_val = java_subtotals.get(group, Decimal(0))
+        diff = cobol_val - java_val
+        abs_diff = abs(diff)
+        status = "MATCH" if abs_diff == 0 else "MISMATCH"
+        
+        # Separate suspense entry if schema defines it
+        if suspense_key_trimmed and group == suspense_key_trimmed:
+            suspense_entry = {
+                "cobol": f"{cobol_val:.{subtotal_scale}f}",
+                "java": f"{java_val:.{subtotal_scale}f}",
+                "difference": f"{abs_diff:.{subtotal_scale}f}"
+            }
+            continue
+        
+        # Format amounts with correct scale
+        branches.append({
+            "branch": group,
+            "cobol_subtotal": f"{cobol_val:.{subtotal_scale}f}",
+            "java_subtotal": f"{java_val:.{subtotal_scale}f}",
+            "difference": f"{diff:.{subtotal_scale}f}",
+            "absolute_difference": f"{abs_diff:.{subtotal_scale}f}",
+            "status": status
+        })
+    
+    # Extract grand totals - sum all grand_total_key rows across all cases
+    cobol_grand = Decimal(0)
+    java_grand = Decimal(0)
+    
+    for key, row in cobol_rows.items():
+        if key[group_key_idx].rstrip() == schema.grand_total_key:
+            try:
+                cobol_grand += Decimal(row[schema.subtotal].strip())
+            except Exception as e:
+                raise RuntimeError(f"Failed to parse grand total '{row[schema.subtotal]}' as Decimal: {e}")
+    
+    for key, row in java_rows.items():
+        if key[group_key_idx].rstrip() == schema.grand_total_key:
+            try:
+                java_grand += Decimal(row[schema.subtotal].strip())
+            except Exception as e:
+                raise RuntimeError(f"Failed to parse grand total '{row[schema.subtotal]}' as Decimal: {e}")
+    
+    result = {
+        "branches": branches,
+        "grand_total": {
+            "cobol": f"{cobol_grand:.{subtotal_scale}f}",
+            "java": f"{java_grand:.{subtotal_scale}f}"
+        }
+    }
+    
+    # Add suspense entry if present
+    if suspense_entry is not None:
+        result["suspense"] = suspense_entry
+    
+    return result

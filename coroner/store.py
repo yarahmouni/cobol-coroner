@@ -163,9 +163,13 @@ def collect_inputs(
     
     result = {
         "cobol_source_sha256": cobol_hash,
+        "cobol_file": cobol_source,  # Added for trap detection in UI
         "java_source_sha256": java_hash,
+        "java_file": java_source,  # Added for completeness
         "schema_sha256": schema_hash,
+        "schema_file": schema_path,  # Added for completeness
         "copybook_hashes": copybook_hashes,
+        "copybook_dir": copybook_dir,  # Added for completeness
         "seed": seed,
         "random_seed": seed,
         "case_count": case_count,
@@ -267,4 +271,45 @@ def store_comparison(run_dir: str, comparison: ComparisonResult) -> None:
     comparison_path = os.path.join(run_dir, "comparison_results.json")
     with open(comparison_path, 'w', encoding='utf-8') as f:
         json.dump(comparison_data, f, indent=2, sort_keys=True)
+        f.write('\n')
+
+
+def store_branch_reconciliation(run_dir: str, comparison: ComparisonResult) -> None:
+    """
+    Write branch_reconciliation.json if available.
+    
+    Not part of the certificate hash.
+    """
+    if comparison.branch_reconciliation is None:
+        return
+    
+    os.makedirs(run_dir, exist_ok=True)
+    
+    reconciliation_path = os.path.join(run_dir, "branch_reconciliation.json")
+    with open(reconciliation_path, 'w', encoding='utf-8') as f:
+        json.dump(comparison.branch_reconciliation, f, indent=2, sort_keys=True)
+        f.write('\n')
+
+
+def store_timing(run_dir: str, duration_seconds: float) -> None:
+    """Write timing.json with duration as printed by CLI.
+    
+    Args:
+        run_dir: Path to run directory
+        duration_seconds: Duration in seconds (one decimal place as printed)
+    
+    Not part of the certificate hash.
+    """
+    os.makedirs(run_dir, exist_ok=True)
+    
+    # Format with one decimal place as CLI does
+    duration_str = f"{duration_seconds:.1f}"
+    
+    timing_data = {
+        "duration_seconds": duration_str
+    }
+    
+    path = os.path.join(run_dir, "timing.json")
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(timing_data, f, indent=2)
         f.write('\n')

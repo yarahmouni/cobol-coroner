@@ -11,7 +11,7 @@ from coroner.gen import generate_cases
 from coroner.run import compile_cobol, compile_java, run_cobol, run_java, run_cobol_instrumented
 from coroner.compare import compare_outputs
 from coroner.verdict import compute_verdict
-from coroner.store import collect_inputs, compute_run_id, store_inputs, store_comparison, store_verdict
+from coroner.store import collect_inputs, compute_run_id, store_inputs, store_comparison, store_verdict, store_branch_reconciliation
 from coroner.diag.coverage import compute_coverage
 from coroner.diag.report import generate_failure_report
 from coroner.parse.trace import parse_trace_counts
@@ -108,7 +108,8 @@ def run_verify(
     num_cases: int = 2000,
     seed: int = 42,
     timings: bool = False,
-    base_dir: str = "."
+    base_dir: str = ".",
+    duration_seconds: float = None
 ) -> tuple:
     """Run the differential verification pipeline.
     
@@ -121,6 +122,7 @@ def run_verify(
         seed: Random seed (default 42)
         timings: Print per-step timings to stderr (default False)
         base_dir: Base directory for runs/ and build/ (default current directory)
+        duration_seconds: Total duration in seconds (for storage, optional)
         
     Returns:
         (verdict, run_dir): Verdict object and Path to run directory
@@ -393,7 +395,13 @@ def run_verify(
     step_start = time.time()
     store_inputs(str(run_dir), inputs_data)
     store_comparison(str(run_dir), comparison)
+    store_branch_reconciliation(str(run_dir), comparison)
     store_verdict(str(run_dir), verdict)
+    
+    # Store timing if provided
+    if duration_seconds is not None:
+        from coroner.store import store_timing
+        store_timing(str(run_dir), duration_seconds)
     
     # Copy generated cases to run directory
     shutil.copy(cases_csv_path, run_dir / "generated_cases.csv")
@@ -430,14 +438,21 @@ def verify_command(cobol: str, copybooks: str, java: str, schema: str,
     start_time = time.time()
     
     try:
+        # First run verify to get the verdict and run_dir
         verdict, run_dir = run_verify(cobol, java, schema, copybooks, cases, seed, timings)
+        
+        # Calculate total time
+        total_time = time.time() - start_time
+        
+        # Store timing
+        from coroner.store import store_timing
+        store_timing(str(run_dir), total_time)
         
         # Read coverage report
         with open(run_dir / "coverage_report.json", 'r') as f:
             coverage = json.load(f)
         
         # Print output
-        total_time = time.time() - start_time
         verdict_block = format_verdict_block(verdict, coverage, run_dir, total_time)
         print(verdict_block)
         
