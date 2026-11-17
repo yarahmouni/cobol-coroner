@@ -1,3 +1,7 @@
 * text=auto eol=lf
 # Fixture contains a CRLF row on purpose (parity test), so Git must store its bytes unchanged.
 samples/credit-fees/fixtures/parity-cases.csv -text
+samples/** linguist-documentation=false
+*.cob linguist-language=COBOL
+*.cpy linguist-language=COBOL
+Jenkinsfile linguist-language=Groovy

@@ -39,7 +39,7 @@ COBOL + copybooks + Java 17 + schema.json
 
 ### Root files
 - `.dockerignore`
-- `.gitattributes`
+- `.gitattributes`: Git attributes, line endings, byte-exact fixture, GitHub language statistics
 - `.gitignore`
 - `Dockerfile`
 - `LICENSE`
