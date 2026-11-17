@@ -34,6 +34,7 @@ COBOL + copybooks + Java 17 + schema.json
 - `coroner/catalog/legacy_variant.py`: HALF_EVEN variant generation for test purposes.
 - `coroner/cli.py`: command-line interface and pipeline orchestration.
 - `coroner/mcp`: MCP server with thin layer over the engine.
+- `coroner/ui`: FastAPI web application with Jinja2 templates and htmx. Static assets at `coroner/ui/static/`, templates at `coroner/ui/templates/`.
 
 ## Repository layout
 

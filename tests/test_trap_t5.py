@@ -1,5 +1,6 @@
 """Tests for Trap 5 (T5-redefines-invalid): REDEFINES of invalid numeric data."""
 import subprocess
+import sys
 import os
 from pathlib import Path
 import pytest
@@ -149,7 +150,7 @@ def test_t5_faulty_java_differs_from_cobol_fixture():
 def test_t5_correct_java_alive_200_cases():
     """T5 correct Java gives ALIVE on 200 generated cases."""
     result = subprocess.run(
-        ['.venv/bin/python', '-m', 'coroner', 'verify',
+        [sys.executable, '-m', 'coroner', 'verify',
          '--cobol', str(TRAP_DIR / 'REDEFINES-INVALID.cob'),
          '--copybooks', str(TRAP_DIR),
          '--java', str(TRAP_DIR / 'java/correct/RedefinesInvalid.java'),
@@ -169,7 +170,7 @@ def test_t5_correct_java_alive_200_cases():
 def test_t5_faulty_java_zombie_200_cases():
     """T5 faulty Java gives ZOMBIE on 200 generated cases."""
     result = subprocess.run(
-        ['.venv/bin/python', '-m', 'coroner', 'verify',
+        [sys.executable, '-m', 'coroner', 'verify',
          '--cobol', str(TRAP_DIR / 'REDEFINES-INVALID.cob'),
          '--copybooks', str(TRAP_DIR),
          '--java', str(TRAP_DIR / 'java/faulty/RedefinesInvalid.java'),

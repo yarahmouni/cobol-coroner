@@ -1,5 +1,6 @@
 """Tests for branch reconciliation generation."""
 import json
+import sys
 from decimal import Decimal
 from pathlib import Path
 
@@ -17,7 +18,7 @@ def test_branch_reconciliation_written_for_t1_faulty(tmp_path):
     
     result = subprocess.run(
         [
-            ".venv/bin/python", "-m", "coroner", "verify",
+            sys.executable, "-m", "coroner", "verify",
             "--cobol", "samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob",
             "--copybooks", "samples/traps/T1-ebcdic-match-merge/copybooks",
             "--java", "samples/traps/T1-ebcdic-match-merge/java/faulty/MatchMerge.java",
@@ -37,7 +38,8 @@ def test_branch_reconciliation_written_for_t1_faulty(tmp_path):
     run_dir = None
     for line in result.stdout.split('\n'):
         if line.startswith("Run: "):
-            run_dir = Path(line.split("Run: ", 1)[1].strip())
+            run_dir_rel = line.split("Run: ", 1)[1].strip()
+            run_dir = tmp_path / run_dir_rel
             break
     
     assert run_dir is not None, "Run directory not found in output"
@@ -91,7 +93,7 @@ def test_branch_reconciliation_exposure_consistency(tmp_path):
     
     result = subprocess.run(
         [
-            ".venv/bin/python", "-m", "coroner", "verify",
+            sys.executable, "-m", "coroner", "verify",
             "--cobol", "samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob",
             "--copybooks", "samples/traps/T1-ebcdic-match-merge/copybooks",
             "--java", "samples/traps/T1-ebcdic-match-merge/java/faulty/MatchMerge.java",
@@ -111,7 +113,8 @@ def test_branch_reconciliation_exposure_consistency(tmp_path):
     run_dir = None
     for line in result.stdout.split('\n'):
         if line.startswith("Run: "):
-            run_dir = Path(line.split("Run: ", 1)[1].strip())
+            run_dir_rel = line.split("Run: ", 1)[1].strip()
+            run_dir = tmp_path / run_dir_rel
             break
     
     assert run_dir is not None, "Run directory not found in output"
@@ -163,7 +166,7 @@ def test_branch_reconciliation_not_written_for_credit_fees(tmp_path):
     
     result = subprocess.run(
         [
-            ".venv/bin/python", "-m", "coroner", "verify",
+            sys.executable, "-m", "coroner", "verify",
             "--cobol", "samples/credit-fees/CREDIT-FEES.cob",
             "--copybooks", "samples/credit-fees/copybooks",
             "--java", "samples/credit-fees/java/CreditFees.java",
@@ -183,7 +186,8 @@ def test_branch_reconciliation_not_written_for_credit_fees(tmp_path):
     run_dir = None
     for line in result.stdout.split('\n'):
         if line.startswith("Run: "):
-            run_dir = Path(line.split("Run: ", 1)[1].strip())
+            run_dir_rel = line.split("Run: ", 1)[1].strip()
+            run_dir = tmp_path / run_dir_rel
             break
     
     assert run_dir is not None, "Run directory not found in output"
@@ -204,7 +208,7 @@ def test_branch_reconciliation_sorted_by_branch(tmp_path):
     
     result = subprocess.run(
         [
-            ".venv/bin/python", "-m", "coroner", "verify",
+            sys.executable, "-m", "coroner", "verify",
             "--cobol", "samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob",
             "--copybooks", "samples/traps/T1-ebcdic-match-merge/copybooks",
             "--java", "samples/traps/T1-ebcdic-match-merge/java/faulty/MatchMerge.java",
@@ -224,7 +228,8 @@ def test_branch_reconciliation_sorted_by_branch(tmp_path):
     run_dir = None
     for line in result.stdout.split('\n'):
         if line.startswith("Run: "):
-            run_dir = Path(line.split("Run: ", 1)[1].strip())
+            run_dir_rel = line.split("Run: ", 1)[1].strip()
+            run_dir = tmp_path / run_dir_rel
             break
     
     assert run_dir is not None, "Run directory not found in output"
@@ -255,7 +260,7 @@ def test_branch_reconciliation_aggregates_across_cases(tmp_path):
     
     result = subprocess.run(
         [
-            ".venv/bin/python", "-m", "coroner", "verify",
+            sys.executable, "-m", "coroner", "verify",
             "--cobol", "samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob",
             "--copybooks", "samples/traps/T1-ebcdic-match-merge/copybooks",
             "--java", "samples/traps/T1-ebcdic-match-merge/java/faulty/MatchMerge.java",
@@ -275,7 +280,8 @@ def test_branch_reconciliation_aggregates_across_cases(tmp_path):
     run_dir = None
     for line in result.stdout.split('\n'):
         if line.startswith("Run: "):
-            run_dir = Path(line.split("Run: ", 1)[1].strip())
+            run_dir_rel = line.split("Run: ", 1)[1].strip()
+            run_dir = tmp_path / run_dir_rel
             break
     
     assert run_dir is not None, "Run directory not found in output"
@@ -286,7 +292,7 @@ def test_branch_reconciliation_aggregates_across_cases(tmp_path):
     
     # Build T1 programs into tmp_path
     build_dir = tmp_path / "build"
-    build_dir.mkdir()
+    build_dir.mkdir(exist_ok=True)
     
     # Compile COBOL
     result_cobol = subprocess.run(

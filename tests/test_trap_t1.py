@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -160,10 +161,13 @@ def test_faulty_java_diverges_from_cobol():
 
 
 @pytest.mark.slow
-def test_coroner_correct_java_alive():
+def test_coroner_correct_java_alive(tmp_path):
     """Coroner verify with correct Java returns ALIVE."""
+    env = os.environ.copy()
+    env["CORONER_BASE_DIR"] = str(tmp_path)
+    
     result = subprocess.run(
-        [".venv/bin/python", "-m", "coroner", "verify",
+        [sys.executable, "-m", "coroner", "verify",
          "--cobol", str(TRAP_DIR / "MATCH-MERGE.cob"),
          "--copybooks", str(TRAP_DIR / "copybooks"),
          "--java", str(TRAP_DIR / "java/correct/MatchMerge.java"),
@@ -172,7 +176,8 @@ def test_coroner_correct_java_alive():
          "--seed", "42"],
         capture_output=True,
         text=True,
-        timeout=60
+        timeout=60,
+        env=env
     )
     
     assert result.returncode == 0, f"Coroner exited {result.returncode}: {result.stderr}"
@@ -181,10 +186,13 @@ def test_coroner_correct_java_alive():
 
 
 @pytest.mark.slow
-def test_coroner_faulty_java_zombie():
+def test_coroner_faulty_java_zombie(tmp_path):
     """Coroner verify with faulty Java returns ZOMBIE with matching grand totals."""
+    env = os.environ.copy()
+    env["CORONER_BASE_DIR"] = str(tmp_path)
+    
     result = subprocess.run(
-        [".venv/bin/python", "-m", "coroner", "verify",
+        [sys.executable, "-m", "coroner", "verify",
          "--cobol", str(TRAP_DIR / "MATCH-MERGE.cob"),
          "--copybooks", str(TRAP_DIR / "copybooks"),
          "--java", str(TRAP_DIR / "java/faulty/MatchMerge.java"),
@@ -193,7 +201,8 @@ def test_coroner_faulty_java_zombie():
          "--seed", "42"],
         capture_output=True,
         text=True,
-        timeout=60
+        timeout=60,
+        env=env
     )
     
     assert result.returncode == 1, f"Expected ZOMBIE (exit 1), got {result.returncode}"

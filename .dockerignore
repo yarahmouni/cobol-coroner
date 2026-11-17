@@ -1,5 +1,6 @@
 .venv
-build
+build/*
+!build/junit
 .git
 __pycache__
 *.pyc

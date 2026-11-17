@@ -2,6 +2,7 @@
 
 import json
 import subprocess
+import sys
 import os
 from pathlib import Path
 from decimal import Decimal
@@ -19,7 +20,7 @@ def test_t1_sentence_from_real_run(tmp_path):
     
     result = subprocess.run(
         [
-            ".venv/bin/python", "-m", "coroner", "verify",
+            sys.executable, "-m", "coroner", "verify",
             "--cobol", "samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob",
             "--copybooks", "samples/traps/T1-ebcdic-match-merge/copybooks",
             "--java", "samples/traps/T1-ebcdic-match-merge/java/faulty/MatchMerge.java",
@@ -39,7 +40,8 @@ def test_t1_sentence_from_real_run(tmp_path):
     run_dir = None
     for line in result.stdout.split('\n'):
         if line.startswith("Run: "):
-            run_dir = Path(line.split("Run: ", 1)[1].strip())
+            run_dir_rel = line.split("Run: ", 1)[1].strip()
+            run_dir = tmp_path / run_dir_rel
             break
     
     assert run_dir is not None
@@ -50,7 +52,7 @@ def test_t1_sentence_from_real_run(tmp_path):
     # Independently compute expected sentence
 
 
-def test_t1_zombie_sentence_in_ui_story(tmp_path):
+def test_t1_zombie_sentence_in_ui_story(tmp_path, monkeypatch):
     """Test that #story contains the ZOMBIE sentence returned by generate_zombie_sentence for T1 faulty run."""
     from coroner.ui.sentences import generate_zombie_sentence
     from fastapi.testclient import TestClient
@@ -61,7 +63,7 @@ def test_t1_zombie_sentence_in_ui_story(tmp_path):
     
     result = subprocess.run(
         [
-            ".venv/bin/python", "-m", "coroner", "verify",
+            sys.executable, "-m", "coroner", "verify",
             "--cobol", "samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob",
             "--copybooks", "samples/traps/T1-ebcdic-match-merge/copybooks",
             "--java", "samples/traps/T1-ebcdic-match-merge/java/faulty/MatchMerge.java",
@@ -81,13 +83,17 @@ def test_t1_zombie_sentence_in_ui_story(tmp_path):
     run_dir = None
     for line in result.stdout.split('\n'):
         if line.startswith("Run: "):
-            run_dir = Path(line.split("Run: ", 1)[1].strip())
+            run_dir_rel = line.split("Run: ", 1)[1].strip()
+            run_dir = tmp_path / run_dir_rel
             break
     
     assert run_dir is not None
     
     # Generate sentence using the function
     expected_sentence = generate_zombie_sentence("T1", run_dir)
+    
+    # Set up test client with the tmp base using monkeypatch
+    monkeypatch.setenv("CORONER_BASE_DIR", str(tmp_path))
     
     # Get UI page
     from coroner.ui.app import app
@@ -119,7 +125,7 @@ def test_t2_sentence_from_real_run(tmp_path):
     
     result = subprocess.run(
         [
-            ".venv/bin/python", "-m", "coroner", "verify",
+            sys.executable, "-m", "coroner", "verify",
             "--cobol", "samples/traps/T2-rounding/ROUNDING-CALC.cob",
             "--copybooks", "samples/traps/T2-rounding",
             "--java", "samples/traps/T2-rounding/java/faulty/RoundingCalc.java",
@@ -139,7 +145,8 @@ def test_t2_sentence_from_real_run(tmp_path):
     run_dir = None
     for line in result.stdout.split('\n'):
         if line.startswith("Run: "):
-            run_dir = Path(line.split("Run: ", 1)[1].strip())
+            run_dir_rel = line.split("Run: ", 1)[1].strip()
+            run_dir = tmp_path / run_dir_rel
             break
     
     assert run_dir is not None
@@ -197,7 +204,7 @@ def test_t3_sentence_from_real_run(tmp_path):
     
     result = subprocess.run(
         [
-            ".venv/bin/python", "-m", "coroner", "verify",
+            sys.executable, "-m", "coroner", "verify",
             "--cobol", "samples/traps/T3-comp3-sign/COMP3-SIGN.cob",
             "--copybooks", "samples/traps/T3-comp3-sign",
             "--java", "samples/traps/T3-comp3-sign/java/faulty/Comp3Sign.java",
@@ -217,7 +224,8 @@ def test_t3_sentence_from_real_run(tmp_path):
     run_dir = None
     for line in result.stdout.split('\n'):
         if line.startswith("Run: "):
-            run_dir = Path(line.split("Run: ", 1)[1].strip())
+            run_dir_rel = line.split("Run: ", 1)[1].strip()
+            run_dir = tmp_path / run_dir_rel
             break
     
     assert run_dir is not None
@@ -257,7 +265,7 @@ def test_t5_sentence_from_real_run(tmp_path):
     
     result = subprocess.run(
         [
-            ".venv/bin/python", "-m", "coroner", "verify",
+            sys.executable, "-m", "coroner", "verify",
             "--cobol", "samples/traps/T5-redefines-invalid/REDEFINES-INVALID.cob",
             "--copybooks", "samples/traps/T5-redefines-invalid",
             "--java", "samples/traps/T5-redefines-invalid/java/faulty/RedefinesInvalid.java",
@@ -277,7 +285,8 @@ def test_t5_sentence_from_real_run(tmp_path):
     run_dir = None
     for line in result.stdout.split('\n'):
         if line.startswith("Run: "):
-            run_dir = Path(line.split("Run: ", 1)[1].strip())
+            run_dir_rel = line.split("Run: ", 1)[1].strip()
+            run_dir = tmp_path / run_dir_rel
             break
     
     assert run_dir is not None
@@ -309,7 +318,7 @@ def test_t4_sentence_from_real_run(tmp_path):
     
     result = subprocess.run(
         [
-            ".venv/bin/python", "-m", "coroner", "verify",
+            sys.executable, "-m", "coroner", "verify",
             "--cobol", "samples/traps/T4-zoned-overpunch/ZONED-OVERPUNCH.cob",
             "--copybooks", "samples/traps/T4-zoned-overpunch",
             "--java", "samples/traps/T4-zoned-overpunch/java/faulty/ZonedOverpunch.java",
@@ -329,7 +338,8 @@ def test_t4_sentence_from_real_run(tmp_path):
     run_dir = None
     for line in result.stdout.split('\n'):
         if line.startswith("Run: "):
-            run_dir = Path(line.split("Run: ", 1)[1].strip())
+            run_dir_rel = line.split("Run: ", 1)[1].strip()
+            run_dir = tmp_path / run_dir_rel
             break
     
     assert run_dir is not None

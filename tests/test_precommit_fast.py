@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+import sys
 import tempfile
 import shutil
 from pathlib import Path
@@ -126,7 +127,7 @@ def test_staged_half_even_blocked():
         
         # Set up environment to use main repo's Python
         current_dir = Path.cwd()
-        python_exe = str(current_dir / ".venv/bin/python")
+        python_exe = sys.executable
         env = os.environ.copy()
         env["CORONER_PYTHON_EXECUTABLE"] = python_exe
         
@@ -167,7 +168,7 @@ def test_staged_correct_allowed():
         
         # Set up environment to use main repo's Python
         current_dir = Path.cwd()
-        python_exe = str(current_dir / ".venv/bin/python")
+        python_exe = sys.executable
         env = os.environ.copy()
         env["CORONER_PYTHON_EXECUTABLE"] = python_exe
         
@@ -201,7 +202,7 @@ def test_no_scope_staged_allowed():
         
         # Set up environment to use main repo's Python
         current_dir = Path.cwd()
-        python_exe = str(current_dir / ".venv/bin/python")
+        python_exe = sys.executable
         env = os.environ.copy()
         env["CORONER_PYTHON_EXECUTABLE"] = python_exe
         

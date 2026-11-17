@@ -94,7 +94,14 @@ def format_verdict_block(verdict, coverage, run_dir, duration):
             lines.append(f"Unreconciled branch exposure: sum {verdict.exposure_sum:.2f}, max {verdict.exposure_max:.2f}, {verdict.affected_branches} branches affected, grand total matches: {matches_text}")
     
     lines.append(verdict.validation_notice)
-    lines.append(f"Run: {run_dir}")
+    
+    # Print run_dir relative to base_dir (runs/<id>)
+    run_dir_path = Path(run_dir)
+    if run_dir_path.name and run_dir_path.parent.name == "runs":
+        lines.append(f"Run: runs/{run_dir_path.name}")
+    else:
+        lines.append(f"Run: {run_dir}")
+    
     lines.append(f"Duration: {duration:.1f} s")
     
     return '\n'.join(lines)
@@ -438,8 +445,11 @@ def verify_command(cobol: str, copybooks: str, java: str, schema: str,
     start_time = time.time()
     
     try:
+        # Honor CORONER_BASE_DIR environment variable
+        base_dir = os.environ.get('CORONER_BASE_DIR', '.')
+        
         # First run verify to get the verdict and run_dir
-        verdict, run_dir = run_verify(cobol, java, schema, copybooks, cases, seed, timings)
+        verdict, run_dir = run_verify(cobol, java, schema, copybooks, cases, seed, timings, base_dir)
         
         # Calculate total time
         total_time = time.time() - start_time

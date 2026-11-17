@@ -74,6 +74,9 @@ def test_sort_file_error_libcob():
         if not schema_path.exists() or not java_path.exists():
             pytest.skip("credit-fees sample not available")
         
+        env = os.environ.copy()
+        env["CORONER_BASE_DIR"] = str(tmpdir_path)
+        
         # Run verify - should detect broken reference
         result = subprocess.run(
             [sys.executable, "-m", "coroner", "verify",
@@ -85,7 +88,7 @@ def test_sort_file_error_libcob():
              "--seed", "42"],
             capture_output=True,
             text=True,
-            cwd=str(tmpdir)
+            env=env
         )
         
         # Should exit with code 2

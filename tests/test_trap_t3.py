@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -167,7 +168,7 @@ def test_verify_correct_alive():
     """Verify with correct Java gives ALIVE on 200 cases."""
     result = subprocess.run(
         [
-            '.venv/bin/python', '-m', 'coroner', 'verify',
+            sys.executable, '-m', 'coroner', 'verify',
             '--cobol', str(TRAP_DIR / 'COMP3-SIGN.cob'),
             '--copybooks', '.',
             '--java', str(TRAP_DIR / 'java/correct/Comp3Sign.java'),
@@ -190,7 +191,7 @@ def test_verify_faulty_zombie():
     """Verify with faulty Java gives ZOMBIE on 200 cases."""
     result = subprocess.run(
         [
-            '.venv/bin/python', '-m', 'coroner', 'verify',
+            sys.executable, '-m', 'coroner', 'verify',
             '--cobol', str(TRAP_DIR / 'COMP3-SIGN.cob'),
             '--copybooks', '.',
             '--java', str(TRAP_DIR / 'java/faulty/Comp3Sign.java'),
@@ -213,7 +214,7 @@ def test_verify_2000_cases():
     """Measure divergence count on 2000 cases with seed 42."""
     result = subprocess.run(
         [
-            '.venv/bin/python', '-m', 'coroner', 'verify',
+            sys.executable, '-m', 'coroner', 'verify',
             '--cobol', str(TRAP_DIR / 'COMP3-SIGN.cob'),
             '--copybooks', '.',
             '--java', str(TRAP_DIR / 'java/faulty/Comp3Sign.java'),

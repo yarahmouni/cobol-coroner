@@ -1,6 +1,7 @@
 """Tests for certificate generation and replay."""
 import json
 import os
+import sys
 import pytest
 import shutil
 import hashlib
@@ -341,11 +342,14 @@ def test_certificate_cobc_flags_tampering(tmp_path):
     """Certificate with tampered cobc_flags is detected on replay."""
     import subprocess
     
+    env = os.environ.copy()
+    env["CORONER_BASE_DIR"] = str(tmp_path)
+    
     # Run T4 verification to get a certificate with cobc_flags
     t4_dir = Path("samples/traps/T4-zoned-overpunch")
     result = subprocess.run(
         [
-            ".venv/bin/python", "-m", "coroner", "verify",
+            sys.executable, "-m", "coroner", "verify",
             "--cobol", str(t4_dir / "ZONED-OVERPUNCH.cob"),
             "--copybooks", str(t4_dir / "copybooks"),
             "--java", str(t4_dir / "java/correct/ZonedOverpunch.java"),
@@ -355,7 +359,8 @@ def test_certificate_cobc_flags_tampering(tmp_path):
         ],
         capture_output=True,
         text=True,
-        timeout=60
+        timeout=60,
+        env=env
     )
     
     assert result.returncode == 0
@@ -366,7 +371,7 @@ def test_certificate_cobc_flags_tampering(tmp_path):
     assert match, f"Could not find run_id in output: {result.stdout}"
     run_id = match.group(1)
     
-    cert_path = Path(f"runs/{run_id}/certificate.json")
+    cert_path = tmp_path / "runs" / run_id / "certificate.json"
     assert cert_path.exists()
     
     # Load certificate and verify cobc_flags

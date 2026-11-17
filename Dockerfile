@@ -34,8 +34,11 @@ FROM python@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc0
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openjdk-17-jdk-headless=17.0.21+9-1~deb12u1 \
     libgmp10=2:6.2.1+dfsg1-1.1 \
+    libgmp-dev=2:6.2.1+dfsg1-1.1 \
     libdb5.3=5.3.28+dfsg2-1 \
+    libdb-dev=5.3.2 \
     libncurses6=6.4-4 \
+    libncurses-dev=6.4-4 \
     gcc=4:12.2.0-3 \
     libc6-dev=2.36-9+deb12u14 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -58,10 +61,17 @@ WORKDIR /app
 # Copy application files
 COPY --chown=coroner:coroner coroner/ coroner/
 COPY --chown=coroner:coroner smoke/ smoke/
+COPY --chown=coroner:coroner samples/ samples/
+COPY --chown=coroner:coroner tests/ tests/
+COPY --chown=coroner:coroner scripts/ scripts/
 COPY --chown=coroner:coroner pyproject.toml pyproject.toml
 
-# Create build directory for compiled outputs
-RUN mkdir -p build && chown coroner:coroner build
+# Create build directory and copy JUnit jar if present
+RUN mkdir -p build/junit && chown -R coroner:coroner build
+COPY --chown=coroner:coroner build/junit/ build/junit/
+
+# Install Python dependencies (runtime, dev and test groups) as root
+RUN python3 -m pip install --no-cache-dir -e ".[dev,test]"
 
 # Switch to non-root user
 USER coroner

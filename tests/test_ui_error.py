@@ -69,6 +69,9 @@ def broken_reference_run(tmp_path_factory):
     
     assert schema_path.exists() and java_path.exists(), "credit-fees sample is required for the UI error tests"
     
+    env = os.environ.copy()
+    env["CORONER_BASE_DIR"] = str(tmp_path)
+    
     # Run verify - should detect broken reference
     result = subprocess.run(
         [sys.executable, "-m", "coroner", "verify",
@@ -80,7 +83,7 @@ def broken_reference_run(tmp_path_factory):
          "--seed", "42"],
         capture_output=True,
         text=True,
-        cwd=str(tmp_path)
+        env=env
     )
     
     # Should exit 2

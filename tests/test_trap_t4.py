@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -219,11 +220,14 @@ def test_t4_faulty_java_differs(t4_dir):
 
 
 @pytest.mark.slow
-def test_t4_engine_correct_alive(t4_dir):
+def test_t4_engine_correct_alive(t4_dir, tmp_path):
     """Engine gives ALIVE on correct Java (200 cases)."""
+    env = os.environ.copy()
+    env["CORONER_BASE_DIR"] = str(tmp_path)
+    
     result = subprocess.run(
         [
-            ".venv/bin/python", "-m", "coroner", "verify",
+            sys.executable, "-m", "coroner", "verify",
             "--cobol", str(t4_dir / "ZONED-OVERPUNCH.cob"),
             "--copybooks", str(t4_dir / "copybooks"),
             "--java", str(t4_dir / "java/correct/ZonedOverpunch.java"),
@@ -233,7 +237,8 @@ def test_t4_engine_correct_alive(t4_dir):
         ],
         capture_output=True,
         text=True,
-        timeout=60
+        timeout=60,
+        env=env
     )
     
     assert result.returncode == 0, f"Expected exit 0, got {result.returncode}: {result.stdout} {result.stderr}"
@@ -241,11 +246,14 @@ def test_t4_engine_correct_alive(t4_dir):
 
 
 @pytest.mark.slow
-def test_t4_engine_faulty_zombie(t4_dir):
+def test_t4_engine_faulty_zombie(t4_dir, tmp_path):
     """Engine gives ZOMBIE on faulty Java (200 cases)."""
+    env = os.environ.copy()
+    env["CORONER_BASE_DIR"] = str(tmp_path)
+    
     result = subprocess.run(
         [
-            ".venv/bin/python", "-m", "coroner", "verify",
+            sys.executable, "-m", "coroner", "verify",
             "--cobol", str(t4_dir / "ZONED-OVERPUNCH.cob"),
             "--copybooks", str(t4_dir / "copybooks"),
             "--java", str(t4_dir / "java/faulty/ZonedOverpunch.java"),
@@ -255,7 +263,8 @@ def test_t4_engine_faulty_zombie(t4_dir):
         ],
         capture_output=True,
         text=True,
-        timeout=60
+        timeout=60,
+        env=env
     )
     
     assert result.returncode == 1, f"Expected exit 1, got {result.returncode}: {result.stdout} {result.stderr}"
@@ -263,14 +272,17 @@ def test_t4_engine_faulty_zombie(t4_dir):
 
 
 @pytest.mark.slow
-def test_t4_certificate_records_cobc_flags(t4_dir):
+def test_t4_certificate_records_cobc_flags(t4_dir, tmp_path):
     """Certificate of a T4 run records cobc_flags -fsign=EBCDIC."""
     import json
+    
+    env = os.environ.copy()
+    env["CORONER_BASE_DIR"] = str(tmp_path)
     
     # Run verification
     result = subprocess.run(
         [
-            ".venv/bin/python", "-m", "coroner", "verify",
+            sys.executable, "-m", "coroner", "verify",
             "--cobol", str(t4_dir / "ZONED-OVERPUNCH.cob"),
             "--copybooks", str(t4_dir / "copybooks"),
             "--java", str(t4_dir / "java/correct/ZonedOverpunch.java"),
@@ -280,7 +292,8 @@ def test_t4_certificate_records_cobc_flags(t4_dir):
         ],
         capture_output=True,
         text=True,
-        timeout=60
+        timeout=60,
+        env=env
     )
     
     assert result.returncode == 0
@@ -292,7 +305,7 @@ def test_t4_certificate_records_cobc_flags(t4_dir):
     run_id = match.group(1)
     
     # Check certificate
-    cert_path = Path(f"runs/{run_id}/certificate.json")
+    cert_path = tmp_path / "runs" / run_id / "certificate.json"
     assert cert_path.exists(), "Certificate not found"
     
     with open(cert_path) as f:

@@ -2,6 +2,7 @@
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import shutil
 from pathlib import Path
@@ -87,7 +88,7 @@ def test_gate_ignores_non_git_commands(tmp_path):
     }))
     
     # Get absolute path to python
-    python_path = Path(".venv/bin/python").absolute()
+    python_path = Path(sys.executable).absolute()
     
     # Test various non-git commands
     commands = ["ls -la", "git status", "echo git commit", "python test.py"]
@@ -165,7 +166,7 @@ def test_gate_allows_alive_certificate():
         pytest.skip("No ALIVE certificate found")
     
     # Get absolute path to python
-    python_path = Path(".venv/bin/python").absolute()
+    python_path = Path(sys.executable).absolute()
     repo_root = Path.cwd()
     
     hook_input = {
@@ -219,7 +220,7 @@ def test_gate_blocks_missing_certificate_when_staged(tmp_path):
     subprocess.run(["git", "add", str(java_file)], cwd=git_dir, check=True, capture_output=True)
     
     # Get absolute path to python
-    python_path = Path(".venv/bin/python").absolute()
+    python_path = Path(sys.executable).absolute()
     
     # Test the gate (no certificate exists)
     hook_input = {
@@ -270,7 +271,7 @@ def test_stop_blocks_three_times(tmp_path):
     subprocess.run(["git", "add", "Test.java"], cwd=tmp_path, check=True, capture_output=True)
     
     # Get absolute path to python
-    python_path = Path(".venv/bin/python").absolute()
+    python_path = Path(sys.executable).absolute()
     
     session_id = "test-session-123"
     

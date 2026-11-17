@@ -1,6 +1,7 @@
 """End-to-end tests for Coroner CLI."""
 import pytest
 import subprocess
+import sys
 import os
 import json
 from pathlib import Path
@@ -34,7 +35,7 @@ def test_e2e_alive(tools_available, tmp_path):
     # Run verify command
     result = subprocess.run(
         [
-            '.venv/bin/python', '-m', 'coroner', 'verify',
+            sys.executable, '-m', 'coroner', 'verify',
             '--cobol', 'samples/credit-fees/CREDIT-FEES.cob',
             '--copybooks', 'samples/credit-fees/copybooks',
             '--java', 'samples/credit-fees/java/CreditFees.java',
@@ -95,7 +96,7 @@ def test_e2e_zombie(tools_available, tmp_path):
     variant_path = f"{variant_dir}/CreditFees.java"
     
     gen_result = subprocess.run(
-        ['.venv/bin/python', '-m', 'coroner.catalog.legacy_variant',
+        [sys.executable, '-m', 'coroner.catalog.legacy_variant',
          'samples/credit-fees/java/CreditFees.java', variant_path],
         capture_output=True,
         text=True,
@@ -106,7 +107,7 @@ def test_e2e_zombie(tools_available, tmp_path):
     # Run verify command
     result = subprocess.run(
         [
-            '.venv/bin/python', '-m', 'coroner', 'verify',
+            sys.executable, '-m', 'coroner', 'verify',
             '--cobol', 'samples/credit-fees/CREDIT-FEES.cob',
             '--copybooks', 'samples/credit-fees/copybooks',
             '--java', variant_path,
@@ -163,7 +164,7 @@ def test_e2e_missing_file():
     """
     result = subprocess.run(
         [
-            '.venv/bin/python', '-m', 'coroner', 'verify',
+            sys.executable, '-m', 'coroner', 'verify',
             '--cobol', 'nonexistent.cob',
             '--copybooks', 'samples/credit-fees/copybooks',
             '--java', 'samples/credit-fees/java/CreditFees.java',
@@ -189,7 +190,7 @@ def test_e2e_deterministic_run_id(tools_available, tmp_path):
     for _ in range(2):
         result = subprocess.run(
             [
-                '.venv/bin/python', '-m', 'coroner', 'verify',
+                sys.executable, '-m', 'coroner', 'verify',
                 '--cobol', 'samples/credit-fees/CREDIT-FEES.cob',
                 '--copybooks', 'samples/credit-fees/copybooks',
                 '--java', 'samples/credit-fees/java/CreditFees.java',

@@ -165,7 +165,7 @@ def test_faulty_t1_assertions(t1_faulty_run):
     
     result = subprocess.run(
         [
-            ".venv/bin/python",
+            sys.executable,
             "-m",
             "coroner",
             "verify",
@@ -247,7 +247,7 @@ def test_demo_step1_block_equals_cli(t1_faulty_run):
     
     # Run demo with 200 cases and capture its output
     result = subprocess.run(
-        [".venv/bin/python", "-m", "coroner.demo_ebcdic"],
+        [sys.executable, "-m", "coroner.demo_ebcdic"],
         env={**os.environ, "PYTHONPATH": str(Path.cwd())},
         capture_output=True,
         text=True,

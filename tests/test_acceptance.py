@@ -26,6 +26,8 @@ Fixed seeds used for reproducibility:
 """
 import pytest
 import subprocess
+import sys
+import os
 import shutil
 import time
 from pathlib import Path
@@ -53,7 +55,7 @@ JAVA_VARIANT_PATH = "build/variants/CreditFees.java"
 SCHEMA_PATH = "samples/credit-fees/schema.json"
 
 
-def run_verify(java_path: str, seed: int, cases: int = 2000) -> tuple[int, str, float]:
+def run_verify(java_path: str, seed: int, cases: int = 2000, tmp_path=None) -> tuple[int, str, float]:
     """
     Run coroner verify and return exit code, stdout, and wall-clock time.
     
@@ -61,14 +63,19 @@ def run_verify(java_path: str, seed: int, cases: int = 2000) -> tuple[int, str, 
         java_path: Path to Java source
         seed: Random seed
         cases: Number of cases (default 2000)
+        tmp_path: Temporary path for CORONER_BASE_DIR
         
     Returns:
         Tuple of (exit_code, stdout, wall_time_seconds)
     """
+    env = os.environ.copy()
+    if tmp_path:
+        env["CORONER_BASE_DIR"] = str(tmp_path)
+    
     start = time.time()
     result = subprocess.run(
         [
-            ".venv/bin/python", "-m", "coroner", "verify",
+            sys.executable, "-m", "coroner", "verify",
             "--cobol", COBOL_PATH,
             "--copybooks", COPYBOOKS_PATH,
             "--java", java_path,
@@ -78,7 +85,8 @@ def run_verify(java_path: str, seed: int, cases: int = 2000) -> tuple[int, str, 
         ],
         capture_output=True,
         text=True,
-        timeout=120  # 2 minute timeout for safety
+        timeout=120,  # 2 minute timeout for safety
+        env=env
     )
     elapsed = time.time() - start
     return result.returncode, result.stdout, elapsed
@@ -99,7 +107,7 @@ def extract_divergent_count(stdout: str) -> int:
 
 @pytest.mark.slow
 @pytest.mark.parametrize("seed", SEEDS)
-def test_acceptance_no_false_zombie(seed):
+def test_acceptance_no_false_zombie(seed, tmp_path):
     """
     Test that correct Java produces ALIVE verdict for all seeds.
     
@@ -108,7 +116,7 @@ def test_acceptance_no_false_zombie(seed):
     """
     check_tools()
     
-    exit_code, stdout, elapsed = run_verify(JAVA_CORRECT_PATH, seed)
+    exit_code, stdout, elapsed = run_verify(JAVA_CORRECT_PATH, seed, tmp_path=tmp_path)
     
     # Print result for the table
     verdict = "ALIVE" if exit_code == 0 else "ZOMBIE"
@@ -122,7 +130,7 @@ def test_acceptance_no_false_zombie(seed):
 
 @pytest.mark.slow
 @pytest.mark.parametrize("seed", SEEDS)
-def test_acceptance_no_false_alive(seed):
+def test_acceptance_no_false_alive(seed, tmp_path):
     """
     Test that HALF_EVEN variant produces ZOMBIE verdict for all seeds.
     
@@ -138,7 +146,7 @@ def test_acceptance_no_false_alive(seed):
         variant_path.parent.mkdir(parents=True, exist_ok=True)
         subprocess.run(
             [
-                ".venv/bin/python", "-m", "coroner.catalog.legacy_variant",
+                sys.executable, "-m", "coroner.catalog.legacy_variant",
                 JAVA_CORRECT_PATH,
                 str(variant_path)
             ],
@@ -146,7 +154,7 @@ def test_acceptance_no_false_alive(seed):
             capture_output=True
         )
     
-    exit_code, stdout, elapsed = run_verify(JAVA_VARIANT_PATH, seed)
+    exit_code, stdout, elapsed = run_verify(JAVA_VARIANT_PATH, seed, tmp_path=tmp_path)
     
     # Print result for the table
     verdict = "ZOMBIE" if exit_code == 1 else "ALIVE"
@@ -160,7 +168,7 @@ def test_acceptance_no_false_alive(seed):
 
 
 @pytest.mark.slow
-def test_acceptance_half_even_calibration():
+def test_acceptance_half_even_calibration(tmp_path):
     """
     Test that seed 42 with HALF_EVEN variant has 80-120 divergences.
     
@@ -175,7 +183,7 @@ def test_acceptance_half_even_calibration():
         variant_path.parent.mkdir(parents=True, exist_ok=True)
         subprocess.run(
             [
-                ".venv/bin/python", "-m", "coroner.catalog.legacy_variant",
+                sys.executable, "-m", "coroner.catalog.legacy_variant",
                 JAVA_CORRECT_PATH,
                 str(variant_path)
             ],
@@ -183,7 +191,7 @@ def test_acceptance_half_even_calibration():
             capture_output=True
         )
     
-    exit_code, stdout, elapsed = run_verify(JAVA_VARIANT_PATH, 42)
+    exit_code, stdout, elapsed = run_verify(JAVA_VARIANT_PATH, 42, tmp_path=tmp_path)
     
     divergences = extract_divergent_count(stdout)
     print(f"\nSeed 42 calibration: {divergences} divergences (target: 80-120)")
@@ -199,7 +207,7 @@ def test_acceptance_half_even_calibration():
 
 
 @pytest.mark.slow
-def test_acceptance_wall_clock_under_60s():
+def test_acceptance_wall_clock_under_60s(tmp_path):
     """
     Test that one verify with 2,000 cases completes in under 60 seconds.
     
@@ -207,7 +215,7 @@ def test_acceptance_wall_clock_under_60s():
     """
     check_tools()
     
-    exit_code, stdout, elapsed = run_verify(JAVA_CORRECT_PATH, 42)
+    exit_code, stdout, elapsed = run_verify(JAVA_CORRECT_PATH, 42, tmp_path=tmp_path)
     
     # Print timing breakdown from stdout
     print(f"\nWall-clock time: {elapsed:.1f} s")

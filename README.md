@@ -32,6 +32,7 @@ make demo
 make zombie
 make acceptance
 make junit-jars
+make serve  # starts the UI at http://127.0.0.1:8000
 ```
 
 The default `make test` runs fast tests in under 60 seconds. `make test-all` runs all tests including slow ones. `make acceptance` runs the 2,000-case acceptance tests (10 seeds, catalog, takes about 10 minutes).
@@ -201,6 +202,19 @@ To be completed during the build: specs, steering, hooks and MCP server, see `/.
 ## Data
 
 All COBOL programs and data in this repository are synthetic. No code or data from any real bank is used.
+
+## Third-party components
+
+- htmx 2.0.4 (0BSD, vendored at coroner/ui/static/htmx.min.js, SHA-256 e209dda5c8235479f3166defc7750e1dbcd5a5c1808b7792fc2e6733768fb447)
+- fastapi 0.163.1 (MIT)
+- uvicorn 0.54.0 (BSD-3-Clause)
+- Jinja2 3.1.6 (BSD-3-Clause)
+- python-multipart 0.0.33 (Apache-2.0)
+- httpx 0.28.1 (BSD-3-Clause, tests only)
+- mcp 2.3.0 (MIT)
+- pytest 9.2.0 (MIT)
+- pyyaml 6.0.3 (MIT)
+- hypothesis 6.170.14 (MPL-2.0)
 
 ## License
 

@@ -1,4 +1,4 @@
-.PHONY: test test-all smoke demo zombie serve java-sample hooks junit-jars acceptance precommit traps demo-ebcdic
+.PHONY: test test-all smoke smoke-ui demo zombie serve java-sample hooks junit-jars acceptance precommit traps demo-ebcdic
 
 test:
 	.venv/bin/pytest -q
@@ -11,6 +11,9 @@ acceptance:
 
 smoke:
 	docker build -t coroner:smoke . && docker run --rm coroner:smoke
+
+smoke-ui:
+	docker build --platform linux/amd64 -t coroner:smoke . && docker run --rm coroner:smoke python3 -m pytest -q -rs -p no:cacheprovider $(wildcard tests/test_ui*.py) tests/test_branch_reconciliation.py
 
 demo:
 	@.venv/bin/python -m coroner verify --cobol samples/credit-fees/CREDIT-FEES.cob --copybooks samples/credit-fees/copybooks --java samples/credit-fees/java/CreditFees.java --schema samples/credit-fees/schema.json; exit $$?
