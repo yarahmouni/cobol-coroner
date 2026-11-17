@@ -1,4 +1,6 @@
-.PHONY: test test-all smoke smoke-ui demo zombie serve java-sample hooks junit-jars acceptance precommit traps demo-ebcdic
+PYTHON ?= .venv/bin/python
+
+.PHONY: test test-all smoke smoke-ui demo zombie serve java-sample hooks junit-jars acceptance precommit traps demo-ebcdic coroner-gate
 
 test:
 	.venv/bin/pytest -q
@@ -46,3 +48,6 @@ precommit:
 
 demo-ebcdic:
 	@.venv/bin/python -m coroner.demo_ebcdic
+
+coroner-gate:
+	$(PYTHON) -m coroner gate $(GATE_ARGS)

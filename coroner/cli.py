@@ -500,6 +500,15 @@ def main():
     traps_parser.add_argument("--cases", type=int, default=2000, help="Number of test cases (default: 2000)")
     traps_parser.add_argument("--seed", type=int, default=42, help="Random seed (default: 42)")
     
+    # gate command
+    gate_parser = subparsers.add_parser("gate", help="CI gate: check verdict and certificate")
+    gate_parser.add_argument("--scope", default=".kiro/coroner-scope.json", help="Path to scope file (default: .kiro/coroner-scope.json)")
+    gate_parser.add_argument("--java", help="Override Java path from scope")
+    gate_parser.add_argument("--cases", type=int, default=2000, help="Number of test cases (default: 2000)")
+    gate_parser.add_argument("--seed", type=int, default=42, help="Random seed (default: 42)")
+    gate_parser.add_argument("--certificate", help="Gate an existing certificate")
+    gate_parser.add_argument("--junit", help="Write JUnit XML report")
+    
     args = parser.parse_args()
     
     if args.command == "verify":
@@ -561,6 +570,16 @@ def main():
             import traceback
             traceback.print_exc()
             return 2
+    
+    elif args.command == "gate":
+        # Run gate
+        from coroner.gate import run_gate
+        
+        exit_code = run_gate(
+            args.scope, args.java, args.cases, args.seed,
+            args.certificate, args.junit
+        )
+        return exit_code
     
     else:
         parser.print_help()

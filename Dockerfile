@@ -65,6 +65,7 @@ COPY --chown=coroner:coroner samples/ samples/
 COPY --chown=coroner:coroner tests/ tests/
 COPY --chown=coroner:coroner scripts/ scripts/
 COPY --chown=coroner:coroner pyproject.toml pyproject.toml
+COPY --chown=coroner:coroner .kiro/coroner-scope.json .kiro/coroner-scope.json
 
 # Create build directory and copy JUnit jar if present
 RUN mkdir -p build/junit && chown -R coroner:coroner build

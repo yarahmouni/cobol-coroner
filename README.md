@@ -152,6 +152,32 @@ ALIVE: PASS: business behavior preserved on 2000 cases
 
 The grand total matches in both the faulty and correct runs, which is why a total-only reconciliation would not catch this faulty port.
 
+## CI gate
+
+The CI gate blocks builds when a Java migration is ZOMBIE, the certificate is missing, or the certificate is invalid.
+
+Run locally:
+
+```bash
+make coroner-gate
+```
+
+Exit codes:
+- 0: ALIVE verdict and VALID certificate
+- 1: ZOMBIE verdict, missing certificate, or invalid certificate
+- 2: ERROR (reference did not run) or scope file error
+
+- `.github/workflows/coroner-gate.yml`: builds the image for linux/amd64, runs `python3 -m coroner gate` inside it (2,000 cases), and a second job checks that the HALF_EVEN variant is blocked with exit code 1.
+- `Jenkinsfile`: an example declarative pipeline (Groovy) that runs the same gate in the image and publishes its JUnit report; it is not run by this repository.
+
+Check an existing certificate against the current files:
+
+```bash
+make coroner-gate GATE_ARGS="--certificate runs/<run id>/certificate.json"
+```
+
+Coroner is a behavioral regression gate, not a SonarQube replacement.
+
 ## Schema format
 
 The `schema.json` file describes input and output columns. Optional column options for decimal input fields:

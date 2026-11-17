@@ -35,6 +35,7 @@ COBOL + copybooks + Java 17 + schema.json
 - `coroner/cli.py`: command-line interface and pipeline orchestration.
 - `coroner/mcp`: MCP server with thin layer over the engine.
 - `coroner/ui`: FastAPI web application with Jinja2 templates and htmx. Static assets at `coroner/ui/static/`, templates at `coroner/ui/templates/`.
+- `coroner/gate.py`: CI gate that checks verdict and certificate validity.
 
 ## Repository layout
 
@@ -43,6 +44,7 @@ COBOL + copybooks + Java 17 + schema.json
 - `.gitattributes`: Git attributes, line endings, byte-exact fixture, GitHub language statistics
 - `.gitignore`
 - `Dockerfile`
+- `Jenkinsfile`: example declarative Jenkins pipeline (Groovy) running the coroner gate in the image; not run by this repository
 - `LICENSE`
 - `Makefile`
 - `README.md`
