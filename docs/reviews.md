@@ -591,3 +591,10 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - T1 counts after the T1 realism change (R-89): "2 branch subtotals do not reconcile with COBOL" unchanged (affected_branches 2); T2, T3 and T5 runs unchanged.
 - D-56 row: the owner's layout review of 2026-11-16 also asked for serif headings "as decided in D-56"; that wording was not in the D-56 text the operator recorded, so it is added to the row.
 - Kiro balance (2026-11-17): plan 405.95 of 531 used (125.05 left); kiroween2026 671.67 of 4000 used (3328.33 left); trial 0.00 of 500 used.
+
+### R-91 2026-11-17: acceptance after the night commits; web UI spec (priority 10)
+- make acceptance on the committed tree after R-86 to R-90: 47 passed, 240 deselected in 462.97 s.
+- Priority 10 started 2026-11-16 in a separate git worktree (branch ui) so that the priority 9 replay and its backup diff were not affected; the branch was fast-forwarded onto main twice and its own changes re-applied (three conflicts resolved, see R-93).
+- Spec .kiro/specs/web-ui/ (calls p10spec, p10fix, sonnet; operator corrections: htmx vendored under coroner/ui/static, not in the git-ignored build/; contrast ratios computed by the operator with the WCAG 2 formula instead of typed values; no optional items; ZOMBIE page task ordered after the priority 9 merge; ERROR page built from the files a real broken-reference run contains). Dependencies pinned exactly (fastapi 0.163.1, uvicorn 0.54.0, jinja2 3.1.6, python-multipart 0.0.33; httpx 0.28.1 test only); htmx 2.0.4 (0BSD) vendored, 50917 bytes, SHA-256 e209dda5c8235479f3166defc7750e1dbcd5a5c1808b7792fc2e6733768fb447, checked by a test.
+- Not done yet in the spec: task 10 (README make serve, architecture), task 11 (Docker image with the UI dependencies, UI tests run inside the image, third-party licences section; Docker Desktop was not running on the dev machine), and the deployment tasks for D-52 to D-54.
+- Kiro balance (2026-11-17): plan 405.95 of 531 used (125.05 left); kiroween2026 678.14 of 4000 used (3321.86 left); trial 0.00 of 500 used.
