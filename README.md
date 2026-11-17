@@ -103,7 +103,7 @@ Coroner prioritizes high-impact banking migration traps, such as EBCDIC collatin
 
 | Trap | Description | Detected (faulty port) | Rate | Correct port |
 |------|-------------|--------|------|---|
-| T1 | EBCDIC vs ASCII collating order breaks control-break subtotals | 262 of 2000 | 0.1310 | ALIVE |
+| T1 | EBCDIC vs ASCII collating order breaks control-break subtotals | 682 of 2000 | 0.3410 | ALIVE |
 | T2 | Truncation without ROUNDED, and ROUNDED ported as HALF_EVEN | 856 of 2000 | 0.4280 | ALIVE |
 | T3 | COMP-3 sign nibble (C positive, D negative, F unsigned) | 429 of 2000 | 0.2145 | ALIVE |
 | T4 | Zoned sign overpunch in input files; reference compiled with -fsign=EBCDIC; the faulty port forgets the zero overpunch characters { and } | 87 of 2000 | 0.0435 | ALIVE |
@@ -116,7 +116,7 @@ Run all traps:
 make traps
 ```
 
-T1 Unreconciled branch exposure (faulty port): sum 30636924.02, max 26333183.83, 2 branches affected, suspense difference 30636924.02, grand total matches: yes.
+T1 Unreconciled branch exposure (faulty port): sum 3995184.38, max 2025606.03, 2 branches affected, suspense difference 3995184.38, grand total matches: yes.
 
 The suspense line is not counted as a branch: the amount missing from branches 001 and 9ZZ appears in suspense, which is why the grand total still balances.
 
@@ -139,10 +139,10 @@ The demo performs five steps: verify the faulty port, print the Given/When/Then 
 Measured output (operator run 2026-11-16, 2000 cases, seed 42):
 
 ```
-ZOMBIE: FAIL: business behavior diverged on 262 cases
-Unreconciled branch exposure: sum 30636924.02, max 26333183.83, 2 branches affected, suspense difference 30636924.02, grand total matches: yes
-Then COBOL writes row BRANCH=9ZZ with SUBTOTAL=+0000201.86, Java does not
-Then Java writes row BRANCH=SUSP with SUBTOTAL=+0000201.86, COBOL does not
+ZOMBIE: FAIL: business behavior diverged on 682 cases
+Unreconciled branch exposure: sum 3995184.38, max 2025606.03, 2 branches affected, suspense difference 3995184.38, grand total matches: yes
+Then COBOL writes row BRANCH=001 with SUBTOTAL=+0006253.54, Java does not
+Then Java writes row BRANCH=SUSP with SUBTOTAL=+0006253.54, COBOL does not
 JUnit against faulty port: failed (1 tests found, 0 successful, 1 failed)
 JUnit against correct port: passed (1 tests found, 1 successful, 0 failed)
 Certificate: VALID
@@ -150,6 +150,30 @@ ALIVE: PASS: business behavior preserved on 2000 cases
 ```
 
 The grand total matches in both the faulty and correct runs, which is why a total-only reconciliation would not catch this faulty port.
+
+## Schema format
+
+The `schema.json` file describes input and output columns. Optional column options for decimal input fields:
+
+- `amount_range`: Constrains generated amounts to a realistic range. Example: `{"min": "0.01", "max": "9999.99"}` limits amounts to this range with the column's declared scale. When absent, amounts are drawn from the full PIC range by magnitude.
+
+- `negative_share`: Probability that a generated amount is negative (a reversal). Example: `0.05` means 5% of amounts are negative. Must be between 0.0 and 1.0. When absent, signed amounts are 50% positive and 50% negative.
+
+Both options use the same seeded random number generator as other fields, so the same seed produces the same cases.
+
+Example from T1 schema:
+
+```json
+{
+  "name": "AMOUNT",
+  "type": "decimal",
+  "pic": "S9(7)V99",
+  "sign": true,
+  "scale": 2,
+  "amount_range": {"min": "0.01", "max": "9999.99"},
+  "negative_share": 0.05
+}
+```
 
 ## Status
 

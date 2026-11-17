@@ -842,16 +842,32 @@ def generate_batch_cases(
                     continue
                 
                 if col.type == 'decimal':
-                    # Draw by magnitude
-                    import re
-                    digit_match = re.search(r'9\((\d+)\)', col.pic)
-                    if digit_match:
-                        max_int_digits = int(digit_match.group(1))
-                    else:
-                        max_int_digits = col.pic.count('9') - (col.scale or 0)
+                    # Check for amount_range option
+                    amount_range = getattr(col, 'amount_range', None)
+                    negative_share = getattr(col, 'negative_share', None)
                     
-                    value = draw_decimal_by_magnitude(rng, max_int_digits, col.scale or 0, col.signed)
-                    row[col.name] = format_decimal(value, col.scale or 0, col.signed)
+                    if amount_range:
+                        # Draw from specified range
+                        min_val = Decimal(str(amount_range['min']))
+                        max_val = Decimal(str(amount_range['max']))
+                        value = draw_decimal(rng, min_val, max_val, col.scale or 0)
+                        
+                        # Apply negative_share if specified
+                        if negative_share is not None and rng.random() < negative_share:
+                            value = -value
+                        
+                        row[col.name] = format_decimal(value, col.scale or 0, col.signed)
+                    else:
+                        # Original magnitude-based drawing
+                        import re
+                        digit_match = re.search(r'9\((\d+)\)', col.pic)
+                        if digit_match:
+                            max_int_digits = int(digit_match.group(1))
+                        else:
+                            max_int_digits = col.pic.count('9') - (col.scale or 0)
+                        
+                        value = draw_decimal_by_magnitude(rng, max_int_digits, col.scale or 0, col.signed)
+                        row[col.name] = format_decimal(value, col.scale or 0, col.signed)
                 
                 elif col.type == 'integer':
                     import re

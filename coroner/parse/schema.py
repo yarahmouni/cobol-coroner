@@ -21,6 +21,8 @@ class SchemaColumn:
     dirty_chars: list[str] | None = None  # Optional dirty characters for dirty_numeric domain
     packed_hex: dict | None = None  # Optional packed hex domain spec for COMP-3 decoding
     zoned_overpunch: dict | None = None  # Optional zoned overpunch spec {"digits": 9, "convention": "EBCDIC", "sign_share": 0.5}
+    amount_range: dict | None = None  # Optional amount range {"min": "0.01", "max": "9999.99"}
+    negative_share: float | None = None  # Optional probability of negative amounts (0.05 = 5%)
 
 
 @dataclass
@@ -174,7 +176,9 @@ def load_schema(path: str) -> Schema:
             domain_weights=col_data.get('domain_weights'),  # Optional weights (dict or list)
             dirty_chars=col_data.get('dirty_chars'),  # Optional dirty characters for dirty_numeric
             packed_hex=col_data.get('packed_hex'),  # Optional packed hex spec
-            zoned_overpunch=col_data.get('zoned_overpunch')  # Optional zoned overpunch spec
+            zoned_overpunch=col_data.get('zoned_overpunch'),  # Optional zoned overpunch spec
+            amount_range=col_data.get('amount_range'),  # Optional amount range {"min": "0.01", "max": "9999.99"}
+            negative_share=col_data.get('negative_share')  # Optional probability of negative amounts
         ))
     
     # Parse output columns

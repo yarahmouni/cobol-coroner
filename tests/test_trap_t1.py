@@ -317,3 +317,70 @@ def test_exposure_independent_verification():
     assert affected_branches == verdict["affected_branches"], f"Branches mismatch: computed {affected_branches}, verdict {verdict['affected_branches']}"
     assert str(suspense_difference) == verdict["suspense_difference"], f"Suspense mismatch: computed {suspense_difference}, verdict {verdict['suspense_difference']}"
     assert grand_total_matches == verdict["grand_total_matches"], f"Grand total match mismatch"
+
+
+
+def test_t1_amount_range_and_negative_share():
+    """
+    T1 generator with amount_range and negative_share produces realistic amounts.
+    
+    Verifies:
+    - Every AMOUNT magnitude is within [0.01, 9999.99] with scale 2
+    - Negative share is between 3% and 7% (target 5%)
+    - Batch sizes are between 5 and 25 rows per case
+    """
+    import csv
+    from decimal import Decimal
+    from coroner.gen import generate_cases
+    from coroner.parse.schema import load_schema
+    
+    # Load T1 schema (with amount_range and negative_share)
+    schema = load_schema(str(TRAP_DIR / "schema.json"))
+    
+    # Generate 2000 cases with seed 42
+    cases_file = generate_cases(
+        schema=schema,
+        cobol_structure={},
+        seed=42,
+        num_cases=2000,
+        tie_share=0.0,
+        base_dir="build"
+    )
+    
+    # Read generated cases
+    amounts = []
+    case_ids = []
+    
+    with open(cases_file, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            case_ids.append(row['CASE-ID'])
+            amounts.append(Decimal(row['AMOUNT']))
+    
+    # Check amount_range: every magnitude within [0.01, 9999.99]
+    min_val = Decimal("0.01")
+    max_val = Decimal("9999.99")
+    
+    for amount in amounts:
+        magnitude = abs(amount)
+        assert min_val <= magnitude <= max_val, \
+            f"Amount {amount} magnitude {magnitude} outside range [{min_val}, {max_val}]"
+    
+    # Check negative_share: between 3% and 7% (target 5%)
+    negative_count = sum(1 for a in amounts if a < 0)
+    negative_share = negative_count / len(amounts)
+    
+    print(f"T1 generation: negative share = {negative_share:.4f} ({negative_count}/{len(amounts)})")
+    
+    assert 0.03 <= negative_share <= 0.07, \
+        f"Negative share {negative_share:.4f} outside [0.03, 0.07]"
+    
+    # Check batch sizes: between 5 and 25 per case
+    unique_case_ids = list(dict.fromkeys(case_ids))  # Preserve order
+    
+    for case_id in unique_case_ids:
+        batch_size = case_ids.count(case_id)
+        assert 5 <= batch_size <= 25, \
+            f"Case {case_id} has {batch_size} rows, expected [5, 25]"
+    
+    print(f"T1 generation: {len(unique_case_ids)} cases with batch sizes 5-25")

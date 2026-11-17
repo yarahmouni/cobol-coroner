@@ -24,7 +24,9 @@
         "pic": "S9(7)V99",
         "sign": true,
         "scale": 2,
-        "description": "Transaction amount"
+        "description": "Transaction amount",
+        "amount_range": {"min": "0.01", "max": "9999.99"},
+        "negative_share": 0.05
       }
     ]
   },
@@ -54,8 +56,8 @@
     ]
   },
   "case_rows": {
-    "min": 2,
-    "max": 8
+    "min": 5,
+    "max": 25
   },
   "output_key": ["CASE-ID", "BRANCH"],
   "group_key": "BRANCH",
