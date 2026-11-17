@@ -200,3 +200,120 @@ def test_coroner_faulty_java_zombie():
     assert "ZOMBIE" in result.stdout
     assert "grand total matches: yes" in result.stdout.lower() or "FAIL: business behavior diverged" in result.stdout
     assert "return code differs" not in result.stdout
+
+
+def test_exposure_independent_verification():
+    """
+    Independent verification: run COBOL and Java directly on a real run,
+    aggregate per branch with trimmed codes, verify against verdict.json.
+    """
+    import json
+    from decimal import Decimal
+    from collections import defaultdict
+    
+    # Use the real 2000-case run the operator measured
+    run_dir = Path("runs/00fb3823e8f8")
+    if not run_dir.exists():
+        pytest.skip("Run runs/00fb3823e8f8 not found")
+    
+    # Read verdict
+    with open(run_dir / "verdict.json") as f:
+        verdict = json.load(f)
+    
+    # Read cases file
+    cases_file = run_dir / "generated_cases.csv"
+    
+    # Run COBOL
+    cobol_output = BUILD_DIR / "cobol_independent.csv"
+    env = os.environ.copy()
+    env["INPUT_FILE"] = str(cases_file)
+    env["OUTPUT_FILE"] = str(cobol_output)
+    
+    result = subprocess.run(
+        [str(BUILD_DIR / "MATCH-MERGE")],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30
+    )
+    assert result.returncode == 0, f"COBOL failed: {result.stderr}"
+    
+    # Run faulty Java
+    java_output = BUILD_DIR / "java_independent.csv"
+    env["OUTPUT_FILE"] = str(java_output)
+    
+    result = subprocess.run(
+        ["java", "-cp", str(BUILD_DIR / "faulty"), "MatchMerge"],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30
+    )
+    assert result.returncode == 0, f"Java failed: {result.stderr}"
+    
+    # Parse outputs and aggregate by branch
+    cobol_lines = cobol_output.read_text().strip().split('\n')
+    java_lines = java_output.read_text().strip().split('\n')
+    
+    # Parse headers
+    cobol_header = cobol_lines[0].split(',')
+    java_header = java_lines[0].split(',')
+    
+    branch_idx = cobol_header.index("BRANCH")
+    subtotal_idx = cobol_header.index("SUBTOTAL")
+    
+    # Aggregate subtotals per branch (with trimmed branch codes)
+    cobol_subtotals = defaultdict(lambda: Decimal(0))
+    java_subtotals = defaultdict(lambda: Decimal(0))
+    
+    cobol_grand_total = Decimal(0)
+    java_grand_total = Decimal(0)
+    
+    for line in cobol_lines[1:]:
+        parts = line.split(',')
+        branch = parts[branch_idx].rstrip()  # Trim trailing spaces
+        subtotal = Decimal(parts[subtotal_idx])
+        
+        if branch == "TOTAL":
+            cobol_grand_total += subtotal
+        else:
+            cobol_subtotals[branch] += subtotal
+    
+    for line in java_lines[1:]:
+        parts = line.split(',')
+        branch = parts[branch_idx].rstrip()  # Trim trailing spaces
+        subtotal = Decimal(parts[subtotal_idx])
+        
+        if branch == "TOTAL":
+            java_grand_total += subtotal
+        else:
+            java_subtotals[branch] += subtotal
+    
+    # Compute exposure metrics
+    all_branches = set(cobol_subtotals.keys()) | set(java_subtotals.keys())
+    differences = []
+    suspense_difference = None
+    
+    for branch in all_branches:
+        cobol_val = cobol_subtotals.get(branch, Decimal(0))
+        java_val = java_subtotals.get(branch, Decimal(0))
+        diff = abs(cobol_val - java_val)
+        
+        if branch == "SUSP":
+            suspense_difference = diff
+            continue
+        
+        if diff > 0:
+            differences.append(diff)
+    
+    exposure_sum = sum(differences) if differences else Decimal(0)
+    exposure_max = max(differences) if differences else Decimal(0)
+    affected_branches = len(differences)
+    grand_total_matches = (cobol_grand_total == java_grand_total)
+    
+    # Verify against verdict.json
+    assert str(exposure_sum) == verdict["exposure_sum"], f"Sum mismatch: computed {exposure_sum}, verdict {verdict['exposure_sum']}"
+    assert str(exposure_max) == verdict["exposure_max"], f"Max mismatch: computed {exposure_max}, verdict {verdict['exposure_max']}"
+    assert affected_branches == verdict["affected_branches"], f"Branches mismatch: computed {affected_branches}, verdict {verdict['affected_branches']}"
+    assert str(suspense_difference) == verdict["suspense_difference"], f"Suspense mismatch: computed {suspense_difference}, verdict {verdict['suspense_difference']}"
+    assert grand_total_matches == verdict["grand_total_matches"], f"Grand total match mismatch"

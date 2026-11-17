@@ -68,6 +68,38 @@ def validate_inputs(cobol: str, copybooks: str, java: str, schema: str) -> None:
                 raise ValueError(f"Copybook {entry} exceeds 100 KB: {size} bytes")
 
 
+def format_verdict_block(verdict, coverage, run_dir, duration):
+    """Format verdict block for display.
+    
+    Args:
+        verdict: Verdict object with status, sub_label, exposure metrics
+        coverage: dict with paragraphs_covered, paragraphs_total, branches_covered, branches_total
+        run_dir: Path or str for the run directory
+        duration: float, duration in seconds
+        
+    Returns:
+        str: Formatted verdict block
+    """
+    lines = []
+    lines.append(f"{verdict.status}: {verdict.sub_label}")
+    lines.append(f"Paragraph coverage {coverage['paragraphs_covered']}/{coverage['paragraphs_total']}")
+    lines.append(f"Branch coverage (Coroner definition) {coverage['branches_covered']}/{coverage['branches_total']}")
+    
+    # Print exposure if present
+    if verdict.exposure_sum is not None:
+        matches_text = "yes" if verdict.grand_total_matches else "no"
+        if verdict.suspense_difference is not None:
+            lines.append(f"Unreconciled branch exposure: sum {verdict.exposure_sum:.2f}, max {verdict.exposure_max:.2f}, {verdict.affected_branches} branches affected, suspense difference {verdict.suspense_difference:.2f}, grand total matches: {matches_text}")
+        else:
+            lines.append(f"Unreconciled branch exposure: sum {verdict.exposure_sum:.2f}, max {verdict.exposure_max:.2f}, {verdict.affected_branches} branches affected, grand total matches: {matches_text}")
+    
+    lines.append(verdict.validation_notice)
+    lines.append(f"Run: {run_dir}")
+    lines.append(f"Duration: {duration:.1f} s")
+    
+    return '\n'.join(lines)
+
+
 def run_verify(
     cobol_path: str,
     java_path: str,
@@ -406,18 +438,8 @@ def verify_command(cobol: str, copybooks: str, java: str, schema: str,
         
         # Print output
         total_time = time.time() - start_time
-        print(f"{verdict.status}: {verdict.sub_label}")
-        print(f"Paragraph coverage {coverage['paragraphs_covered']}/{coverage['paragraphs_total']}")
-        print(f"Branch coverage (Coroner definition) {coverage['branches_covered']}/{coverage['branches_total']}")
-        
-        # Print exposure if present
-        if verdict.exposure_sum is not None:
-            matches_text = "yes" if verdict.grand_total_matches else "no"
-            print(f"Unreconciled branch exposure: sum {verdict.exposure_sum:.2f}, max {verdict.exposure_max:.2f}, {verdict.affected_branches} branches affected, grand total matches: {matches_text}")
-        
-        print(verdict.validation_notice)
-        print(f"Run: {run_dir}")
-        print(f"Duration: {total_time:.1f} s")
+        verdict_block = format_verdict_block(verdict, coverage, run_dir, total_time)
+        print(verdict_block)
         
         # Return exit code
         return 0 if verdict.status == "ALIVE" else 1

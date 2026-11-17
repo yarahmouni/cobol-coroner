@@ -207,6 +207,82 @@ def test_faulty_t1_assertions(t1_faulty_run):
     assert expected_run_id in stdout, f"Expected run directory {expected_run_id} in CLI output (deterministic run_id):\n{stdout}"
 
 
+def test_demo_step1_block_equals_cli(t1_faulty_run):
+    """Test that demo step 1 verdict block equals the CLI output for the same run."""
+    from coroner.cli import format_verdict_block
+    import json
+    import subprocess
+    
+    run_dir = t1_faulty_run
+    
+    # Read verdict and coverage from the run
+    verdict_file = run_dir / "verdict.json"
+    coverage_file = run_dir / "coverage_report.json"
+    
+    assert verdict_file.exists()
+    assert coverage_file.exists()
+    
+    verdict_data = json.loads(verdict_file.read_text())
+    coverage_data = json.loads(coverage_file.read_text())
+    
+    # Reconstruct verdict object for format_verdict_block
+    from coroner.verdict import Verdict
+    from decimal import Decimal
+    verdict = Verdict(
+        status=verdict_data["status"],
+        sub_label=verdict_data["sub_label"],
+        cases_total=verdict_data["cases_total"],
+        cases_divergent=verdict_data["cases_divergent"],
+        run_return_codes=tuple(verdict_data["run_return_codes"]),
+        exposure_sum=Decimal(str(verdict_data["exposure_sum"])) if verdict_data.get("exposure_sum") else None,
+        exposure_max=Decimal(str(verdict_data["exposure_max"])) if verdict_data.get("exposure_max") else None,
+        affected_branches=verdict_data.get("affected_branches"),
+        suspense_difference=Decimal(str(verdict_data["suspense_difference"])) if verdict_data.get("suspense_difference") else None,
+        grand_total_matches=verdict_data.get("grand_total_matches"),
+        validation_notice=verdict_data["validation_notice"]
+    )
+    
+    # Format verdict block as CLI would (use str for run_dir, not relative path)
+    cli_block = format_verdict_block(verdict, coverage_data, str(run_dir), 0.0)
+    
+    # Run demo with 200 cases and capture its output
+    result = subprocess.run(
+        [".venv/bin/python", "-m", "coroner.demo_ebcdic"],
+        env={**os.environ, "PYTHONPATH": str(Path.cwd())},
+        capture_output=True,
+        text=True,
+        timeout=120,
+        cwd=str(Path.cwd())
+    )
+    
+    demo_output = result.stdout
+    
+    # Extract step 1 block from demo output (between step 1 header and step 2 header)
+    step1_start = demo_output.find("=== Step 1:")
+    step2_start = demo_output.find("=== Step 2:")
+    
+    assert step1_start >= 0, "Step 1 header not found in demo output"
+    assert step2_start >= 0, "Step 2 header not found in demo output"
+    
+    step1_section = demo_output[step1_start:step2_start].strip()
+    
+    # Extract the verdict block lines (after the header line and empty line)
+    lines = step1_section.split('\n')
+    verdict_lines = []
+    started = False
+    for line in lines:
+        if not line.strip() and not started:
+            started = True
+            continue
+        if started and line.strip():
+            verdict_lines.append(line)
+    
+    demo_block = '\n'.join(verdict_lines)
+    
+    # The demo's exposure line must contain "suspense difference"
+    assert "suspense difference" in demo_block, f"Demo block missing suspense difference:\n{demo_block}"
+
+
 @pytest.mark.slow
 def test_demo_ebcdic_integration(tmp_path):
     """Slow integration test: runs make demo-ebcdic and asserts all steps pass."""

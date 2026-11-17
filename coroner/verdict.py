@@ -16,6 +16,7 @@ class Verdict:
     exposure_sum: Decimal | None = None
     exposure_max: Decimal | None = None
     affected_branches: int | None = None
+    suspense_difference: Decimal | None = None
     grand_total_matches: bool | None = None
 
 
@@ -39,6 +40,7 @@ def compute_verdict(comparison) -> Verdict:
     exposure_sum = getattr(comparison, 'exposure_sum', None)
     exposure_max = getattr(comparison, 'exposure_max', None)
     affected_branches = getattr(comparison, 'affected_branches', None)
+    suspense_difference = getattr(comparison, 'suspense_difference', None)
     grand_total_matches = getattr(comparison, 'grand_total_matches', None)
     
     if cases_divergent == 0 and not return_codes_differ:
@@ -53,6 +55,7 @@ def compute_verdict(comparison) -> Verdict:
             exposure_sum=exposure_sum,
             exposure_max=exposure_max,
             affected_branches=affected_branches,
+            suspense_difference=suspense_difference,
             grand_total_matches=grand_total_matches
         )
     
@@ -76,5 +79,6 @@ def compute_verdict(comparison) -> Verdict:
         exposure_sum=exposure_sum,
         exposure_max=exposure_max,
         affected_branches=affected_branches,
+        suspense_difference=suspense_difference,
         grand_total_matches=grand_total_matches
     )

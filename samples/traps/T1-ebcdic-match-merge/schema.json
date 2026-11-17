@@ -60,5 +60,6 @@
   "output_key": ["CASE-ID", "BRANCH"],
   "group_key": "BRANCH",
   "subtotal": "SUBTOTAL",
-  "grand_total_key": "TOTAL"
+  "grand_total_key": "TOTAL",
+  "suspense_key": "SUSP"
 }

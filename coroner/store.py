@@ -223,6 +223,7 @@ def store_verdict(run_dir: str, verdict: Verdict) -> None:
         verdict_data["exposure_sum"] = str(verdict.exposure_sum)
         verdict_data["exposure_max"] = str(verdict.exposure_max)
         verdict_data["affected_branches"] = verdict.affected_branches
+        verdict_data["suspense_difference"] = str(verdict.suspense_difference) if verdict.suspense_difference is not None else None
         verdict_data["grand_total_matches"] = verdict.grand_total_matches
     
     verdict_path = os.path.join(run_dir, "verdict.json")

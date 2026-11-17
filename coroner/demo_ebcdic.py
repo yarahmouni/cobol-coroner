@@ -4,24 +4,9 @@ import json
 import re
 from pathlib import Path
 
-from coroner.cli import run_verify
+from coroner.cli import run_verify, format_verdict_block
 from coroner.certificate import replay_certificate
 from coroner.diag.junit import verify_junit_test
-
-
-def print_verdict_block(verdict, coverage, run_dir, duration):
-    """Print verdict block identical to CLI output."""
-    print(f"{verdict.status}: {verdict.sub_label}")
-    print(f"Paragraph coverage {coverage['paragraphs_covered']}/{coverage['paragraphs_total']}")
-    print(f"Branch coverage (Coroner definition) {coverage['branches_covered']}/{coverage['branches_total']}")
-    
-    if verdict.exposure_sum is not None:
-        matches_text = "yes" if verdict.grand_total_matches else "no"
-        print(f"Unreconciled branch exposure: sum {verdict.exposure_sum:.2f}, max {verdict.exposure_max:.2f}, {verdict.affected_branches} branches affected, grand total matches: {matches_text}")
-    
-    print(verdict.validation_notice)
-    print(f"Run: {run_dir.relative_to(Path.cwd())}")
-    print(f"Duration: {duration:.1f} s")
 
 
 def main(faulty_java_override=None, correct_java_override=None, cases=2000):
@@ -69,8 +54,9 @@ def main(faulty_java_override=None, correct_java_override=None, cases=2000):
     with open(run_dir / "coverage_report.json", 'r') as f:
         coverage = json.load(f)
     
-    # Print verdict block
-    print_verdict_block(verdict, coverage, run_dir, duration1)
+    # Print verdict block (use relative path for display)
+    verdict_block = format_verdict_block(verdict, coverage, run_dir.relative_to(Path.cwd()), duration1)
+    print(verdict_block)
     print()
     
     # Step 2: Print card
@@ -309,8 +295,9 @@ def main(faulty_java_override=None, correct_java_override=None, cases=2000):
     with open(run_dir2 / "coverage_report.json", 'r') as f:
         coverage2 = json.load(f)
     
-    # Print verdict block
-    print_verdict_block(verdict2, coverage2, run_dir2, duration5)
+    # Print verdict block (use relative path for display)
+    verdict_block = format_verdict_block(verdict2, coverage2, run_dir2.relative_to(Path.cwd()), duration5)
+    print(verdict_block)
     print()
     
     # Final message

@@ -38,6 +38,7 @@ class Schema:
     group_key: str | None = None  # "BRANCH"
     subtotal: str | None = None  # "SUBTOTAL"
     grand_total_key: str | None = None  # "TOTAL"
+    suspense_key: str | None = None  # "SUSP"
     cobc_flags: list[str] | None = None  # ["-fsign=EBCDIC"]
     tie_strategy: str | None = None  # "product_pairs" for T2 trap
 
@@ -225,6 +226,7 @@ def load_schema(path: str) -> Schema:
     group_key = data.get('group_key')
     subtotal = data.get('subtotal')
     grand_total_key = data.get('grand_total_key')
+    suspense_key = data.get('suspense_key')
     
     cobc_flags = data.get('cobc_flags')
     if cobc_flags is not None and not isinstance(cobc_flags, list):
@@ -247,6 +249,7 @@ def load_schema(path: str) -> Schema:
         group_key=group_key,
         subtotal=subtotal,
         grand_total_key=grand_total_key,
+        suspense_key=suspense_key,
         cobc_flags=cobc_flags,
         tie_strategy=tie_strategy
     )

@@ -116,7 +116,9 @@ Run all traps:
 make traps
 ```
 
-T1 Unreconciled branch exposure (faulty port): sum 666358.16, max 666357.81, 2 branches affected, grand total matches: yes.
+T1 Unreconciled branch exposure (faulty port): sum 30636924.02, max 26333183.83, 2 branches affected, suspense difference 30636924.02, grand total matches: yes.
+
+The suspense line is not counted as a branch: the amount missing from branches 001 and 9ZZ appears in suspense, which is why the grand total still balances.
 
 Detection rates depend on the generator settings of each trap (schema.json domain_weights for T1, tie_share for T2, etc.) and are not real-world statistics.
 
@@ -138,7 +140,7 @@ Measured output (operator run 2026-11-16, 2000 cases, seed 42):
 
 ```
 ZOMBIE: FAIL: business behavior diverged on 262 cases
-Unreconciled branch exposure: sum 666358.16, max 666357.81, 2 branches affected, grand total matches: yes
+Unreconciled branch exposure: sum 30636924.02, max 26333183.83, 2 branches affected, suspense difference 30636924.02, grand total matches: yes
 Then COBOL writes row BRANCH=9ZZ with SUBTOTAL=+0000201.86, Java does not
 Then Java writes row BRANCH=SUSP with SUBTOTAL=+0000201.86, COBOL does not
 JUnit against faulty port: failed (1 tests found, 0 successful, 1 failed)

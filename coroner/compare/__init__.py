@@ -26,6 +26,7 @@ class ComparisonResult:
     exposure_sum: Decimal | None = None
     exposure_max: Decimal | None = None
     affected_branches: int | None = None
+    suspense_difference: Decimal | None = None
     grand_total_matches: bool | None = None
 
 
@@ -417,10 +418,11 @@ def compare_outputs_with_key(
     exposure_sum = None
     exposure_max = None
     affected_branches = None
+    suspense_difference = None
     grand_total_matches = None
     
     if schema.group_key and schema.subtotal and schema.grand_total_key:
-        exposure_sum, exposure_max, affected_branches, grand_total_matches = compute_exposure(
+        exposure_sum, exposure_max, affected_branches, suspense_difference, grand_total_matches = compute_exposure(
             cobol_rows, java_rows, schema
         )
     
@@ -432,6 +434,7 @@ def compare_outputs_with_key(
         exposure_sum=exposure_sum,
         exposure_max=exposure_max,
         affected_branches=affected_branches,
+        suspense_difference=suspense_difference,
         grand_total_matches=grand_total_matches
     )
 
@@ -440,11 +443,11 @@ def compute_exposure(
     cobol_rows: dict,
     java_rows: dict,
     schema: Schema
-) -> tuple[Decimal, Decimal, int, bool]:
+) -> tuple[Decimal, Decimal, int, Decimal | None, bool]:
     """
     Compute unreconciled branch exposure.
     
-    Returns (sum, max, affected_branches, grand_total_matches).
+    Returns (sum, max, affected_branches, suspense_difference, grand_total_matches).
     """
     group_key_idx = schema.output_key.index(schema.group_key)
     subtotal_col = None
@@ -453,40 +456,51 @@ def compute_exposure(
             subtotal_col = col
             break
     
-    # Group subtotals by group_key value
-    cobol_subtotals = {}
-    java_subtotals = {}
+    # Sum subtotals per group_key value across all cases
+    from collections import defaultdict
+    cobol_subtotals = defaultdict(lambda: Decimal(0))
+    java_subtotals = defaultdict(lambda: Decimal(0))
     
     for key, row in cobol_rows.items():
-        group_val = key[group_key_idx]
+        group_val = key[group_key_idx].rstrip()
         if group_val == schema.grand_total_key:
             continue
         subtotal_str = row[schema.subtotal]
         try:
             subtotal = Decimal(subtotal_str.strip())
-        except:
-            subtotal = Decimal(0)
-        cobol_subtotals[group_val] = subtotal
+        except Exception as e:
+            raise RuntimeError(f"Failed to parse subtotal '{subtotal_str}' as Decimal: {e}")
+        cobol_subtotals[group_val] += subtotal
     
     for key, row in java_rows.items():
-        group_val = key[group_key_idx]
+        group_val = key[group_key_idx].rstrip()
         if group_val == schema.grand_total_key:
             continue
         subtotal_str = row[schema.subtotal]
         try:
             subtotal = Decimal(subtotal_str.strip())
-        except:
-            subtotal = Decimal(0)
-        java_subtotals[group_val] = subtotal
+        except Exception as e:
+            raise RuntimeError(f"Failed to parse subtotal '{subtotal_str}' as Decimal: {e}")
+        java_subtotals[group_val] += subtotal
     
-    # Compute differences
+    # Trim suspense_key and grand_total_key for comparison
+    suspense_key_trimmed = schema.suspense_key.rstrip() if schema.suspense_key else None
+    
+    # Compute differences for branches only (excluding suspense and grand total)
     all_groups = set(cobol_subtotals.keys()) | set(java_subtotals.keys())
     differences = []
+    suspense_difference = None
     
     for group in all_groups:
         cobol_val = cobol_subtotals.get(group, Decimal(0))
         java_val = java_subtotals.get(group, Decimal(0))
         diff = abs(cobol_val - java_val)
+        
+        # Track suspense separately if schema defines it
+        if suspense_key_trimmed and group == suspense_key_trimmed:
+            suspense_difference = diff
+            continue
+        
         if diff > 0:
             differences.append(diff)
     
@@ -499,24 +513,24 @@ def compute_exposure(
         exposure_max = Decimal(0)
         affected_branches = 0
     
-    # Check grand total match
-    cobol_grand = None
-    java_grand = None
+    # Check grand total match - sum all grand_total_key rows across all cases
+    cobol_grand = Decimal(0)
+    java_grand = Decimal(0)
     
     for key, row in cobol_rows.items():
-        if key[group_key_idx] == schema.grand_total_key:
+        if key[group_key_idx].rstrip() == schema.grand_total_key:
             try:
-                cobol_grand = Decimal(row[schema.subtotal].strip())
-            except:
-                pass
+                cobol_grand += Decimal(row[schema.subtotal].strip())
+            except Exception as e:
+                raise RuntimeError(f"Failed to parse grand total '{row[schema.subtotal]}' as Decimal: {e}")
     
     for key, row in java_rows.items():
-        if key[group_key_idx] == schema.grand_total_key:
+        if key[group_key_idx].rstrip() == schema.grand_total_key:
             try:
-                java_grand = Decimal(row[schema.subtotal].strip())
-            except:
-                pass
+                java_grand += Decimal(row[schema.subtotal].strip())
+            except Exception as e:
+                raise RuntimeError(f"Failed to parse grand total '{row[schema.subtotal]}' as Decimal: {e}")
     
-    grand_total_matches = (cobol_grand is not None and java_grand is not None and cobol_grand == java_grand)
+    grand_total_matches = (cobol_grand == java_grand)
     
-    return (exposure_sum, exposure_max, affected_branches, grand_total_matches)
+    return (exposure_sum, exposure_max, affected_branches, suspense_difference, grand_total_matches)

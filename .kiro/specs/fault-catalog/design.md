@@ -74,7 +74,7 @@ At least 3 cases:
 The expected output comes from running the COBOL program.
 
 ### Detection
-Measured divergence rate (2000 cases, seed 42): 262 cases (13.1%), exposure sum 666358.16, max 666357.81, 2 branches affected, grand total matches: yes.
+Measured divergence rate (2000 cases, seed 42): 262 cases (13.1%), exposure sum 30636924.02, max 26333183.83, 2 branches affected, suspense difference 30636924.02, grand total matches: yes.
 
 ### Domain weights
 schema.json: A01, B02, C03, D04, E05, F06, Z99 weight 20 each; 001 and 9ZZ weight 2 each; X77 weight 2 (goes to SUSP on both sides). Measured to give 5% to 25% divergence on 2000 cases.
