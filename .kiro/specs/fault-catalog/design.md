@@ -242,7 +242,7 @@ def run_catalog(seed=42, cases=2000):
 - T1: "Faulty Java sorts by ASCII String.compareTo instead of EBCDIC byte order. Use IBM1047 Charset or a custom Comparator."
 - T2: "Faulty Java uses HALF_EVEN where COBOL has ROUNDED (default HALF_UP). Use RoundingMode.HALF_UP."
 - T3: "Faulty Java treats sign nibble F as negative or rejects it. GnuCOBOL reads F as positive."
-- T4: "Faulty Java applies EBCDIC overpunch table to ASCII-encoded data. Use the ASCII default convention (last char >= 0x70 is negative)."
+- T4: "Faulty Java decodes A-I and J-R correctly but forgets the two zero overpunch characters { (+0) and } (-0). Add the two zero overpunch characters to the decoding table: { is +0 and } is -0."
 - T5: "Faulty Java rejects invalid numeric data under REDEFINES. GnuCOBOL reads the low nibble of each byte (A=x41 becomes 1, J=x4A becomes 10 with carry)."
 - T6: placeholder, no fix.
 

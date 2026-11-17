@@ -5,13 +5,10 @@ import java.nio.file.Paths;
 import java.util.*;
 
 /**
- * Faulty Java port: applies ASCII overpunch convention instead of EBCDIC.
+ * Faulty Java port: correctly decodes EBCDIC overpunch for A-I (+1 to +9) and J-R (-1 to -9),
+ * but forgets the two zero overpunch characters { (+0) and } (-0).
  * 
- * ASCII convention (default without -fsign=EBCDIC):
- *   'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y' = -0 to -9
- *   Plain digit = positive
- * 
- * This produces wrong results for EBCDIC-encoded input.
+ * This produces wrong results for values whose last digit is 0 with overpunch encoding.
  */
 public class ZonedOverpunch {
     public static void main(String[] args) {
@@ -46,8 +43,8 @@ public class ZonedOverpunch {
                 String caseId = fields[0].trim();
                 String zonedValue = fields[1].trim();
                 
-                // Decode zoned value (WRONG: uses ASCII convention)
-                BigDecimal decodedValue = decodeZonedASCII(zonedValue);
+                // Decode zoned value (WRONG: forgets { and } overpunch)
+                BigDecimal decodedValue = decodeZonedPartialEBCDIC(zonedValue);
                 
                 // Format output
                 String formattedValue = formatDecimal(decodedValue);
@@ -63,37 +60,51 @@ public class ZonedOverpunch {
         }
     }
     
-    private static BigDecimal decodeZonedASCII(String zonedText) {
+    private static BigDecimal decodeZonedPartialEBCDIC(String zonedText) {
         if (zonedText.length() != 9) {
             throw new IllegalArgumentException("Zoned value must be 9 characters");
         }
         
-        // WRONG: Apply ASCII convention instead of EBCDIC
-        // ASCII negative overpunch: last char >= 0x70 (p, q, r, s, t, u, v, w, x, y)
+        // For S9(7)V99: 7 integer digits + 2 decimal digits = 9 characters total
+        // Layout: positions 0-6 are integer, positions 7-8 are decimal
+        // The LAST character (position 8) carries the sign
         
-        // Extract first 8 characters
-        String integerAndFirstDecimal = zonedText.substring(0, 8);
+        // Extract integer part (first 7 characters)
+        String integerPart = zonedText.substring(0, 7);
         
-        // Last character carries the sign (wrong convention)
+        // Extract first decimal digit (position 7)
+        char firstDecimalChar = zonedText.charAt(7);
+        if (firstDecimalChar < '0' || firstDecimalChar > '9') {
+            throw new IllegalArgumentException("Invalid decimal digit: " + firstDecimalChar);
+        }
+        int firstDecimalDigit = firstDecimalChar - '0';
+        
+        // Extract last character (position 8) which carries the sign
         char signChar = zonedText.charAt(8);
-        int signDigit;
+        int lastDecimalDigit;
         boolean isNegative;
         
         if (signChar >= '0' && signChar <= '9') {
-            signDigit = signChar - '0';
+            // Plain digit = positive
+            lastDecimalDigit = signChar - '0';
             isNegative = false;
-        } else if (signChar >= 'p' && signChar <= 'y') {
-            // ASCII negative overpunch: p=0, q=1, ..., y=9
-            signDigit = signChar - 'p';
+        } else if (signChar >= 'A' && signChar <= 'I') {
+            // A to I = +1 to +9 (CORRECT)
+            lastDecimalDigit = signChar - 'A' + 1;
+            isNegative = false;
+        } else if (signChar >= 'J' && signChar <= 'R') {
+            // J to R = -1 to -9 (CORRECT)
+            lastDecimalDigit = signChar - 'J' + 1;
             isNegative = true;
         } else {
+            // WRONG: Missing { (+0) and } (-0)
             // Unknown character - treat as 0 positive (wrong behavior)
-            signDigit = 0;
+            lastDecimalDigit = 0;
             isNegative = false;
         }
         
-        // Build the decimal string
-        String valueStr = integerAndFirstDecimal + "." + signDigit;
+        // Build the decimal string: integer.decimal1decimal2
+        String valueStr = integerPart + "." + firstDecimalDigit + lastDecimalDigit;
         BigDecimal value = new BigDecimal(valueStr);
         
         if (isNegative) {

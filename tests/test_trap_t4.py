@@ -141,7 +141,11 @@ def test_t4_correct_java_matches_cobol(t4_dir):
 
 
 def test_t4_faulty_java_differs(t4_dir):
-    """Faulty Java output differs from COBOL output."""
+    """Faulty Java diverges on fixture rows with } (negative zero overpunch).
+    
+    The faulty port handles A-I and J-R correctly but treats { and } as unknown,
+    defaulting to +0. So { (+0) matches by accident, but } (-0) diverges.
+    """
     fixture_input = t4_dir / "fixtures/zoned-signs.csv"
     cobol_output = Path("build/test-t4-cobol-output.csv")
     java_output = Path("build/test-t4-faulty-java-output.csv")
@@ -168,13 +172,50 @@ def test_t4_faulty_java_differs(t4_dir):
         capture_output=True
     )
     
-    # Compare
-    with open(cobol_output) as f:
-        cobol_content = f.read()
-    with open(java_output) as f:
-        java_content = f.read()
+    # Read input to identify rows with } (negative zero)
+    with open(fixture_input) as f:
+        input_lines = f.readlines()
     
-    assert java_content != cobol_content, "Faulty Java should differ from COBOL"
+    rows_with_negative_zero_overpunch = set()
+    for line in input_lines[1:]:  # Skip header
+        if line.strip():
+            fields = line.split(',')
+            case_id = fields[0].strip()
+            zoned_value = fields[1].strip()
+            last_char = zoned_value[-1]
+            if last_char == '}':
+                rows_with_negative_zero_overpunch.add(case_id)
+    
+    # Compare outputs row by row against COBOL expected output
+    expected_output = t4_dir / "fixtures/expected-output.csv"
+    with open(expected_output) as f:
+        cobol_lines = f.readlines()
+    with open(java_output) as f:
+        java_lines = f.readlines()
+    
+    assert cobol_lines[0] == java_lines[0], "Headers differ"
+    
+    divergent_rows = []
+    matching_rows = []
+    
+    for i in range(1, len(cobol_lines)):
+        cobol_line = cobol_lines[i].strip()
+        java_line = java_lines[i].strip()
+        
+        case_id = cobol_line.split(',')[0]
+        
+        if cobol_line != java_line:
+            divergent_rows.append(case_id)
+        else:
+            matching_rows.append(case_id)
+    
+    # Assert: rows with } (negative zero) diverge
+    for case_id in rows_with_negative_zero_overpunch:
+        assert case_id in divergent_rows, f"Row {case_id} has }} (negative zero) but did not diverge"
+    
+    # Assert: at least one row diverges (fixture has ZON-01 with })
+    assert len(divergent_rows) > 0, "Expected at least one divergence"
+    assert "ZON-01" in divergent_rows, "ZON-01 with } should diverge"
 
 
 @pytest.mark.slow

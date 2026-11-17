@@ -1,6 +1,7 @@
 {
   "id": "T4",
   "title": "Zoned decimal EBCDIC overpunch sign",
-  "probable_cause": "Faulty Java applies the ASCII convention or strips the last character for EBCDIC-encoded data.",
-  "fix_sentence": "Decode the last character with the EBCDIC overpunch table ({ and A to I positive 0 to 9, } and J to R negative 0 to 9)."
+  "probable_cause": "Faulty Java decodes A-I and J-R correctly but forgets the two zero overpunch characters { (+0) and } (-0).",
+  "technical_cause": "The EBCDIC overpunch decoding table is incomplete: it handles A-I (+1 to +9) and J-R (-1 to -9) but treats { and } as unknown characters, defaulting them to +0 instead of preserving the intended sign.",
+  "fix_sentence": "Add the two zero overpunch characters to the decoding table: { is +0 and } is -0."
 }

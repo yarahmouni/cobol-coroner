@@ -106,7 +106,7 @@ Coroner prioritizes high-impact banking migration traps, such as EBCDIC collatin
 | T1 | EBCDIC vs ASCII collating order breaks control-break subtotals | 262 of 2000 | 0.1310 | ALIVE |
 | T2 | Truncation without ROUNDED, and ROUNDED ported as HALF_EVEN | 856 of 2000 | 0.4280 | ALIVE |
 | T3 | COMP-3 sign nibble (C positive, D negative, F unsigned) | 429 of 2000 | 0.2145 | ALIVE |
-| T4 | Zoned sign overpunch in input files; reference compiled with -fsign=EBCDIC | 2000 of 2000 | 1.0000 | ALIVE |
+| T4 | Zoned sign overpunch in input files; reference compiled with -fsign=EBCDIC; the faulty port forgets the zero overpunch characters { and } | 87 of 2000 | 0.0435 | ALIVE |
 | T5 | REDEFINES and invalid numeric data | 602 of 2000 | 0.3010 | ALIVE |
 | T6 | placeholder, owner field trap pending | not measured | not measured | not measured |
 
