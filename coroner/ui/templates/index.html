@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}COBOL Coroner{% endblock %}
+
+{% block content %}
+<h1>COBOL Coroner</h1>
+<p style="font-size: 1.25rem; color: #a0a0a0; margin-bottom: 2rem;">
+    The independent regression auditor for COBOL-to-Java migrations.
+</p>
+
+<nav style="margin-bottom: 2rem;">
+    <a href="/matrix" style="font-size: 1.1rem;">Detection Matrix</a>
+</nav>
+
+{% if runs %}
+<h2>Recent Runs</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Run ID</th>
+            <th>Verdict</th>
+            <th>Date</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for run in runs %}
+        <tr>
+            <td><a href="/run/{{ run.id }}">runs/{{ run.id }}</a></td>
+            <td>{{ run.verdict }}</td>
+            <td>{{ run.date }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p style="color: #a0a0a0; margin-top: 2rem;">No runs found. Run <code>make demo</code> to generate a run.</p>
+{% endif %}
+{% endblock %}

@@ -1,6 +1,10 @@
 {
   "id": "T2",
   "title": "Truncation without ROUNDED and ROUNDED ported as HALF_EVEN",
+  "business_name": "Fee rounding difference",
+  "business_cause": "Calculated fees differ by one cent due to different rounding rules.",
   "probable_cause": "Faulty Java uses HALF_EVEN where COBOL has ROUNDED (default HALF_UP).",
+  "technical_cause": "Faulty Java uses HALF_EVEN where COBOL has ROUNDED (default HALF_UP).",
+  "business_fix": "Apply the same rounding rule the mainframe uses: round away from zero, not to the nearest even number.",
   "fix_sentence": "Use RoundingMode.HALF_UP for ROUNDED and RoundingMode.DOWN for truncation."
 }

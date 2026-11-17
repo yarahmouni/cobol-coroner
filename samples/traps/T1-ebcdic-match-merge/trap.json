@@ -1,6 +1,12 @@
 {
   "id": "T1",
   "title": "EBCDIC vs ASCII collating order in sequential match-merge",
+  "business_name": "Branch subtotal mismatch",
+  "business_cause": "Control-break logic processes branches in the wrong order, misposting amounts to suspense while grand totals still balance.",
   "probable_cause": "Faulty Java sorts by ASCII String.compareTo instead of EBCDIC byte order.",
-  "fix_sentence": "Use IBM1047 Charset or a custom Comparator for EBCDIC byte order."
+  "technical_cause": "Faulty Java sorts by ASCII String.compareTo instead of EBCDIC byte order.",
+  "business_fix": "Make the Java migration sort and match branch codes in the same order as the mainframe.",
+  "fix_sentence": "Use IBM1047 Charset or a custom Comparator for EBCDIC byte order.",
+  "suspense_code": "SUSP",
+  "suspense_label": "suspense"
 }

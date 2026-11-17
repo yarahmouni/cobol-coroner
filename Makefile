@@ -24,7 +24,7 @@ traps:
 	@.venv/bin/python -m coroner traps
 
 serve:
-	@echo "serve: not available yet (planned for S2)" >&2; exit 2
+	.venv/bin/uvicorn coroner.ui.app:app --host 127.0.0.1 --port 8000
 
 java-sample:
 	@mkdir -p build/java

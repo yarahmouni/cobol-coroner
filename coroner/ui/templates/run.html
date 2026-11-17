@@ -1,0 +1,409 @@
+{% extends "base.html" %}
+
+{% block title %}Run {{ run_id }} - COBOL Coroner{% endblock %}
+
+{% block content %}
+<!-- Header: compact, back link, toggle, one line audit info, banner and scope -->
+<header style="margin-bottom: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <a href="/">← Back to Index</a>
+    </div>
+    
+    <div style="font-size: 0.875rem; color: var(--secondary-text); margin-bottom: 1rem;">
+        Audit {{ audit_datetime }} · Coroner {{ coroner_version }} · Run {{ run_id }}
+    </div>
+    
+    <div class="banner" style="font-size: 0.75rem;">
+        Bundled sample. No customer data is uploaded or stored.
+    </div>
+    
+    <div class="scope-notice" style="font-size: 0.75rem;">
+        Coroner compares the COBOL behavior with this Java migration on the batches tested. It does not prove behavior on IBM z/OS.
+    </div>
+</header>
+
+<!-- Section: Story (first screen) -->
+<section id="story">
+    <div class="verdict-badge {{ verdict_class }}">
+        <div style="display: flex; align-items: center; justify-content: center; flex-direction: column;">
+            <!-- Status icon -->
+            {% if verdict_class == 'alive' %}
+            <svg class="status-icon" width="48" height="48" viewBox="0 0 48 48">
+                <circle cx="24" cy="24" r="20" fill="currentColor"/>
+                <text x="24" y="24" text-anchor="middle" dominant-baseline="central" fill="var(--alive-bg)" font-size="20" font-weight="bold">✓</text>
+            </svg>
+            {% elif verdict_class == 'zombie' %}
+            <svg class="status-icon" width="48" height="48" viewBox="0 0 48 48">
+                <rect x="4" y="4" width="40" height="40" fill="currentColor"/>
+                <text x="24" y="24" text-anchor="middle" dominant-baseline="central" fill="var(--zombie-bg)" font-size="20" font-weight="bold">✗</text>
+            </svg>
+            {% elif verdict_class == 'invalid' %}
+            <svg class="status-icon" width="48" height="48" viewBox="0 0 48 48">
+                <polygon points="24,4 44,44 4,44" fill="currentColor"/>
+                <text x="24" y="32" text-anchor="middle" dominant-baseline="central" fill="var(--invalid-bg)" font-size="20" font-weight="bold">!</text>
+            </svg>
+            {% elif verdict_class == 'error' %}
+            <svg class="status-icon" width="48" height="48" viewBox="0 0 48 48">
+                <rect x="10" y="10" width="28" height="28" transform="rotate(45 24 24)" fill="currentColor"/>
+                <text x="24" y="24" text-anchor="middle" dominant-baseline="central" fill="var(--error-bg)" font-size="16" font-weight="bold">ERR</text>
+            </svg>
+            {% endif %}
+            
+            <div class="verdict-status">{{ badge_line1 }}</div>
+            {% if badge_line2 %}
+            <div style="font-size: 1.2rem; font-weight: 600;">{{ badge_line2 }}</div>
+            {% endif %}
+        </div>
+        
+        {% if verdict_sentence %}
+        <div class="verdict-sentence">{{ verdict_sentence }}</div>
+        {% endif %}
+        
+        {% if sub_label and sub_label != verdict_sentence %}
+        <div style="font-size: 0.875rem; margin-top: 0.5rem; color: var(--secondary-text);">{{ sub_label }}</div>
+        {% endif %}
+    </div>
+    
+    <!-- Example sentence (ZOMBIE only) -->
+    {% if example_sentence and verdict_class == 'zombie' %}
+    <p class="example" style="font-size: 1.5rem; font-family: Georgia, 'Times New Roman', serif; line-height: 1.6; margin: 2rem 0;">
+        {{ example_sentence }}
+    </p>
+    {% endif %}
+    
+    <!-- ERROR details -->
+    {% if verdict_class == 'error' %}
+    <div style="margin: 2rem 0; padding: 1.5rem; background: var(--panel-bg); border-radius: 4px;">
+        <div style="margin-bottom: 1rem;">
+            <div class="info-label">Reason</div>
+            <div style="margin-top: 0.5rem;">{{ error_reason }}</div>
+        </div>
+        
+        {% if error_stderr %}
+        <div>
+            <div class="info-label">Reference stderr</div>
+            <pre style="margin-top: 0.5rem; padding: 0.75rem; background: var(--bg-color); border-radius: 4px; overflow-x: auto; font-size: 0.875rem; white-space: pre-wrap; word-wrap: break-word;">{{ error_stderr }}</pre>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+    
+    <!-- Three headline figures -->
+    {% if exhibit %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 2rem 0;">
+        <div class="headline">
+            <div class="info-label">Exposure</div>
+            <div class="info-value">{{ exhibit.exposure_sum }}</div>
+        </div>
+        <div class="headline">
+            <div class="info-label">Branches affected</div>
+            <div class="info-value">{{ exhibit.affected_branches }}</div>
+        </div>
+        <div class="headline">
+            <div class="info-label">Grand total balances</div>
+            <div class="info-value">{{ "yes" if exhibit.grand_total_matches else "no" }}</div>
+        </div>
+    </div>
+    
+    <!-- Suspense line -->
+    {% if exhibit.suspense_difference %}
+    <div style="margin: 1rem 0; padding: 0.75rem; background: var(--panel-bg); border-radius: 4px;">
+        Posted to suspense instead of a branch: {{ exhibit.suspense_difference }}
+    </div>
+    {% endif %}
+    
+    <!-- Compact chart: only MISMATCH branches and suspense -->
+    {% if reconciliation %}
+    <div style="margin: 2rem 0;">
+        <h3>Branch Reconciliation</h3>
+        
+        {% set mismatch_branches = reconciliation.branches|selectattr('status', 'equalto', 'MISMATCH')|list %}
+        {% set match_count = reconciliation.branches|length - mismatch_branches|length %}
+        
+        <!-- Only show MISMATCH branches -->
+        {% if mismatch_branches %}
+        <div style="display: flex; flex-direction: column; gap: 1rem; margin: 1rem 0;">
+            {% for branch in mismatch_branches %}
+            <div style="padding: 1rem; background: var(--panel-bg); border-radius: 4px;">
+                <div style="font-weight: 600; margin-bottom: 0.5rem;">Branch {{ branch.branch }}</div>
+                
+                <div style="display: grid; grid-template-columns: 80px 1fr 100px; gap: 0.5rem; align-items: center; margin-bottom: 0.25rem;">
+                    <div style="font-size: 0.875rem; color: var(--secondary-text);">COBOL:</div>
+                    <div style="height: 20px; background: linear-gradient(to right, var(--chart-cobol) 0%, var(--chart-cobol) {{ branch._cobol_pct }}%, transparent {{ branch._cobol_pct }}%); border-radius: 2px;"></div>
+                    <div style="text-align: right; font-size: 0.875rem;">{{ branch.cobol_subtotal }}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 80px 1fr 100px; gap: 0.5rem; align-items: center;">
+                    <div style="font-size: 0.875rem; color: var(--secondary-text);">Java:</div>
+                    <div style="height: 20px; background: linear-gradient(to right, var(--chart-java) 0%, var(--chart-java) {{ branch._java_pct }}%, transparent {{ branch._java_pct }}%); border-radius: 2px;"></div>
+                    <div style="text-align: right; font-size: 0.875rem;">{{ branch.java_subtotal }}</div>
+                </div>
+                
+                <div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--zombie-color);">
+                    Difference: {{ branch.difference }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+        <!-- Suspense -->
+        {% if reconciliation.suspense and reconciliation.suspense.status == "MISMATCH" %}
+        <div style="padding: 1rem; background: var(--panel-bg); border-radius: 4px; margin: 1rem 0;">
+            <div style="font-weight: 600; margin-bottom: 0.5rem;">{{ reconciliation._suspense_label|default("Suspense") }} ({{ reconciliation._suspense_code|default("SUSP") }})</div>
+            
+            <div style="display: grid; grid-template-columns: 80px 1fr 100px; gap: 0.5rem; align-items: center; margin-bottom: 0.25rem;">
+                <div style="font-size: 0.875rem; color: var(--secondary-text);">COBOL:</div>
+                <div style="height: 20px; background: linear-gradient(to right, var(--chart-cobol) 0%, var(--chart-cobol) {{ reconciliation.suspense._cobol_pct }}%, transparent {{ reconciliation.suspense._cobol_pct }}%); border-radius: 2px;"></div>
+                <div style="text-align: right; font-size: 0.875rem;">{{ reconciliation.suspense.cobol }}</div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 80px 1fr 100px; gap: 0.5rem; align-items: center;">
+                <div style="font-size: 0.875rem; color: var(--secondary-text);">Java:</div>
+                <div style="height: 20px; background: linear-gradient(to right, var(--chart-java) 0%, var(--chart-java) {{ reconciliation.suspense._java_pct }}%, transparent {{ reconciliation.suspense._java_pct }}%); border-radius: 2px;"></div>
+                <div style="text-align: right; font-size: 0.875rem;">{{ reconciliation.suspense.java }}</div>
+            </div>
+            
+            <div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--zombie-color);">
+                Difference: {{ reconciliation.suspense.difference }}
+            </div>
+        </div>
+        {% endif %}
+        
+        {% if match_count > 0 %}
+        <div style="margin-top: 1rem; font-size: 0.875rem; color: var(--secondary-text);">
+            {% if mismatch_branches %}
+            {{ match_count }} other {{ "branch matches" if match_count == 1 else "branches match" }}
+            {% else %}
+            All {{ match_count }} {{ "branch matches" if match_count == 1 else "branches match" }}
+            {% endif %}
+        </div>
+        
+        <details style="margin-top: 0.5rem;">
+            <summary style="cursor: pointer; padding: 0.5rem; font-weight: 600;">Show all branches</summary>
+            <div style="margin-top: 1rem;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <th style="padding: 0.5rem; text-align: left; font-weight: 600;">Branch</th>
+                            <th style="padding: 0.5rem; text-align: right; font-weight: 600;">COBOL</th>
+                            <th style="padding: 0.5rem; text-align: right; font-weight: 600;">Java</th>
+                            <th style="padding: 0.5rem; text-align: right; font-weight: 600;">Difference</th>
+                            <th style="padding: 0.5rem; text-align: center; font-weight: 600;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for branch in reconciliation.branches %}
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 0.5rem;">{{ branch.branch }}</td>
+                            <td style="padding: 0.5rem; text-align: right; font-family: monospace;">{{ branch.cobol_subtotal }}</td>
+                            <td style="padding: 0.5rem; text-align: right; font-family: monospace;">{{ branch.java_subtotal }}</td>
+                            <td style="padding: 0.5rem; text-align: right; font-family: monospace;">{{ branch.difference }}</td>
+                            <td style="padding: 0.5rem; text-align: center;">
+                                {% if branch.status == "MATCH" %}
+                                <span style="color: var(--alive-color);">MATCH</span>
+                                {% else %}
+                                <span style="color: var(--zombie-color);">MISMATCH</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </details>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% endif %}
+</section>
+
+
+<!-- Section: Cause -->
+{% if trap and verdict_class == 'zombie' %}
+<section id="cause">
+    <h2>Why This Happened</h2>
+    
+    <p style="margin: 1rem 0; line-height: 1.6;">{{ trap.business_cause }}</p>
+    
+    <p style="margin: 1rem 0; line-height: 1.6; color: var(--secondary-text); font-size: 0.95rem;">{{ trap.technical_cause }}</p>
+</section>
+{% endif %}
+
+<!-- Section: Action (ZOMBIE only) -->
+{% if trap and verdict_class == 'zombie' %}
+<section id="action">
+    <h2>What to Do</h2>
+    
+    <p style="margin: 1rem 0; line-height: 1.6;">{{ trap.business_fix }}</p>
+    
+    <p style="margin: 1rem 0; line-height: 1.6;">
+        <strong>Technical fix:</strong> {{ trap.fix_sentence }}
+    </p>
+    
+    <p style="margin: 1rem 0; line-height: 1.6; font-style: italic; color: var(--secondary-text);">
+        This test will fail until the Java migration reproduces the COBOL branch subtotals.
+    </p>
+    
+    <div style="display: flex; flex-wrap: wrap; gap: 1rem; margin: 1.5rem 0;">
+        <a href="/run/{{ run_id }}/download/ZombieRegressionTest.java" style="display: inline-block; padding: 0.75rem 1.5rem; background: var(--orange-accent); color: white; text-decoration: none; border-radius: 4px; font-weight: 600;">
+            Download regression test
+        </a>
+        
+        <a href="/run/{{ run_id }}/download/certificate.json" style="display: inline-block; padding: 0.75rem 1.5rem; background: var(--panel-bg); color: var(--text-color); text-decoration: none; border-radius: 4px; font-weight: 600; border: 1px solid var(--border-color);">
+            Download certificate
+        </a>
+        
+        <button onclick="copyReplayCommand()" style="padding: 0.75rem 1.5rem; background: var(--panel-bg); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px; font-weight: 600; cursor: pointer;">
+            Copy replay command
+        </button>
+    </div>
+    
+    <div id="replay-command-fallback" style="margin-top: 1rem; display: none;">
+        <input type="text" readonly value="python -m coroner verify runs/{{ run_id }}/certificate.json" style="width: 100%; padding: 0.5rem; font-family: monospace; font-size: 0.875rem; background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color);">
+    </div>
+    
+    <script>
+    function copyReplayCommand() {
+        const command = 'python -m coroner verify runs/{{ run_id }}/certificate.json';
+        
+        try {
+            navigator.clipboard.writeText(command).then(() => {
+                alert('Replay command copied to clipboard');
+            }).catch(() => {
+                showFallback();
+            });
+        } catch (e) {
+            showFallback();
+        }
+    }
+    
+    function showFallback() {
+        document.getElementById('replay-command-fallback').style.display = 'block';
+    }
+    </script>
+</section>
+{% endif %}
+
+<!-- Section: Certificate -->
+{% if has_certificate %}
+<section id="certificate">
+    <h2>Certificate</h2>
+    
+    <div style="display: grid; grid-template-columns: auto 1fr; gap: 0.5rem 1rem; margin: 1rem 0; font-size: 0.95rem;">
+        <div class="info-label">Run ID:</div>
+        <div style="word-break: break-all;">{{ certificate.run_id }}</div>
+        
+        <div class="info-label">Status:</div>
+        <div>{{ certificate.status }}</div>
+        
+        <div class="info-label">Cases:</div>
+        <div>{{ certificate.cases }}</div>
+        
+        <div class="info-label">Divergences:</div>
+        <div>{{ certificate.divergences }}</div>
+        
+        <div class="info-label">Paragraph Coverage:</div>
+        <div>{{ certificate.paragraph_coverage }}</div>
+        
+        <div class="info-label">Branch Coverage (Coroner definition):</div>
+        <div>{{ certificate.branch_coverage }}</div>
+    </div>
+    
+    <div style="margin-top: 2rem;">
+        <button 
+            hx-post="/api/verify"
+            hx-vals='{"run_id": "{{ run_id }}"}'
+            hx-target="#cert-result"
+            hx-swap="innerHTML">
+            Verify
+        </button>
+    </div>
+    
+    <div id="cert-result" style="margin-top: 1rem;"></div>
+</section>
+{% endif %}
+
+<!-- Details: Technical (closed by default) -->
+<details id="technical">
+    <summary><strong>Technical details</strong></summary>
+    
+    <div style="margin-top: 1.5rem;">
+        <!-- Card (ZOMBIE only) -->
+        {% if card and verdict_class == 'zombie' %}
+        <h3>Given/When/Then</h3>
+        
+        <div style="font-family: monospace; font-size: 0.875rem; line-height: 1.6; white-space: pre-wrap; background: var(--panel-bg); padding: 1rem; border-radius: 4px; margin: 1rem 0;">{{ card.given }}
+{{ card.when }}
+{{ card.then }}
+
+COBOL lines involved:
+{% for line in card.cobol_lines %}  {{ line }}
+{% endfor %}</div>
+        {% endif %}
+        
+        <!-- Coverage -->
+        <h3 style="margin-top: 1.5rem;">Coverage</h3>
+        <div style="margin: 0.5rem 0;">Paragraph coverage: {{ paragraph_coverage }}</div>
+        <div style="margin: 0.5rem 0;">Branch coverage (Coroner definition): {{ branch_coverage }}</div>
+        
+        <!-- Duration -->
+        <h3 style="margin-top: 1.5rem;">Duration</h3>
+        <div style="margin: 0.5rem 0;">{{ duration }}</div>
+        
+        <!-- Evidence of figures -->
+        {% if exhibit %}
+        <h3 style="margin-top: 1.5rem;">Evidence</h3>
+        
+        <p style="font-size: 0.875rem; margin: 0.5rem 0;"><strong>Source:</strong> verdict.json, comparison_results.json, branch_reconciliation.json (run {{ run_id }})</p>
+        
+        <div style="margin-top: 1rem;">
+            <p style="font-size: 0.875rem; margin-bottom: 0.5rem;"><strong>Divergent cases:</strong> {{ exhibit.divergent_cases }} (cases with at least one divergent row)</p>
+            <p style="font-size: 0.875rem; margin-bottom: 0.5rem;"><strong>Divergent rows:</strong> {{ exhibit.divergent_rows }} (output rows present in only one side or with different values)</p>
+        </div>
+        
+        <details style="margin-top: 1rem;">
+            <summary style="cursor: pointer; padding: 0.5rem; background: var(--panel-bg); border-radius: 4px;"><strong>Raw values</strong></summary>
+            <div style="margin-top: 1rem;">
+                <pre style="font-size: 0.875rem;">exposure_sum: {{ exhibit.exposure_sum }}
+{% if exhibit.exposure_max %}exposure_max: {{ exhibit.exposure_max }}
+{% endif %}affected_branches: {{ exhibit.affected_branches }}
+{% if exhibit.grand_total_matches is not none %}grand_total_matches: {{ exhibit.grand_total_matches }}
+{% endif %}{% if exhibit.suspense_difference %}suspense_difference: {{ exhibit.suspense_difference }}
+{% endif %}divergent_cases: {{ exhibit.divergent_cases }}
+divergent_rows: {{ exhibit.divergent_rows }}</pre>
+            </div>
+        </details>
+        
+        {% if example_sentence and verdict_class == 'zombie' %}
+        <details style="margin-top: 1rem;">
+            <summary style="cursor: pointer; padding: 0.5rem; background: var(--panel-bg); border-radius: 4px;"><strong>Divergent cases and rows</strong></summary>
+            <div style="margin-top: 1rem;">
+                <p style="font-size: 0.875rem; margin-bottom: 0.5rem;"><strong>Source:</strong> failure_report.json (run {{ run_id }})</p>
+                {% if minimal_case_evidence %}
+                <pre style="font-size: 0.875rem; background: var(--panel-bg); padding: 0.75rem; border-radius: 4px; overflow-x: auto;">{{ minimal_case_evidence }}</pre>
+                {% endif %}
+            </div>
+        </details>
+        {% endif %}
+        {% endif %}
+        
+        {% if trap and verdict_class == 'zombie' %}
+        <p style="font-size: 0.875rem; margin-top: 1rem;"><strong>Source:</strong> {{ trap._source_path }}</p>
+        {% endif %}
+        
+        {% if has_certificate %}
+        <p style="font-size: 0.875rem; margin-top: 1rem;"><strong>Certificate source:</strong> certificate.json (run {{ run_id }})</p>
+        {% endif %}
+        
+        {% if card and verdict_class == 'zombie' %}
+        <p style="font-size: 0.875rem; margin-top: 1rem;"><strong>Card source:</strong> card.txt, coverage_report.json (run {{ run_id }})</p>
+        {% endif %}
+    </div>
+</details>
+
+<p style="text-align: center; color: var(--secondary-text); margin: 2rem 0;">
+    Validated under GnuCOBOL 3.x
+</p>
+
+{% endblock %}

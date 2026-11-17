@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}COBOL Coroner{% endblock %}</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect fill='%231a1a1a' width='32' height='32'/><text x='16' y='22' text-anchor='middle' fill='%23ea580c' font-size='20' font-weight='bold'>C</text></svg>">
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --text-color: #e0e0e0;
+            --panel-bg: #2a2a2a;
+            --border-color: #3a3a3a;
+            --secondary-text: #a0a0a0;
+            
+            --zombie-color: #ff6b6b;
+            --alive-color: #69db7c;
+            --invalid-color: #ffd43b;
+            --error-color: #b4bac4;
+            --orange-accent: #ea580c;
+            
+            --zombie-bg: #2a1212;
+            --alive-bg: #122a1a;
+            --invalid-bg: #2a2412;
+            --error-bg: #3a3a3a;
+            
+            --chart-cobol: #60a5fa;
+            --chart-java: #a78bfa;
+        }
+        
+        :root.light {
+            --bg-color: #ffffff;
+            --text-color: #1f2937;
+            --panel-bg: #f3f4f6;
+            --border-color: #d1d5db;
+            --secondary-text: #4b5563;
+            
+            --zombie-color: #b91c1c;
+            --alive-color: #166534;
+            --invalid-color: #d97706;
+            --error-color: #4b5563;
+            --orange-accent: #ea580c;
+            
+            --zombie-bg: #ffe0e0;
+            --alive-bg: #d0f4e0;
+            --invalid-bg: #fff3bf;
+            --error-bg: #f3f4f6;
+            
+            --chart-cobol: #3b82f6;
+            --chart-java: #8b5cf6;
+        }
+        
+        @media print {
+            :root {
+                --bg-color: #ffffff;
+                --text-color: #1f2937;
+                --panel-bg: #f3f4f6;
+                --border-color: #d1d5db;
+                --secondary-text: #4b5563;
+                
+                --zombie-color: #dc2626;
+                --alive-color: #16a34a;
+                --invalid-color: #d97706;
+                --error-color: #4b5563;
+                --orange-accent: #ea580c;
+                
+                --zombie-bg: #fee2e2;
+                --alive-bg: #d1fae5;
+                --invalid-bg: #fef3c7;
+                --error-bg: #f3f4f6;
+                
+                --chart-cobol: #3b82f6;
+                --chart-java: #8b5cf6;
+            }
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+        
+        h2 {
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 1.5rem;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+        
+        h3 {
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 1.25rem;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        a {
+            color: var(--orange-accent);
+            text-decoration: none;
+        }
+        
+        a:hover {
+            text-decoration: underline;
+        }
+        
+        .theme-toggle {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            color: var(--text-color);
+        }
+        
+        @media print {
+            .theme-toggle {
+                display: none;
+            }
+        }
+        
+        .verdict-badge {
+            border: 2px solid currentColor;
+            padding: 2rem;
+            margin: 2rem 0;
+            text-align: center;
+            border-radius: 0.5rem;
+            animation: fadeIn 400ms ease-in;
+        }
+        
+        @media (prefers-reduced-motion: reduce) {
+            .verdict-badge {
+                animation: none;
+            }
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .verdict-badge.zombie {
+            color: var(--zombie-color);
+            background-color: var(--zombie-bg);
+        }
+        
+        .verdict-badge.alive {
+            color: var(--alive-color);
+            background-color: var(--alive-bg);
+        }
+        
+        .verdict-badge.invalid {
+            color: var(--invalid-color);
+            background-color: var(--invalid-bg);
+        }
+        
+        .verdict-badge.error {
+            color: var(--error-color);
+            background-color: var(--error-bg);
+        }
+        
+        .verdict-status {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        
+        .verdict-sentence {
+            font-size: 1.2rem;
+            margin-top: 1rem;
+        }
+        
+        .status-icon {
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 0.5rem;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        
+        .info-item {
+            background-color: var(--panel-bg);
+            padding: 1rem;
+            border-radius: 0.25rem;
+        }
+        
+        .info-label {
+            font-size: 0.875rem;
+            color: var(--secondary-text);
+            margin-bottom: 0.25rem;
+        }
+        
+        .info-value {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        
+        code, pre {
+            font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
+            background-color: var(--panel-bg);
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+        }
+        
+        pre {
+            display: block;
+            padding: 1rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        
+        th, td {
+            text-align: left;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        th {
+            font-weight: 600;
+            background-color: var(--panel-bg);
+        }
+        
+        button {
+            background-color: var(--orange-accent);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
+        button:hover {
+            opacity: 0.9;
+        }
+        
+        .panel {
+            background-color: var(--panel-bg);
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            margin: 2rem 0;
+        }
+        
+        .exhibit {
+            background-color: var(--panel-bg);
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            margin: 2rem 0;
+        }
+        
+        .exhibit-header {
+            font-size: 0.875rem;
+            color: var(--secondary-text);
+            margin-bottom: 0.5rem;
+        }
+        
+        .exhibit-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        
+        details summary {
+            cursor: pointer;
+            padding: 0.5rem;
+            background-color: var(--panel-bg);
+            border-radius: 0.25rem;
+            margin-top: 1rem;
+        }
+        
+        details[open] summary {
+            margin-bottom: 1rem;
+        }
+        
+        .banner {
+            background-color: var(--panel-bg);
+            padding: 1rem;
+            border-radius: 0.25rem;
+            margin: 1rem 0;
+            text-align: center;
+            font-size: 0.875rem;
+            color: var(--secondary-text);
+        }
+        
+        .scope-notice {
+            font-size: 0.875rem;
+            color: var(--secondary-text);
+            margin: 1rem 0;
+            text-align: center;
+        }
+    </style>
+    <script src="/static/htmx.min.js"></script>
+    <script>
+        (function() {
+            try {
+                const theme = localStorage.getItem('coronerTheme') || 'dark';
+                if (theme === 'light') {
+                    document.documentElement.classList.add('light');
+                }
+            } catch (e) {
+                // Storage not available, use default dark
+            }
+        })();
+        
+        function toggleTheme() {
+            try {
+                const html = document.documentElement;
+                const isLight = html.classList.contains('light');
+                if (isLight) {
+                    html.classList.remove('light');
+                    localStorage.setItem('coronerTheme', 'dark');
+                } else {
+                    html.classList.add('light');
+                    localStorage.setItem('coronerTheme', 'light');
+                }
+            } catch (e) {
+                // Storage not available
+            }
+        }
+    </script>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()">Toggle Light/Dark</button>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>
