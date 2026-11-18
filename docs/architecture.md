@@ -52,6 +52,7 @@ COBOL + copybooks + Java 17 + schema.json
 
 ### Scripts
 - `scripts/check_cobol_rules.py`
+- `scripts/clean_context.sh`: exports tracked and untracked-not-ignored files to a temporary build context (used by make smoke-ui, so no ignored local file reaches the image)
 - `scripts/download_junit.py`
 - `scripts/gen_parity_cases.py`
 - `scripts/gen_rounding_ties.py`

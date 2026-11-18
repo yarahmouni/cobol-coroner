@@ -16,7 +16,12 @@ smoke:
 	docker build -t coroner:smoke . && docker run --rm coroner:smoke
 
 smoke-ui:
-	docker build --platform linux/amd64 -t coroner:smoke . && docker run --rm coroner:smoke python3 -m pytest -q -rs -p no:cacheprovider $(wildcard tests/test_ui*.py) tests/test_branch_reconciliation.py
+	@CLEAN_DIR=$$(bash scripts/clean_context.sh); \
+	EXIT_CODE=0; \
+	docker build --platform linux/amd64 -t coroner:smoke "$$CLEAN_DIR" || EXIT_CODE=$$?; \
+	rm -rf "$$CLEAN_DIR"; \
+	if [ $$EXIT_CODE -ne 0 ]; then exit $$EXIT_CODE; fi; \
+	docker run --rm coroner:smoke python3 -m pytest -q -rs -p no:cacheprovider $(wildcard tests/test_ui*.py) tests/test_branch_reconciliation.py
 
 demo:
 	@.venv/bin/python -m coroner verify --cobol samples/credit-fees/CREDIT-FEES.cob --copybooks samples/credit-fees/copybooks --java samples/credit-fees/java/CreditFees.java --schema samples/credit-fees/schema.json; exit $$?

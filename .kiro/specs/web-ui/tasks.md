@@ -216,6 +216,7 @@
 
 ## Task 19: Automated deployment check (Req 19, D-53)
 - [ ] Add `make deploy-check` target: accepts URL parameter (for example `make deploy-check URL=https://coroner.iqoba.com`)
+- [ ] Before checking the URL, build the image from a real `git clone` of the commit being deployed (no working-tree files) and fail if it does not build; same rule as make smoke-ui (owner, 2026-11-18)
 - [ ] Subset of test book scenarios: Run audit on T1 faulty (assert ZOMBIE), T1 correct (assert ALIVE), Tamper (assert INVALID with reason)
 - [ ] Use httpx to call the URL, check responses
 - [ ] Exit 1 if any check fails, exit 0 if all pass

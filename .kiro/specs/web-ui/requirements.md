@@ -227,6 +227,7 @@ All tests use real runs produced by the engine at small case counts in a tmp bas
 **WHERE** docs/test-book.md is committed, every Actual result field **SHALL** have been produced by the generator (marker and hash of the generated block checked by a test), never edited by hand.
 
 **WHERE** `make deploy-check URL=...` is run, the system **SHALL** run the automated end-to-end check subset:
+- Before checking the URL, build the image from a real `git clone` of the commit being deployed (no working-tree files) and fail if it does not build; same rule as make smoke-ui (owner, 2026-11-18)
 - Run audit on T1 faulty gives ZOMBIE
 - Run audit on T1 correct gives ALIVE
 - Tamper gives INVALID with reason
@@ -271,6 +272,6 @@ All tests use real runs produced by the engine at small case counts in a tmp bas
 - D-53 interactive live demo requirements: Run audit, Tamper, sandbox controls, test book scenarios.
 - D-54 security requirements: engine/API split, container hardening, input validation, rate limits, Cloudflare setup, no credentials in repository.
 - Req 18 measurement requirement: peak memory and CPU recorded for each sample at 2,000 cases.
-- Req 19 test book: scenarios, make test-book, make deploy-check.
+- Req 19 test book: scenarios, make test-book, make deploy-check; deploy-check builds image from clean git clone (owner 2026-11-18).
 - Req 20 deployment docs: tunnel setup, limits, demo data generation, uptime monitor.
 - Req 21 security control tests.

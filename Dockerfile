@@ -27,6 +27,10 @@ RUN cd /tmp && \
     make -j$(nproc) && \
     make install
 
+# Download and verify JUnit jar
+COPY scripts/download_junit.py /tmp/download_junit.py
+RUN python3 /tmp/download_junit.py
+
 # Final stage: runtime image
 FROM python@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df
 
@@ -67,9 +71,9 @@ COPY --chown=coroner:coroner scripts/ scripts/
 COPY --chown=coroner:coroner pyproject.toml pyproject.toml
 COPY --chown=coroner:coroner .kiro/coroner-scope.json .kiro/coroner-scope.json
 
-# Create build directory and copy JUnit jar if present
+# Create build directory and copy JUnit jar from builder stage
 RUN mkdir -p build/junit && chown -R coroner:coroner build
-COPY --chown=coroner:coroner build/junit/ build/junit/
+COPY --from=builder --chown=coroner:coroner /build/junit/ build/junit/
 
 # Install Python dependencies (runtime, dev and test groups) as root
 RUN python3 -m pip install --no-cache-dir -e ".[dev,test]"
