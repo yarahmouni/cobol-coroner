@@ -1,6 +1,7 @@
 PYTHON ?= .venv/bin/python
+SCREENSHOT_CHANNEL ?=
 
-.PHONY: test test-all smoke smoke-ui demo zombie serve java-sample hooks junit-jars acceptance precommit traps demo-ebcdic coroner-gate
+.PHONY: test test-all smoke smoke-ui demo zombie serve java-sample hooks junit-jars acceptance precommit traps demo-ebcdic coroner-gate screenshots
 
 test:
 	.venv/bin/pytest -q
@@ -51,3 +52,6 @@ demo-ebcdic:
 
 coroner-gate:
 	$(PYTHON) -m coroner gate $(GATE_ARGS)
+
+screenshots:
+	SCREENSHOT_CHANNEL=$(SCREENSHOT_CHANNEL) $(PYTHON) scripts/make_screenshots.py

@@ -55,6 +55,7 @@ COBOL + copybooks + Java 17 + schema.json
 - `scripts/download_junit.py`
 - `scripts/gen_parity_cases.py`
 - `scripts/gen_rounding_ties.py`
+- `scripts/make_screenshots.py`: make screenshots: README screenshots and demo GIF from real runs through the real UI (D-58)
 - `scripts/precommit_guard.py`
 
 ## Security

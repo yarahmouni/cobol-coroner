@@ -73,8 +73,8 @@ def test_verify_real_certificate(alive_run_with_cert, monkeypatch):
     
     client = TestClient(app)
     
-    # POST verify
-    response = client.post("/api/verify", json={"run_id": run_id})
+    # POST verify with form data (what htmx sends)
+    response = client.post("/api/verify", data={"run_id": run_id})
     assert response.status_code == 200
     
     html = response.text
@@ -137,8 +137,8 @@ def test_verify_forged_certificate(alive_run_with_cert, monkeypatch):
     assert not cli_result.valid
     expected_reason = cli_result.reason
     
-    # POST verify
-    response = client.post("/api/verify", json={"run_id": run_id})
+    # POST verify with form data
+    response = client.post("/api/verify", data={"run_id": run_id})
     assert response.status_code == 200
     
     html = response.text
@@ -153,3 +153,94 @@ def test_verify_forged_certificate(alive_run_with_cert, monkeypatch):
     # Check no standalone VALID (not inside INVALID)
     # "Certificate: VALID" should not appear
     assert "Certificate: VALID" not in html
+
+
+
+def test_verify_button_sends_form_data(alive_run_with_cert, monkeypatch):
+    """Test that the Verify button sends form data (not JSON), and verify works end-to-end."""
+    run_id, base_dir = alive_run_with_cert
+    
+    # Set CORONER_BASE_DIR before importing app
+    monkeypatch.setenv("CORONER_BASE_DIR", str(base_dir))
+    
+    # Import app after setting env var
+    from coroner.ui.app import app
+    
+    # Override BASE_DIR directly
+    import coroner.ui.app as app_module
+    app_module.BASE_DIR = base_dir
+    
+    client = TestClient(app)
+    
+    # 1. Render the run page
+    page_response = client.get(f"/run/{run_id}")
+    assert page_response.status_code == 200
+    html = page_response.text
+    
+    # 2. Parse the button's hx-post and hx-vals
+    # Button is like: <button hx-post="/api/verify" hx-vals='{"run_id": "..."}' ...>
+    import re
+    
+    # Find hx-post
+    hx_post_match = re.search(r'hx-post="([^"]+)"', html)
+    assert hx_post_match is not None, "hx-post not found in page"
+    endpoint = hx_post_match.group(1)
+    assert endpoint == "/api/verify"
+    
+    # Find hx-vals
+    hx_vals_match = re.search(r"hx-vals='({[^']+})'", html)
+    assert hx_vals_match is not None, "hx-vals not found in page"
+    vals_json = hx_vals_match.group(1)
+    
+    # Parse JSON
+    vals = json.loads(vals_json)
+    assert "run_id" in vals
+    assert vals["run_id"] == run_id
+    
+    # 3. POST those values as form data (what htmx sends by default)
+    response = client.post(endpoint, data=vals)
+    assert response.status_code == 200
+    
+    result_html = response.text
+    
+    # Check it says VALID
+    assert "Certificate: VALID" in result_html
+    assert "ALIVE" in result_html
+    
+    # 4. Test that a forged certificate gives INVALID
+    # Create a copy with a changed field
+    run_dir = base_dir / "runs" / run_id
+    cert_file = run_dir / "certificate.json"
+    cert_data = json.loads(cert_file.read_text())
+    
+    # Create a new run_id (12 hex chars) for the copy
+    import secrets
+    copy_run_id = secrets.token_hex(6)  # 12 hex chars
+    copy_run_dir = base_dir / "runs" / copy_run_id
+    copy_run_dir.mkdir(parents=True)
+    
+    # Copy all files
+    for file in run_dir.iterdir():
+        if file.is_file():
+            import shutil
+            shutil.copy2(file, copy_run_dir / file.name)
+    
+    # Forge the certificate by editing cases_divergent without recomputing hash
+    copy_cert_file = copy_run_dir / "certificate.json"
+    copy_cert_data = json.loads(copy_cert_file.read_text())
+    copy_cert_data["cases_divergent"] = 999
+    
+    with open(copy_cert_file, 'w', encoding='utf-8') as f:
+        json.dump(copy_cert_data, f, indent=2, sort_keys=True)
+        f.write('\n')
+    
+    # POST verify on the forged copy
+    forge_response = client.post("/api/verify", data={"run_id": copy_run_id})
+    assert forge_response.status_code == 200
+    
+    forge_html = forge_response.text
+    
+    # Should say INVALID
+    assert "Certificate: INVALID" in forge_html
+    assert "INVALID" in forge_html
+    assert "Certificate: VALID" not in forge_html

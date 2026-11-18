@@ -58,3 +58,46 @@ def test_cli_subprocess_does_not_write_to_repo_runs(tmp_path):
     # Filter for actual run directories (have inputs.json)
     tmp_entries = [d for d in tmp_runs.iterdir() if d.is_dir() and (d / "inputs.json").exists()]
     assert len(tmp_entries) == 1, f"Expected 1 run in tmp_path, got {len(tmp_entries)}"
+
+
+
+@pytest.mark.slow
+def test_cli_traps_does_not_write_to_repo_runs(tmp_path):
+    """Assert that 'coroner traps' with CORONER_BASE_DIR does not modify the repository's runs/."""
+    repo_runs = Path.cwd() / "runs"
+    
+    # Count entries and get mtime before the run
+    entries_before = list(repo_runs.iterdir()) if repo_runs.exists() else []
+    count_before = len(entries_before)
+    mtime_before = {p.name: p.stat().st_mtime for p in entries_before}
+    
+    # Run CLI in tmp_path
+    env = os.environ.copy()
+    env["CORONER_BASE_DIR"] = str(tmp_path)
+    
+    result = subprocess.run(
+        [sys.executable, "-m", "coroner", "traps", "--cases", "2000", "--seed", "42"],
+        capture_output=True,
+        text=True,
+        timeout=600,  # Full catalog takes time
+        env=env
+    )
+    
+    assert result.returncode == 0, f"CLI failed: {result.stderr}"
+    
+    # Check runs/ after
+    entries_after = list(repo_runs.iterdir()) if repo_runs.exists() else []
+    count_after = len(entries_after)
+    mtime_after = {p.name: p.stat().st_mtime for p in entries_after}
+    
+    # Assert count unchanged
+    assert count_after == count_before, f"runs/ entry count changed: {count_before} -> {count_after}"
+    
+    # Assert no entry was modified
+    for name in mtime_before:
+        if name in mtime_after:
+            assert mtime_after[name] == mtime_before[name], f"runs/{name} was modified"
+    
+    # Verify catalog was written to tmp_path instead
+    tmp_catalog = tmp_path / "runs" / "trap_catalog.json"
+    assert tmp_catalog.exists(), "tmp_path/runs/trap_catalog.json does not exist"

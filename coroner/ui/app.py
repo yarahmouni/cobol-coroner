@@ -5,12 +5,11 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Form
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
-from pydantic import BaseModel
 
 from coroner.certificate import replay_certificate
 
@@ -64,11 +63,6 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 # run_id validation: exactly 12 lowercase hexadecimal characters
 RUN_ID_PATTERN = re.compile(r"^[0-9a-f]{12}$")
-
-
-class VerifyRequest(BaseModel):
-    """Request body for certificate verification."""
-    run_id: str
 
 
 def validate_run_id(run_id: str) -> str:
@@ -726,17 +720,18 @@ async def run_page(request: Request, run_id: str):
 
 
 @app.post("/api/verify")
-async def verify_certificate(request: VerifyRequest):
+async def verify_certificate(run_id: str = Form(...)):
     """
     Verify certificate endpoint.
     
     Replays the certificate and returns validation status.
     Returns htmx-compatible HTML fragment.
+    Accepts application/x-www-form-urlencoded (htmx default).
     """
-    validate_run_id(request.run_id)
+    validate_run_id(run_id)
     
     # Check if run directory exists
-    run_dir = get_base_dir() / "runs" / request.run_id
+    run_dir = get_base_dir() / "runs" / run_id
     if not run_dir.exists() or not run_dir.is_dir():
         raise HTTPException(status_code=404, detail="Run not found")
     

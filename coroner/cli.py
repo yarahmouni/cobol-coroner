@@ -562,8 +562,11 @@ def main():
         from coroner.traps import run_catalog, write_catalog_files
         
         try:
-            catalog = run_catalog(seed=args.seed, cases=args.cases)
-            write_catalog_files(catalog)
+            # Honor CORONER_BASE_DIR environment variable
+            base_dir = os.environ.get('CORONER_BASE_DIR', '.')
+            
+            catalog = run_catalog(seed=args.seed, cases=args.cases, base_dir=base_dir)
+            write_catalog_files(catalog, base_dir=base_dir)
             return 0
         except Exception as e:
             print(f"Error: {e}", file=sys.stderr)

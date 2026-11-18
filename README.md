@@ -2,6 +2,8 @@
 
 **The independent regression auditor for COBOL-to-Java migrations.**
 
+![Audit demo showing T1 ZOMBIE verdict with branch subtotal mismatch](docs/screenshots/demo.gif)
+
 It checks whether a migration kept the business behavior on N generated cases, and shows exactly where it broke.
 
 COBOL Coroner does not just compare outputs. It detects the banking migration traps that silently corrupt totals, control breaks and data ordering.
@@ -19,6 +21,25 @@ Coroner runs both programs on the same generated test cases, compares the output
 
 - **ALIVE**: PASS: business behavior preserved on N cases (0 divergence found).
 - **ZOMBIE**: FAIL: business behavior diverged on M cases, with the failing case, the COBOL output, the Java output, the divergent field and the COBOL lines executed.
+
+## Screenshots
+
+All screenshots produced by `make screenshots` from real runs.
+
+![T1 ZOMBIE page with branch subtotal mismatch and grand total balance](docs/screenshots/t1-zombie-dark.png)
+*T1 ZOMBIE page with branch subtotal mismatch and grand total balance*
+
+![T1 ALIVE page showing business behavior preserved](docs/screenshots/alive-light.png)
+*T1 ALIVE page showing business behavior preserved*
+
+![Detection Matrix showing trap catalog with measured counts](docs/screenshots/matrix.png)
+*Detection Matrix showing trap catalog with measured counts*
+
+![Certificate verification on a tampered copy showing INVALID status](docs/screenshots/verify-invalid.png)
+*Certificate verification on a tampered copy showing INVALID status*
+
+![Git commit blocked by Coroner pre-commit hook on ZOMBIE verdict](docs/screenshots/commit-blocked.png)
+*Git commit blocked by Coroner pre-commit hook on ZOMBIE verdict*
 
 ## Quick start
 
@@ -241,6 +262,8 @@ All COBOL programs and data in this repository are synthetic. No code or data fr
 - pytest 9.2.0 (MIT)
 - pyyaml 6.0.3 (MIT)
 - hypothesis 6.170.14 (MPL-2.0)
+- playwright 1.64.1 (Apache-2.0, screenshots only; `python -m playwright install chromium` downloads a Chromium browser not part of this repository; use `make screenshots SCREENSHOT_CHANNEL=chrome` with an installed Google Chrome when Playwright's Chromium is not available)
+- Pillow 13.0.0 (MIT-CMU, screenshots only)
 
 ## License
 
