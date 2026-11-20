@@ -1,5 +1,6 @@
 """FastAPI web UI for Coroner."""
 import hashlib
+import html
 import json
 import os
 import re
@@ -16,7 +17,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field, conint, field_validator
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from coroner.certificate import replay_certificate
+from coroner.certificate import replay_certificate, compute_certificate_sha256
 
 
 async def _send_413(send: Send):
@@ -844,6 +845,166 @@ async def verify_certificate(run_id: str = Form(...)):
         '''
     
     return HTMLResponse(content=html)
+
+
+@app.get("/tamper", response_class=HTMLResponse)
+async def tamper_form(request: Request, run_id: str):
+    """
+    Tamper form page.
+    
+    Shows a form prefilled with certificate values for editing.
+    """
+    validate_run_id(run_id)
+    
+    # Check if run directory exists
+    run_dir = get_base_dir() / "runs" / run_id
+    if not run_dir.exists() or not run_dir.is_dir():
+        raise HTTPException(status_code=404, detail="Run not found")
+    
+    # Check if certificate exists
+    certificate_file = run_dir / "certificate.json"
+    if not certificate_file.exists():
+        raise HTTPException(status_code=404, detail="Certificate not found")
+    
+    # Size limit check: 1 MB
+    if certificate_file.stat().st_size > 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Certificate too large")
+    
+    # Load certificate
+    try:
+        cert_data = json.loads(certificate_file.read_text())
+    except (json.JSONDecodeError, OSError) as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read certificate: {e}")
+    
+    # Extract editable fields
+    status = html.escape(cert_data.get("status", ""))
+    cases_total = cert_data.get("cases_total", 0)
+    cases_divergent = cert_data.get("cases_divergent", 0)
+    random_seed = cert_data.get("random_seed", 0)
+    
+    return templates.TemplateResponse(
+        request=request,
+        name="tamper.html",
+        context={
+            "run_id": run_id,
+            "status": status,
+            "cases_total": cases_total,
+            "cases_divergent": cases_divergent,
+            "random_seed": random_seed
+        }
+    )
+
+
+@app.post("/api/tamper")
+async def tamper_certificate(
+    run_id: str = Form(...),
+    status: str = Form(...),
+    cases_total: int = Form(...),
+    cases_divergent: int = Form(...),
+    random_seed: int = Form(...)
+):
+    """
+    Tamper with certificate values and replay.
+    
+    Creates a tampered copy, recomputes certificate_sha256, replays it,
+    and returns the validation result. The tampered copy is deleted after replay.
+    
+    Accepts application/x-www-form-urlencoded (htmx default).
+    Returns Cache-Control: no-store.
+    """
+    validate_run_id(run_id)
+    
+    # Validate status
+    if status not in ["ALIVE", "ZOMBIE", "ERROR"]:
+        raise HTTPException(status_code=422, detail="status must be ALIVE, ZOMBIE, or ERROR")
+    
+    # Validate integer bounds
+    if not (0 <= cases_total <= 1000000):
+        raise HTTPException(status_code=422, detail="cases_total must be between 0 and 1000000")
+    if not (0 <= cases_divergent <= 1000000):
+        raise HTTPException(status_code=422, detail="cases_divergent must be between 0 and 1000000")
+    if not (0 <= random_seed <= 1000000):
+        raise HTTPException(status_code=422, detail="random_seed must be between 0 and 1000000")
+    
+    # Check if run directory exists
+    run_dir = get_base_dir() / "runs" / run_id
+    if not run_dir.exists() or not run_dir.is_dir():
+        raise HTTPException(status_code=404, detail="Run not found")
+    
+    # Check if certificate exists
+    original_cert_path = run_dir / "certificate.json"
+    if not original_cert_path.exists():
+        raise HTTPException(status_code=404, detail="Certificate not found")
+    
+    # Size limit check: 1 MB
+    if original_cert_path.stat().st_size > 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Certificate too large")
+    
+    # Read original certificate
+    try:
+        cert_data = json.loads(original_cert_path.read_text())
+    except (json.JSONDecodeError, OSError) as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read certificate: {e}")
+    
+    # Generate random tampered copy filename
+    import secrets
+    tampered_id = secrets.token_hex(6)
+    exchange_dir = get_exchange_dir()
+    tamper_dir = exchange_dir / "tamper"
+    tamper_dir.mkdir(parents=True, exist_ok=True)
+    tampered_path = tamper_dir / f"{tampered_id}.json"
+    
+    try:
+        # Apply edits
+        cert_data["status"] = status
+        cert_data["cases_total"] = cases_total
+        cert_data["cases_divergent"] = cases_divergent
+        cert_data["random_seed"] = random_seed
+        
+        # Recompute certificate_sha256 using the same function as the product
+        # Remove the old hash first
+        cert_data.pop("certificate_sha256", None)
+        
+        # Compute hash using shared function
+        cert_hash = compute_certificate_sha256(cert_data)
+        cert_data["certificate_sha256"] = cert_hash
+        
+        # Write tampered copy
+        with open(tampered_path, 'w', encoding='utf-8') as f:
+            json.dump(cert_data, f, indent=2, sort_keys=True)
+            f.write('\n')
+        
+        # Replay the tampered certificate
+        result = replay_certificate(str(tampered_path))
+        
+        # Build HTML fragment
+        if result.valid:
+            response_html = f'''
+            <div style="padding: 1rem; background: #1b4d3e; color: #4ade80; border-radius: 4px;">
+                <div style="font-weight: bold; font-size: 1.2rem; margin-bottom: 0.5rem;">Certificate: VALID</div>
+                <div>Status: {result.verdict.status if result.verdict else "not recorded"}</div>
+                <div>Cases: {result.cases_total}</div>
+                <div>Divergences: {result.cases_divergent}</div>
+            </div>
+            '''
+        else:
+            # Escape the reason for safe display
+            escaped_reason = html.escape(result.reason)
+            response_html = f'''
+            <div style="padding: 1rem; background: #4d1b1b; color: #f87171; border-radius: 4px;">
+                <div style="font-weight: bold; font-size: 1.2rem; margin-bottom: 0.5rem;">Certificate: INVALID</div>
+                <div>{escaped_reason}</div>
+            </div>
+            '''
+        
+        response = HTMLResponse(content=response_html)
+        response.headers["Cache-Control"] = "no-store"
+        return response
+        
+    finally:
+        # Delete the tampered copy
+        if tampered_path.exists():
+            tampered_path.unlink()
 
 
 @app.get("/matrix", response_class=HTMLResponse)

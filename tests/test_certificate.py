@@ -7,7 +7,7 @@ import shutil
 import hashlib
 from pathlib import Path
 
-from coroner.certificate import generate_certificate, replay_certificate
+from coroner.certificate import generate_certificate, replay_certificate, compute_certificate_sha256
 
 
 @pytest.fixture(scope="module")
@@ -335,6 +335,30 @@ def test_certificate_no_em_dash(small_run_alive):
     
     # Em dash is Unicode U+2014
     assert '\u2014' not in content, "Certificate contains em dash character"
+
+
+def test_compute_certificate_sha256_matches_recorded(small_run_alive):
+    """compute_certificate_sha256 function produces the same hash as recorded in certificate."""
+    run_dir = small_run_alive["run_dir"]
+    cert_path = f"{run_dir}/certificate.json"
+    
+    # Load certificate
+    with open(cert_path, 'r') as f:
+        cert = json.load(f)
+    
+    # Extract recorded hash
+    recorded_hash = cert.pop("certificate_sha256")
+    
+    # Recompute using shared function
+    computed_hash = compute_certificate_sha256(cert)
+    
+    # Must match exactly
+    assert computed_hash == recorded_hash, (
+        f"Computed hash does not match recorded hash.\n"
+        f"Recorded:  {recorded_hash}\n"
+        f"Computed:  {computed_hash}\n"
+        "This indicates drift between the hash computation implementations."
+    )
 
 
 @pytest.mark.slow

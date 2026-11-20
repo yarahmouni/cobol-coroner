@@ -45,6 +45,23 @@ def _file_sha256(path: str) -> str:
     return hasher.hexdigest()
 
 
+def compute_certificate_sha256(cert: dict) -> str:
+    """
+    Compute SHA-256 hash of certificate content.
+    
+    Uses canonical JSON representation (sorted keys, no spaces after separators)
+    of all fields except certificate_sha256.
+    
+    Args:
+        cert: Certificate dictionary (must not contain certificate_sha256 key)
+        
+    Returns:
+        Hex digest string
+    """
+    canonical_json = json.dumps(cert, sort_keys=True, separators=(',', ':'))
+    return hashlib.sha256(canonical_json.encode('utf-8')).hexdigest()
+
+
 def _make_relative_path(file_path: str) -> str:
     """
     Make path relative to repository root if inside it.
@@ -188,8 +205,7 @@ def generate_certificate(
     }
     
     # Compute certificate_sha256
-    canonical_json = json.dumps(cert, sort_keys=True, separators=(',', ':'))
-    cert_hash = hashlib.sha256(canonical_json.encode('utf-8')).hexdigest()
+    cert_hash = compute_certificate_sha256(cert)
     cert["certificate_sha256"] = cert_hash
     
     # Write certificate
@@ -224,8 +240,7 @@ def replay_certificate(certificate_path: str) -> ReplayResult:
             cert = json.load(f)
         
         recorded_hash = cert.pop("certificate_sha256")
-        canonical_json = json.dumps(cert, sort_keys=True, separators=(',', ':'))
-        computed_hash = hashlib.sha256(canonical_json.encode('utf-8')).hexdigest()
+        computed_hash = compute_certificate_sha256(cert)
         
         if computed_hash != recorded_hash:
             return ReplayResult(

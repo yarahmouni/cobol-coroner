@@ -149,16 +149,16 @@
 **Done when:** Run audit endpoint accepts requests, computes deterministic run_id, enforces queue and per-IP limits, validates input, returns 202 and job status, sandbox controls tested.
 
 ## Task 14: Tamper endpoint (D-53, D-54)
-- [ ] Add GET /tamper page: form with run_id input, loads certificate fields (status, cases_total, cases_divergent, random_seed) when run_id valid
-- [ ] Add POST /api/tamper route: accepts TamperRequest (run_id, status, cases_total, cases_divergent, random_seed), validates with Pydantic
-- [ ] Read original certificate from CORONER_BASE_DIR/runs/{run_id}/certificate.json
-- [ ] Copy certificate to /exchange/tamper/{tamper_id}.json
-- [ ] Apply visitor edits to copy, recompute certificate_sha256
-- [ ] Call replay_certificate on copy
-- [ ] Return replay result: {status: VALID/INVALID, reason: ...}
-- [ ] Delete tamper copy
-- [ ] Enforce certificate size limit (for example 1 MB)
-- [ ] Tests: tamper with status ALIVE to ZOMBIE (assert INVALID with mismatch reason), tamper with recomputed hash (assert INVALID), read original before and after (assert byte-identical), certificate over size limit rejected
+- [x] Add GET /tamper page: form with run_id input, loads certificate fields (status, cases_total, cases_divergent, random_seed) when run_id valid
+- [x] Add POST /api/tamper route: accepts TamperRequest (run_id, status, cases_total, cases_divergent, random_seed), validates with Form
+- [x] Read original certificate from CORONER_BASE_DIR/runs/{run_id}/certificate.json
+- [x] Copy certificate to /exchange/tamper/{tamper_id}.json
+- [x] Apply visitor edits to copy, recompute certificate_sha256
+- [x] Call replay_certificate on copy
+- [x] Return replay result: {status: VALID/INVALID, reason: ...}
+- [x] Delete tamper copy
+- [x] Enforce certificate size limit (1 MB)
+- [x] Tests: tamper with status ALIVE to ZOMBIE (assert INVALID with mismatch reason), tamper with recomputed hash (assert INVALID), read original before and after (assert byte-identical), certificate over size limit rejected
 
 **Requirements:** 15, 16
 **Done when:** Tamper page and endpoint implemented, works server-side on a copy, original never modified, size limit enforced, tests pass.
