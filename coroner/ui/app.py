@@ -7,6 +7,7 @@ import re
 import signal
 import subprocess
 import sys
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -21,6 +22,8 @@ from starlette.concurrency import run_in_threadpool
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from coroner.certificate import replay_certificate, compute_certificate_sha256, ReplayResult
+from coroner.gate import certificate_matches_files, gate_decision
+from coroner.hooks import get_repo_root
 
 
 async def _send_413(send: Send):
@@ -1304,6 +1307,176 @@ async def tamper_certificate(
             tampered_path.unlink()
 
 
+# Cache for gate-check responses (keyed by certificate SHA-256)
+_gate_check_cache: Dict[str, dict] = {}  # cert_sha256 -> {response, timestamp}
+_gate_check_cache_lock = threading.Lock()
+
+
+def get_cached_gate_check(cert_sha256: str) -> Optional[dict]:
+    """Get cached gate check response if not expired (600 s)."""
+    with _gate_check_cache_lock:
+        if cert_sha256 not in _gate_check_cache:
+            return None
+        
+        entry = _gate_check_cache[cert_sha256]
+        timestamp = entry.get("timestamp", 0.0)
+        
+        # Check if expired (600 s TTL)
+        if time.time() - timestamp > 600:
+            del _gate_check_cache[cert_sha256]
+            return None
+        
+        return entry.get("response")
+
+
+def cache_gate_check(cert_sha256: str, response: dict):
+    """Cache a gate check response."""
+    with _gate_check_cache_lock:
+        _gate_check_cache[cert_sha256] = {
+            "response": response,
+            "timestamp": time.time()
+        }
+
+
+def clear_gate_check_cache():
+    """Clear the gate check cache. Used only in tests."""
+    with _gate_check_cache_lock:
+        _gate_check_cache.clear()
+
+
+@app.post("/api/gate-check")
+async def gate_check(request: Request, run_id: str = Form(...)):
+    """
+    Gate check endpoint for guided story.
+    
+    Checks if a certificate would pass the gate (commit/push allowed).
+    Reads certificate from CORONER_BASE_DIR/runs/<run_id>/certificate.json,
+    replays it, and returns the gate decision.
+    
+    Returns JSON: {status: "allowed"|"blocked", exit_code: 0|1, message: string}
+    
+    Accepts application/x-www-form-urlencoded.
+    Returns Cache-Control: no-store via middleware.
+    Caches responses by certificate SHA-256 for 600 s.
+    """
+    # Get client address
+    client_ip = get_client_address(request)
+    
+    # Rate limiting: /api/gate-check 1 per 10 seconds per client (same as verify)
+    gate_check_window = int(os.environ.get("CORONER_GATE_CHECK_RATE_WINDOW", "10"))
+    retry_after = check_rate_limit(f"endpoint:/api/gate-check:ip:{client_ip}", 1, gate_check_window)
+    if retry_after:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded for gate-check", "retry_after": retry_after},
+            headers={"Retry-After": str(retry_after)}
+        )
+    
+    # Rate limiting: global 100/min
+    retry_after = check_rate_limit("global", 100, 60)
+    if retry_after:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded", "retry_after": retry_after},
+            headers={"Retry-After": str(retry_after)}
+        )
+    
+    # Rate limiting: per IP 20/min
+    retry_after = check_rate_limit(f"ip:{client_ip}", 20, 60)
+    if retry_after:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded", "retry_after": retry_after},
+            headers={"Retry-After": str(retry_after)}
+        )
+    
+    # Validate run_id
+    validate_run_id(run_id)
+    
+    # Check if certificate exists
+    base_dir = get_base_dir()
+    cert_path = base_dir / "runs" / run_id / "certificate.json"
+    
+    if not cert_path.exists():
+        return JSONResponse(status_code=404, content={"detail": "Certificate not found"})
+    
+    # Size limit: 1 MB
+    if cert_path.stat().st_size > 1024 * 1024:
+        return JSONResponse(status_code=413, content={"detail": "Certificate too large"})
+    
+    # Load certificate
+    try:
+        cert_bytes = cert_path.read_bytes()
+        cert_data = json.loads(cert_bytes.decode('utf-8'))
+    except (json.JSONDecodeError, OSError) as e:
+        return JSONResponse(status_code=500, content={"detail": f"Failed to read certificate: {e}"})
+    
+    # Check cache by SHA-256 of raw certificate file bytes (not the field inside)
+    cert_file_sha256 = hashlib.sha256(cert_bytes).hexdigest()
+    cached_response = get_cached_gate_check(cert_file_sha256)
+    if cached_response is not None:
+        return JSONResponse(content=cached_response)
+    
+    # Build scope from certificate
+    scope = {
+        "cobol": cert_data.get("cobol_file", ""),
+        "java": cert_data.get("java_file", ""),
+        "schema": cert_data.get("schema_file", ""),
+        "copybooks": cert_data.get("copybook_dir", "")
+    }
+    
+    # Check file hashes (treat exceptions as hash_match = False)
+    repo_root = get_repo_root()
+    try:
+        hash_match = certificate_matches_files(cert_data, scope, repo_root)
+    except Exception:
+        hash_match = False
+    
+    # Replay certificate off the event loop
+    replay_timeout = int(os.environ.get("CORONER_REPLAY_TIMEOUT", "90"))
+    result = await run_in_threadpool(
+        replay_with_timeout,
+        str(cert_path),
+        str(base_dir),
+        replay_timeout
+    )
+    
+    # Get replay status
+    replay = "VALID" if result.valid else "INVALID"
+    
+    # Get verdict status
+    status = cert_data.get("status")
+    
+    # Get gate decision
+    exit_code = gate_decision(status, replay, hash_match)
+    
+    # Build response
+    if exit_code == 0:
+        response_data = {
+            "status": "allowed",
+            "exit_code": 0,
+            "message": "Commit allowed"
+        }
+    else:
+        # exit_code is 1 or 2
+        # Only show "ZOMBIE cannot be committed" when hash matches, replay is VALID, and status is ZOMBIE
+        if hash_match and replay == "VALID" and status == "ZOMBIE":
+            message = "This ZOMBIE migration cannot be committed"
+        else:
+            message = "Certificate invalid or does not match the audited files"
+        
+        response_data = {
+            "status": "blocked",
+            "exit_code": exit_code,
+            "message": message
+        }
+    
+    # Cache the response by file SHA-256
+    cache_gate_check(cert_file_sha256, response_data)
+    
+    return JSONResponse(content=response_data)
+
+
 @app.get("/matrix", response_class=HTMLResponse)
 async def matrix_page(request: Request):
     """Detection Matrix page."""
@@ -1378,7 +1551,6 @@ class RunAuditRequest(BaseModel):
 
 
 # Rate limiting (simple in-app sliding window)
-import threading
 
 
 class RateLimiter:

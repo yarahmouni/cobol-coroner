@@ -9,6 +9,8 @@ import shutil
 from pathlib import Path
 from typing import Optional
 
+from coroner.store import copybook_file_hashes
+
 
 def compute_file_hash(path: str) -> str:
     """Compute SHA-256 hex digest of a file."""
@@ -22,6 +24,10 @@ def compute_directory_hash(directory: str) -> dict[str, str]:
     """
     Compute hashes for all files in a directory.
     Returns dict mapping filename to hash.
+    
+    NOTE: This function is kept for backward compatibility but not used
+    by the certificate system. Use copybook_file_hashes from coroner.store
+    for copybook directory hashing (*.cpy and *.cbl files only).
     """
     hashes = {}
     if not os.path.isdir(directory):
@@ -75,7 +81,7 @@ def find_certificate(repo_root: Path, scope: dict) -> Optional[str]:
     current_cobol_hash = compute_file_hash(str(repo_root / scope["cobol"]))
     current_java_hash = compute_file_hash(str(repo_root / scope["java"]))
     current_schema_hash = compute_file_hash(str(repo_root / scope["schema"]))
-    current_copybook_hashes = compute_directory_hash(str(repo_root / scope["copybooks"]))
+    current_copybook_hashes = copybook_file_hashes(str(repo_root / scope["copybooks"]))
     
     matching_certs = []
     

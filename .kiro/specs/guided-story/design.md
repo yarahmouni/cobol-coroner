@@ -89,13 +89,14 @@ Gate enforcement check:
 - Accepts form field run_id (12 lowercase hex, validated)
 - Reads runs/{run_id}/certificate.json (1 MB limit, 413 beyond)
 - Builds scope from certificate: {cobol: cert["cobol_file"], java: cert["java_file"], schema: cert["schema_file"], copybooks: cert["copybook_dir"]}
-- Calls gate_certificate(cert_path, scope, base_dir) to get (status, replay, hash_match)
-- Calls gate_decision(status, replay, hash_match) to get exit code
-- Maps exit code: 0 for ALIVE with hash match and VALID replay, 1 otherwise
-- Runs replay_with_timeout (same function as /api/verify) off the event loop to avoid blocking the server during the 15 to 20 s replay at 2000 cases
-- Returns JSON: {status: "blocked" or "allowed", exit_code: 0 or 1, message: "..."}
+- Calls certificate_matches_files(cert, scope, repo_root) to check file hashes
+- Runs replay_with_timeout(cert_path, base_dir, timeout) off the event loop to avoid blocking the server during the 15 to 20 s replay at 2000 cases
+- Calls gate_decision(status, replay, hash_match) to get exit code from the pure function
+- Maps exit code: 0 for ALIVE with hash match and VALID replay, 1 for ZOMBIE or invalid certificate or hash mismatch, 2 for ERROR
+- Returns JSON: {status: "blocked" or "allowed", exit_code: 0 or 1 or 2, message: "Commit allowed" or "This ZOMBIE migration cannot be committed" or "Certificate invalid or does not match the audited files"}
 - Rate limit: 1 per 10 seconds per client (like /api/verify and /api/tamper)
 - Cache-Control: no-store, no-cache on all responses (success and error)
+- Caches response by certificate SHA-256 for 600 s, so repeated story visits do not start a new replay each time
 - 404 if run_id not found, 422 if invalid format
 
 ## Templates

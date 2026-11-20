@@ -11,9 +11,9 @@ import xml.etree.ElementTree as ET
 from coroner.hooks import (
     load_scope,
     compute_file_hash,
-    compute_directory_hash,
     get_repo_root,
 )
+from coroner.store import copybook_file_hashes
 from coroner.certificate import replay_certificate
 
 
@@ -83,6 +83,31 @@ def run_audit_and_gate(
     return None, None, None
 
 
+def certificate_matches_files(cert: dict, scope: dict, repo_root: Path) -> bool:
+    """
+    Check if certificate file hashes match current files.
+    
+    Args:
+        cert: Certificate dictionary
+        scope: Scope dictionary with file paths
+        repo_root: Repository root path
+    
+    Returns:
+        True if all hashes match, False otherwise
+    """
+    cobol_hash = compute_file_hash(repo_root / scope["cobol"])
+    java_hash = compute_file_hash(repo_root / scope["java"])
+    schema_hash = compute_file_hash(repo_root / scope["schema"])
+    copybook_hash = copybook_file_hashes(str(repo_root / scope["copybooks"]))
+
+    return (
+        cert["cobol_file_sha256"] == cobol_hash
+        and cert["java_file_sha256"] == java_hash
+        and cert["schema_file_sha256"] == schema_hash
+        and cert["copybook_hashes"] == copybook_hash
+    )
+
+
 def gate_certificate(
     cert_path: str, scope: dict, base_dir: Path
 ) -> tuple:
@@ -95,28 +120,45 @@ def gate_certificate(
     with open(cert_file) as f:
         cert = json.load(f)
 
-    # Compute current file hashes
+    # Check file hashes
     repo_root = get_repo_root()
-    cobol_hash = compute_file_hash(repo_root / scope["cobol"])
-    java_hash = compute_file_hash(repo_root / scope["java"])
-    schema_hash = compute_file_hash(repo_root / scope["schema"])
-    copybook_hash = compute_directory_hash(repo_root / scope["copybooks"])
-
-    # Compare with certificate
-    hash_match = (
-        cert["cobol_file_sha256"] == cobol_hash
-        and cert["java_file_sha256"] == java_hash
-        and cert["schema_file_sha256"] == schema_hash
-        and cert["copybook_hashes"] == copybook_hash
-    )
+    hash_match = certificate_matches_files(cert, scope, repo_root)
 
     if not hash_match:
         return cert["status"], None, False
 
-    # Replay certificate
-    replay_result = replay_certificate(cert_path)
+    # Replay certificate with base_dir
+    replay_result = replay_certificate(cert_path, str(base_dir))
 
     return cert["status"], "VALID" if replay_result.valid else "INVALID", True
+
+
+def gate_decision(status: Optional[str], replay: Optional[str], hash_match: bool) -> int:
+    """
+    Pure decision function for gate exit code.
+    
+    Args:
+        status: Verdict status from certificate (ALIVE, ZOMBIE, ERROR, or None)
+        replay: Replay result (VALID, INVALID, or None)
+        hash_match: Whether certificate hashes match current files
+    
+    Returns:
+        Exit code: 0 for ALIVE with VALID replay and matching hashes,
+                   1 for ZOMBIE or missing certificate or invalid certificate or hash mismatch,
+                   2 for ERROR status
+    """
+    if status is None:
+        return 1
+    if not hash_match:
+        return 1
+    if replay != "VALID":
+        return 1
+    if status == "ZOMBIE":
+        return 1
+    if status == "ALIVE":
+        return 0
+    # Any other status (e.g., ERROR)
+    return 2
 
 
 def write_junit_report(junit_path: str, passed: bool, message: str):
@@ -171,26 +213,28 @@ def run_gate(
             certificate_path, scope, base_dir
         )
 
+        exit_code = gate_decision(verdict, replay_result, hash_match)
+
         if verdict is None:
             msg = "Gate: certificate missing"
             print(msg)
             if junit_path:
                 write_junit_report(junit_path, False, msg)
-            return 1
+            return exit_code
 
         if not hash_match:
             msg = "Gate: certificate does not match the audited files"
             print(msg)
             if junit_path:
                 write_junit_report(junit_path, False, msg)
-            return 1
+            return exit_code
 
         if replay_result != "VALID":
             msg = "Gate: certificate invalid"
             print(msg)
             if junit_path:
                 write_junit_report(junit_path, False, msg)
-            return 1
+            return exit_code
 
         if verdict == "ZOMBIE":
             # Load divergence count from certificate
@@ -209,7 +253,7 @@ def run_gate(
             print(msg)
             if junit_path:
                 write_junit_report(junit_path, False, msg)
-            return 1
+            return exit_code
 
         if verdict == "ALIVE":
             with open(certificate_path) as f:
@@ -226,7 +270,7 @@ def run_gate(
             print(msg)
             if junit_path:
                 write_junit_report(junit_path, True, msg)
-            return 0
+            return exit_code
 
     # Audit mode
     java_path = java_override if java_override else scope["java"]

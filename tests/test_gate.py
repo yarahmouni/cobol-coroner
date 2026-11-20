@@ -469,3 +469,153 @@ def test_gate_certificate_missing_keys(real_cert_run):
     
     assert result.returncode == 1, f"stdout: {result.stdout}\nstderr: {result.stderr}"
     assert result.stdout.strip() == "Gate: certificate invalid"
+
+
+def test_certificate_matches_bundled_t1_run():
+    """Test that bundled T1 certificate matches its files."""
+    from coroner.gate import certificate_matches_files
+    from coroner.hooks import get_repo_root
+    
+    cert_path = Path("runs/f584d5f35228/certificate.json")
+    assert cert_path.exists(), f"Bundled T1 run not found at {cert_path}"
+    
+    with open(cert_path) as f:
+        cert = json.load(f)
+    
+    repo_root = get_repo_root()
+    
+    # Build scope from certificate fields
+    scope = {
+        "cobol": cert["cobol_file"],
+        "copybooks": cert["copybook_dir"],
+        "java": cert["java_file"],
+        "schema": cert["schema_file"]
+    }
+    
+    assert certificate_matches_files(cert, scope, repo_root), \
+        "Bundled T1 certificate should match its files"
+
+
+def test_certificate_matches_bundled_credit_fees_run():
+    """Test that bundled credit-fees certificate matches its files."""
+    from coroner.gate import certificate_matches_files
+    from coroner.hooks import get_repo_root
+    
+    cert_path = Path("runs/df4d7929ce44/certificate.json")
+    assert cert_path.exists(), f"Bundled credit-fees run not found at {cert_path}"
+    
+    with open(cert_path) as f:
+        cert = json.load(f)
+    
+    repo_root = get_repo_root()
+    
+    # Build scope from certificate fields
+    scope = {
+        "cobol": cert["cobol_file"],
+        "copybooks": cert["copybook_dir"],
+        "java": cert["java_file"],
+        "schema": cert["schema_file"]
+    }
+    
+    assert certificate_matches_files(cert, scope, repo_root), \
+        "Bundled credit-fees certificate should match its files"
+
+
+def test_certificate_no_match_after_copybook_edit(tmp_path):
+    """Test that certificate does not match after a copybook is edited."""
+    from coroner.gate import certificate_matches_files
+    from coroner.hooks import get_repo_root
+    import shutil
+    
+    # Use credit-fees which has real copybooks
+    cert_path = Path("runs/df4d7929ce44/certificate.json")
+    assert cert_path.exists()
+    
+    with open(cert_path) as f:
+        cert = json.load(f)
+    
+    # Copy repository structure to tmp
+    repo_root_real = get_repo_root()
+    tmp_repo = tmp_path / "repo"
+    tmp_repo.mkdir()
+    
+    # Copy the relevant files
+    cobol_src = repo_root_real / "samples/credit-fees"
+    cobol_dst = tmp_repo / "samples/credit-fees"
+    shutil.copytree(cobol_src, cobol_dst)
+    
+    # Build scope from certificate fields
+    scope = {
+        "cobol": cert["cobol_file"],
+        "copybooks": cert["copybook_dir"],
+        "java": cert["java_file"],
+        "schema": cert["schema_file"]
+    }
+    
+    # Should match before edit
+    assert certificate_matches_files(cert, scope, tmp_repo), \
+        "Certificate should match before edit"
+    
+    # Edit one copybook (CONSTANTS.cpy instead of non-existent WORKING-STORAGE.cpy)
+    copybook = tmp_repo / "samples/credit-fees/copybooks/CONSTANTS.cpy"
+    assert copybook.exists()
+    with open(copybook, "a") as f:
+        f.write("\n      * Modified\n")
+    
+    # Should not match after edit
+    assert not certificate_matches_files(cert, scope, tmp_repo), \
+        "Certificate should not match after copybook edit"
+
+
+def test_certificate_matches_with_stray_non_copybook_file(tmp_path):
+    """Test that stray non-copybook files do not affect matching."""
+    from coroner.gate import certificate_matches_files
+    from coroner.hooks import get_repo_root
+    import shutil
+    
+    # Use credit-fees which has real copybooks
+    cert_path = Path("runs/df4d7929ce44/certificate.json")
+    assert cert_path.exists()
+    
+    with open(cert_path) as f:
+        cert = json.load(f)
+    
+    # Copy repository structure to tmp
+    repo_root_real = get_repo_root()
+    tmp_repo = tmp_path / "repo"
+    tmp_repo.mkdir()
+    
+    # Copy the relevant files
+    cobol_src = repo_root_real / "samples/credit-fees"
+    cobol_dst = tmp_repo / "samples/credit-fees"
+    shutil.copytree(cobol_src, cobol_dst)
+    
+    # Build scope from certificate fields
+    scope = {
+        "cobol": cert["cobol_file"],
+        "copybooks": cert["copybook_dir"],
+        "java": cert["java_file"],
+        "schema": cert["schema_file"]
+    }
+    
+    # Should match before adding stray file
+    assert certificate_matches_files(cert, scope, tmp_repo), \
+        "Certificate should match before adding stray file"
+    
+    # Add a stray non-copybook file
+    copybook_dir = tmp_repo / "samples/credit-fees/copybooks"
+    stray_file = copybook_dir / "notes.txt"
+    with open(stray_file, "w") as f:
+        f.write("This is a stray file\n")
+    
+    # Should still match (only *.cpy and *.cbl are hashed)
+    assert certificate_matches_files(cert, scope, tmp_repo), \
+        "Certificate should still match with stray non-copybook file"
+    
+    # Also test with .gitkeep
+    gitkeep = copybook_dir / ".gitkeep"
+    gitkeep.touch()
+    
+    # Should still match
+    assert certificate_matches_files(cert, scope, tmp_repo), \
+        "Certificate should still match with .gitkeep"

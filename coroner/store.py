@@ -56,6 +56,32 @@ def compute_run_id(inputs: dict) -> str:
     return hasher.hexdigest()[:12]
 
 
+def copybook_file_hashes(directory: str) -> dict[str, str]:
+    """
+    Compute hashes for copybook files (*.cpy and *.cbl only).
+    Returns dict mapping filename to SHA-256 hash.
+    
+    This is the canonical copybook hashing rule used by certificates,
+    the gate check and hooks.
+    
+    Args:
+        directory: Path to copybook directory
+        
+    Returns:
+        Dict of {filename: sha256_hash} for *.cpy and *.cbl files, sorted by name
+    """
+    hashes = {}
+    copybook_path = Path(directory)
+    if copybook_path.exists() and copybook_path.is_dir():
+        for pattern in ['*.cpy', '*.cbl']:
+            for cb_file in sorted(copybook_path.glob(pattern)):
+                hasher = hashlib.sha256()
+                with open(cb_file, 'rb') as f:
+                    hasher.update(f.read())
+                hashes[cb_file.name] = hasher.hexdigest()
+    return hashes
+
+
 def collect_inputs(
     cobol_source: str,
     copybook_dir: str,
@@ -103,16 +129,12 @@ def collect_inputs(
     schema_hash = file_sha256(schema_path)
     cases_hash = file_sha256(cases_file)
     
-    # Collect copybook hashes (sorted by name)
-    copybook_hashes = []
-    copybook_path = Path(copybook_dir)
-    if copybook_path.exists() and copybook_path.is_dir():
-        for pattern in ['*.cpy', '*.cbl']:
-            for cb_file in sorted(copybook_path.glob(pattern)):
-                copybook_hashes.append({
-                    "name": cb_file.name,
-                    "sha256": file_sha256(str(cb_file))
-                })
+    # Collect copybook hashes using canonical function
+    copybook_hash_dict = copybook_file_hashes(copybook_dir)
+    copybook_hashes = [
+        {"name": name, "sha256": sha256}
+        for name, sha256 in sorted(copybook_hash_dict.items())
+    ]
     
     # Verify cases file line ending (must be LF, no CR)
     with open(cases_file, 'rb') as f:

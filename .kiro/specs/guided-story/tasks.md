@@ -1,24 +1,27 @@
 # Guided Story Tasks
 
 ## Task 1: Gate check endpoint and logic
-- [ ] BUG FIX in coroner/gate.py: gate_certificate must pass base_dir to replay_certificate (currently drops it); signature becomes gate_certificate(cert_path, scope, base_dir) -> (status, replay, hash_match) with replay_certificate(cert_path, base_dir) call
-- [ ] REFACTOR: extract pure decision function gate_decision(status, replay, hash_match) -> exit_code from run_gate logic, used by both run_gate and the /api/gate-check endpoint
-- [ ] Add POST /api/gate-check route in coroner/ui/app.py (form-encoded, not path parameter)
-- [ ] Validate form field run_id (12 lowercase hex)
-- [ ] Read certificate from CORONER_BASE_DIR/runs/{run_id}/certificate.json (1 MB limit, 413 beyond)
-- [ ] Build scope from certificate: {cobol: cert["cobol_file"], java: cert["java_file"], schema: cert["schema_file"], copybooks: cert["copybook_dir"]}
-- [ ] Call gate_certificate(cert_path, scope, base_dir) to get (status, replay, hash_match)
-- [ ] Call gate_decision(status, replay, hash_match) to get exit code
-- [ ] Run replay with replay_with_timeout (same function as /api/verify, off the event loop, 90 s default timeout)
-- [ ] Return JSON: {status: "allowed" or "blocked", exit_code: 0 or 1, message: "Commit allowed" or "This ZOMBIE migration cannot be committed"}
-- [ ] Rate limit: reuse existing limiter, 1 per 10 seconds per client (same as /api/verify and /api/tamper)
-- [ ] Cache-Control: no-store, no-cache on all responses (success and error)
-- [ ] Test: POST with form data run_id=f584d5f35228 (bundled T1 faulty), assert {status: "blocked", exit_code: 1}
-- [ ] Test: POST with form data run_id=29c15f04407b (bundled T1 correct), assert {status: "allowed", exit_code: 0}
-- [ ] Test: POST with invalid run_id, assert 422
-- [ ] Test: POST with non-existent run_id, assert 404
-- [ ] Test: response has Cache-Control: no-store
-- [ ] Test: run_gate and /api/gate-check give the same exit code on the same certificate (test run_gate and POST /api/gate-check with same inputs, assert identical exit codes)
+- [x] BUG FIX in coroner/gate.py: gate_certificate must pass base_dir to replay_certificate (currently drops it); signature becomes gate_certificate(cert_path, scope, base_dir) -> (status, replay, hash_match) with replay_certificate(cert_path, base_dir) call
+- [x] REFACTOR: extract pure decision function gate_decision(status, replay, hash_match) -> exit_code from run_gate logic, used by both run_gate and the /api/gate-check endpoint; also extract certificate_matches_files(cert, scope, repo_root) -> bool for hash checking
+- [x] Add POST /api/gate-check route in coroner/ui/app.py (form-encoded, not path parameter)
+- [x] Validate form field run_id (12 lowercase hex)
+- [x] Read certificate from CORONER_BASE_DIR/runs/{run_id}/certificate.json (1 MB limit, 413 beyond)
+- [x] Build scope from certificate: {cobol: cert["cobol_file"], java: cert["java_file"], schema: cert["schema_file"], copybooks: cert["copybook_dir"]}
+- [x] Call certificate_matches_files and replay_with_timeout (not gate_certificate, which would replay on the event loop); compute exit_code from gate_decision
+- [x] Run replay with replay_with_timeout (same function as /api/verify, off the event loop, 90 s default timeout)
+- [x] Return JSON: {status: "allowed" or "blocked", exit_code: 0 or 1, message: "Commit allowed" or "This ZOMBIE migration cannot be committed"}
+- [x] Rate limit: reuse existing limiter, 1 per 10 seconds per client (same as /api/verify and /api/tamper)
+- [x] Cache-Control: no-store, no-cache on all responses (success and error)
+- [x] Cache response by certificate SHA-256 for 600 s, so repeated story visits do not start a new replay
+- [x] Test: POST with form data run_id=f584d5f35228 (bundled T1 faulty), assert {status: "blocked", exit_code: 1}
+- [x] Test: POST with form data run_id=29c15f04407b (bundled T1 correct), assert {status: "allowed", exit_code: 0}
+- [x] Test: POST with invalid run_id, assert 422
+- [x] Test: POST with non-existent run_id, assert 404
+- [x] Test: response has Cache-Control: no-store
+- [x] Test: run_gate and /api/gate-check give the same exit code on the same certificate (test run_gate and POST /api/gate-check with same inputs, assert identical exit codes)
+- [x] Test: gate_decision table covering every branch
+- [x] Test: second POST within 600 s returns cached response without replay
+- [x] Test: certificate edited after first call is not served from cache
 
 **Requirements:** 3, 4
 **Done when:** POST /api/gate-check endpoint works, calls real gate logic with base_dir fix, runs replay off the event loop, returns correct status for ZOMBIE and ALIVE runs, rate limited, no-store, tests pass.
