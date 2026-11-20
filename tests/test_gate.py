@@ -368,6 +368,36 @@ def test_github_actions_pinned():
                             f"Action not pinned by 40-char SHA in {wf}: {line}"
 
 
+def test_publish_workflow_safety():
+    """Test that publish-image workflow has required safety constraints."""
+    import yaml
+    
+    workflow_path = ".github/workflows/publish-image.yml"
+    assert os.path.exists(workflow_path), "publish-image.yml not found"
+    
+    with open(workflow_path) as f:
+        workflow = yaml.safe_load(f)
+    
+    # Must trigger only on workflow_dispatch
+    # Note: PyYAML (YAML 1.1) loads 'on' as the boolean True
+    triggers = workflow.get("on", workflow.get(True))
+    assert triggers == {"workflow_dispatch": None}, \
+        f"Expected only workflow_dispatch trigger, got {triggers}"
+    
+    # Must have packages write permission
+    assert "permissions" in workflow, "No permissions defined"
+    perms = workflow["permissions"]
+    assert perms.get("packages") == "write", \
+        f"Expected packages: write, got {perms.get('packages')}"
+    
+    # Read workflow content to check for latest tag
+    with open(workflow_path) as f:
+        content = f.read()
+    
+    # Must not push latest tag
+    assert ":latest" not in content, "Workflow must not push 'latest' tag"
+
+
 def test_jenkinsfile_exists():
     """Test that Jenkinsfile exists and has required content."""
     assert os.path.exists("Jenkinsfile"), "Jenkinsfile not found"

@@ -708,3 +708,9 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Not done here: the GitHub Container Registry image pinned by digest (next), and the first-time tester measurement from a ZIP with no Docker cache.
 - Known issue at this commit, found afterwards by deploy-check (R-108): Verify and Tamper cannot replay the HALF_EVEN demo run (its Java file is generated in /tmp) nor any run made by the engine worker; fixed in the R-108 commit.
 - Kiro balance (2026-11-20, one reading taken after the R-108 calls, none in between): plan 405.95 of 531 used (125.05 left); kiroween2026 1069.32 of 4000 used (2930.68 left).
+
+### R-107 2026-11-20: workflow that publishes the prebuilt image to GitHub Container Registry
+- Owner rule (2026-11-20): testers and the live server use a prebuilt image pinned by digest and never rebuild. Calls p251 (sonnet) and p252 (haiku). .github/workflows/publish-image.yml: workflow_dispatch only, permissions contents read and packages write, checkout pinned by SHA and no other action; docker login with GITHUB_TOKEN, build for linux/amd64 with OCI labels (source, revision, Apache-2.0), tag ghcr.io/yarahmouni/cobol-coroner:sha-<12 hex> and never latest, the CI command inside the built image before the push (a failing image is never published), push, digest written to the job summary.
+- Operator finding: the new safety test read the key `on`, which PyYAML loads as the boolean True (YAML 1.1); fixed.
+- Results (operator): tests/test_gate.py 11 passed in 48.02 s (pinned actions across all workflows, publish workflow trigger, permissions, no latest tag). The first publish run and its digest are recorded in the next entry, with the compose files pinned to it.
+- Kiro balance (2026-11-20, one reading taken after the R-108 calls, none in between): plan 405.95 of 531 used (125.05 left); kiroween2026 1069.32 of 4000 used (2930.68 left).
