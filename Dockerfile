@@ -98,6 +98,9 @@ RUN groupadd -g 1000 coroner && \
 WORKDIR /app
 RUN chown coroner:coroner /app
 
+# Create /data and /exchange directories for volumes (named volumes take ownership from the image)
+RUN mkdir -p /data /exchange && chown coroner:coroner /data /exchange
+
 # Copy application files from clean context
 COPY --chown=coroner:coroner . .
 

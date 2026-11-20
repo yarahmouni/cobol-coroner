@@ -175,21 +175,31 @@
 **Done when:** Rate limits enforced with in-app limiter, 429 with Retry-After, Cache-Control headers set correctly, tests pass.
 
 ## Task 16: Docker Compose file and cloudflared (D-52, D-54)
-- [ ] Create docker-compose.yml: three services (coroner-api, coroner-engine, cloudflared)
-- [ ] Network: coroner-net for api and cloudflared, none for engine (isolated)
-- [ ] Volumes: coroner-data (runs), coroner-samples (read-only), coroner-exchange (job hand-off)
-- [ ] Limits per service: coroner-api (1 CPU, 512 MB, no swap, pids 128), coroner-engine (2 CPUs, 2 GB, no swap, pids 256), cloudflared (0.25 CPU, 128 MB, no swap, pids 32)
-- [ ] Engine hardening: network none, user 1000:1000, cap_drop ALL, no-new-privileges, read_only root, tmpfs /tmp and /app/work
-- [ ] API hardening: user 1000:1000, no-new-privileges, read_only root, tmpfs /tmp
-- [ ] cloudflared: mounts credentials file from ${TUNNEL_CREDENTIALS_FILE} (path in .env, never committed), config from cloudflared-config.yml
-- [ ] Create cloudflared-config.yml: ingress routes coroner.iqoba.com to http://coroner-api:8000, 404 for anything else
-- [ ] Platform: linux/amd64 for all services
-- [ ] Add .env to .gitignore (already present, verify)
-- [ ] Add CI test: grep for patterns matching tunnel credentials (for example ey*, base64 with specific prefix), fail if any tracked file matches
-- [ ] Test: parse docker-compose.yml, assert engine has network: none, user: "1000:1000", cap_drop: [ALL], security_opt: [no-new-privileges:true], read_only: true
+
+**Owner addition (non-developer path):** A tester with only Docker Desktop downloads the repository ZIP and runs `docker compose up`; the UI must open at http://127.0.0.1:8000 and the bundled demo runs must exist at first start.
+
+- [x] Create docker-compose.yml: coroner-api, coroner-engine, and coroner-init services (init generates bundled demo runs at first start: T1 faulty and correct at 2000 cases seed 42, credit-fees correct and HALF_EVEN variant, trap catalog)
+- [x] Owner addition: Init service is idempotent (second start does nothing), runs with network: none
+- [x] Network: none for engine (isolated); coroner-net added in server override for api and cloudflared
+- [x] Volumes: coroner-data (runs, read-only for API, read-write for init), coroner-exchange (job hand-off); samples come from the image (read_only root)
+- [x] Limits per service: coroner-api (1 CPU, 512 MB, pids 128), coroner-engine (2 CPUs, 2 GB, pids 256), cloudflared in server override (0.25 CPU, 128 MB, pids 32)
+- [x] Engine hardening: network none, user 1000:1000, cap_drop ALL, no-new-privileges, read_only root, tmpfs /tmp and /app/work
+- [x] API hardening: user 1000:1000, no-new-privileges, read_only root, tmpfs /tmp
+- [x] Owner addition: API publishes ONLY "127.0.0.1:8000:8000" in docker-compose.yml
+- [x] Create docker-compose.server.yml (override for live server): removes published port from API using !reset tag (Compose v2.24+), adds cloudflared with credentials from ${TUNNEL_CREDENTIALS_FILE}, tunnel ID passed on command line from ${TUNNEL_ID}, sets CORONER_TRUSTED_PROXY to cloudflared's fixed IP (10.5.0.3)
+- [x] cloudflared: user 1000:1000, no-new-privileges, read_only, tmpfs /tmp, mounts credentials file read-only from ${TUNNEL_CREDENTIALS_FILE} (path in .env, never committed), config from cloudflared-config.yml
+- [x] Create cloudflared-config.yml: tunnel ${TUNNEL_ID}, ingress routes coroner.iqoba.com to http://coroner-api:8000, 404 for anything else
+- [x] Platform: linux/amd64 for all services
+- [x] Create .env.example with TUNNEL_CREDENTIALS_FILE and TUNNEL_ID placeholders
+- [x] Verify .env in .gitignore (already present)
+- [x] Add CI test (marker repo): grep for patterns matching tunnel credentials (AccountTag, TunnelSecret, base64 with specific prefix), fail if any tracked file matches; prove it fails on fake credentials and passes on the repository
+- [x] Test: parse docker-compose.yml, assert engine has network: none, user: "1000:1000", cap_drop: [ALL], security_opt: [no-new-privileges:true], read_only: true
+- [x] Test: API resource limits (1 CPU, 512 MB, pids 128), engine resource limits (2 CPUs, 2 GB, pids 256), cloudflared resource limits (0.25 CPU, 128 MB, pids 32)
+- [x] Test: API in docker-compose.yml publishes only 127.0.0.1:8000
+- [x] Test: server override removes published port from API
 
 **Requirements:** 13, 14, 17, 21
-**Done when:** Compose file with three services, limits, hardening, cloudflared config, credentials not in repository, CI test blocks credential leaks, container definition test passes.
+**Done when:** Compose file with init, api and engine services, server override with cloudflared, all limits and hardening, credentials not in repository, CI test blocks credential leaks, all container definition tests pass, tester can run `docker compose up` and open http://127.0.0.1:8000 with bundled demo runs.
 
 ## Task 17: Resource usage measurement under limits (Req 18, owner capacity decision)
 - [ ] Build coroner:live image for linux/amd64 with all dependencies

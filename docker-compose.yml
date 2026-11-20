@@ -1,0 +1,110 @@
+# Docker Compose for COBOL Coroner (local and tester mode)
+#
+# For testers: download the repository ZIP, extract, and run `docker compose up`
+# The UI opens at http://127.0.0.1:8000 with bundled demo runs.
+#
+# The prebuilt GitHub Container Registry image pinned by digest replaces
+# `build: .` in a later task (deployment).
+
+services:
+  # Init service: generates bundled demo runs at first start
+  coroner-init:
+    build:
+      context: .
+      platforms:
+        - linux/amd64
+    image: coroner-local:latest
+    user: "1000:1000"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    network_mode: none
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:exec,mode=1777
+    volumes:
+      - coroner-data:/data
+    environment:
+      - CORONER_BASE_DIR=/data
+    command: bash /app/scripts/init_demo_runs.sh
+    memswap_limit: 2G
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+          pids: 256
+        reservations:
+          cpus: "1"
+          memory: 1G
+      restart_policy:
+        condition: none
+
+  # API service: FastAPI UI and endpoints
+  coroner-api:
+    image: coroner-local:latest
+    pull_policy: never
+    user: "1000:1000"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    ports:
+      - "127.0.0.1:8000:8000"
+    tmpfs:
+      - /tmp:exec,mode=1777
+    volumes:
+      - coroner-data:/data
+      - coroner-exchange:/exchange
+    environment:
+      - CORONER_BASE_DIR=/data
+      - CORONER_EXCHANGE_DIR=/exchange
+      - CORONER_ENGINE_MODE=api
+    command: python3 -m uvicorn coroner.ui.app:app --host 0.0.0.0 --port 8000
+    depends_on:
+      coroner-init:
+        condition: service_completed_successfully
+      coroner-engine:
+        condition: service_started
+    memswap_limit: 512M
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+          pids: 128
+
+  # Engine service: runs COBOL and Java in isolated container
+  coroner-engine:
+    image: coroner-local:latest
+    pull_policy: never
+    user: "1000:1000"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    network_mode: none
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:exec,mode=1777
+    volumes:
+      - coroner-exchange:/exchange
+    environment:
+      - CORONER_EXCHANGE_DIR=/exchange
+      - CORONER_ENGINE_MODE=worker
+      - CORONER_JOB_TIMEOUT=60
+    command: python3 -m coroner.ui.app
+    depends_on:
+      coroner-init:
+        condition: service_started
+    memswap_limit: 2G
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+          pids: 256
+
+volumes:
+  coroner-data:
+  coroner-exchange:

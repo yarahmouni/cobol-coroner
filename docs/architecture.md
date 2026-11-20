@@ -42,8 +42,12 @@ COBOL + copybooks + Java 17 + schema.json
 
 ### Root files
 - `.dockerignore`
+- `.env.example`: example environment variables for Cloudflare tunnel (server only)
 - `.gitattributes`: Git attributes, line endings, byte-exact fixture, GitHub language statistics
 - `.gitignore`
+- `cloudflared-config.yml`: Cloudflare tunnel ingress configuration
+- `docker-compose.server.yml`: Docker Compose override for live server (removes published port, adds cloudflared)
+- `docker-compose.yml`: Docker Compose for local and tester mode (API, engine, init services)
 - `Dockerfile`
 - `Jenkinsfile`: example declarative Jenkins pipeline (Groovy) running the coroner gate in the image; not run by this repository
 - `LICENSE`
@@ -54,9 +58,12 @@ COBOL + copybooks + Java 17 + schema.json
 ### Scripts
 - `scripts/check_cobol_rules.py`
 - `scripts/clean_context.sh`: exports tracked and untracked-not-ignored files to a temporary build context (used by make smoke-ui, so no ignored local file reaches the image)
+- `scripts/check_cobol_rules.py`
+- `scripts/clean_context.sh`: exports tracked and untracked-not-ignored files to a temporary build context (used by make smoke-ui, so no ignored local file reaches the image)
 - `scripts/download_junit.py`
 - `scripts/gen_parity_cases.py`
 - `scripts/gen_rounding_ties.py`
+- `scripts/init_demo_runs.sh`: generates bundled demo runs for Docker Compose first start, checks each exit code against expected (0 ALIVE, 1 ZOMBIE)
 - `scripts/make_screenshots.py`: make screenshots: README screenshots and demo GIF from real runs through the real UI (D-58)
 - `scripts/precommit_guard.py`
 

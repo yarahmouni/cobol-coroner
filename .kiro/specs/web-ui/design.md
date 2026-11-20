@@ -4,6 +4,8 @@
 
 FastAPI application with Jinja2 templates and htmx 2.0.4 for interactive elements. No CDN, no build step. The UI reads run artifacts from CORONER_BASE_DIR (default: repository root).
 
+**Owner addition (non-developer path):** A tester with only Docker Desktop downloads the repository ZIP and runs `docker compose up`; the UI must open at http://127.0.0.1:8000 and the bundled demo runs must exist at first start. The docker-compose.yml includes a coroner-init service (one-shot, runs before the API starts) that generates bundled demo runs if they don't exist: T1 faulty and correct (2000 cases, seed 42), credit-fees correct and HALF_EVEN variant, trap catalog. The docker-compose.server.yml override removes the published port and adds cloudflared.
+
 ## Module structure
 
 ```
@@ -437,13 +439,18 @@ These values are configurable and tested with different values as part of Task 1
 
 File: cloudflared-config.yml (committed, no secrets)
 ```yaml
-tunnel: <TUNNEL_ID>
+# Tunnel ID passed on command line (cloudflared does not expand ${TUNNEL_ID})
 credentials-file: /etc/cloudflared/credentials.json
 
 ingress:
   - hostname: coroner.iqoba.com
     service: http://coroner-api:8000
   - service: http_status:404
+```
+
+docker-compose.server.yml passes tunnel ID from .env:
+```yaml
+command: ["tunnel", "--no-autoupdate", "--config", "/etc/cloudflared/config.yml", "run", "${TUNNEL_ID}"]
 ```
 
 Cache rules (set by app):

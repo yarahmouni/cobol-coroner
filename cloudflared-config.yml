@@ -1,0 +1,11 @@
+# Cloudflare Tunnel configuration
+#
+# The tunnel ID is passed on the command line (interpolated by Compose from .env).
+# Cloudflare does not expand ${TUNNEL_ID} inside this config file.
+
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  - hostname: coroner.iqoba.com
+    service: http://coroner-api:8000
+  - service: http_status:404

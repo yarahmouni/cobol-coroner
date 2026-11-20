@@ -1,0 +1,48 @@
+# Docker Compose override for live server deployment
+#
+# Usage: docker compose -f docker-compose.yml -f docker-compose.server.yml up -d
+#
+# This removes the published port from the API (accessed only through Cloudflare tunnel)
+# and adds the cloudflared service.
+
+services:
+  coroner-api:
+    ports: !reset []
+    environment:
+      - CORONER_TRUSTED_PROXY=10.5.0.3
+    networks:
+      - coroner-net
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.7@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba
+    platform: linux/amd64
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - ${TUNNEL_CREDENTIALS_FILE}:/etc/cloudflared/credentials.json:ro
+      - ./cloudflared-config.yml:/etc/cloudflared/config.yml:ro
+    command: ["tunnel", "--no-autoupdate", "--config", "/etc/cloudflared/config.yml", "run", "${TUNNEL_ID}"]
+    networks:
+      coroner-net:
+        ipv4_address: 10.5.0.3
+    depends_on:
+      - coroner-api
+    memswap_limit: 128M
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+          pids: 32
+
+networks:
+  coroner-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.5.0.0/24
