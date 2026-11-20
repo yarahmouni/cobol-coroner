@@ -1,0 +1,70 @@
+I'll act as a Kiro agent and create an independent Java port of the COBOL T1 program, reading only the allowed inputs.
+[tool] Reading MATCH-MERGE.cob:1
+[tool] status: Completed
+[tool] Reading schema.json:1
+[tool] status: Completed
+[tool] Reading __init__.py:1
+[tool] status: Completed
+Now I'll look at a fixture to understand the exact input/output format:
+[tool] status: Failed
+
+[tool] Finding samples/traps/T1-ebcdic-match-merge/fixtures/*.csv
+[tool] status: Completed
+[tool] Reading branch-ordering.csv:1
+[tool] status: Completed
+[tool] Reading branch-ordering-expected.csv:1
+[tool] status: Completed
+Now I understand the program. Let me write the Java port:
+[tool] Creating MatchMerge.java
+[tool] status: Completed
+Now let me compile it:
+[tool] Running: mkdir -p build/independence && javac -Xlint:all -d build/independence samples/independence/ports/kiro/MatchMerge.java 2>&1
+[tool] status: Completed
+Great! It compiles cleanly. Now let me run the audit:
+[tool] Running: .venv/bin/python -m coroner verify --cobol samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob --copybooks samples/traps/T1-ebcdic-match-merge/copybooks --java samples/independence/ports/k...
+[tool] status: Completed
+Perfect! The audit ran successfully and detected differences. Let me get the full output to capture the complete verdict:
+[tool] Running: .venv/bin/python -m coroner verify --cobol samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob --copybooks samples/traps/T1-ebcdic-match-merge/copybooks --java samples/independence/ports/k...
+[tool] status: Completed
+Now let me create the SOURCE.md file:
+[tool] Creating SOURCE.md
+[tool] status: Completed
+Perfect! Let me verify the files were created correctly:
+[tool] Reading listing kiro
+[tool] status: Completed
+Excellent! I have successfully completed the task. Here's a summary:
+
+## Summary
+
+I acted as a Kiro agent and created an independent Java port of the T1 EBCDIC match-merge COBOL program.
+
+### What I created:
+
+1. **`samples/independence/ports/kiro/MatchMerge.java`** - A faithful Java port (193 lines) that:
+   - Reads CSV input with case IDs, branch codes, and amounts
+   - Sorts transactions by case ID and branch (using ASCII order)
+   - Performs sequential match against a branch table
+   - Outputs subtotals per branch, suspense amounts, and grand totals
+   - Uses BigDecimal for all monetary calculations
+   - Follows standard Java migration practices
+
+2. **`samples/independence/ports/kiro/SOURCE.md`** - Complete documentation including:
+   - Metadata (producer, date, model)
+   - List of allowed input files
+   - Statement that existing ports were NOT read
+   - Compilation status (clean, no fixes needed)
+   - Full audit command and output
+
+### Audit Results:
+
+```
+ZOMBIE: FAIL: business behavior diverged on 682 cases
+Paragraph coverage 6/8
+Branch coverage (Coroner definition) 22/30
+Unreconciled branch exposure: sum 3995184.38, max 2025606.03, 2 branches affected, suspense difference 3995184.38, grand total matches: yes
+Validated under GnuCOBOL 3.x
+Run: runs/a4709d638df5
+Duration: 16.8 s
+```
+
+The ZOMBIE verdict with 682 divergences demonstrates that the Java port, using standard ASCII string comparison, produces different branch subtotals than the COBOL program using EBCDIC collating sequence. This is exactly the trap T1 is designed to detect - the grand total still matches, but branch-level reporting is corrupted.

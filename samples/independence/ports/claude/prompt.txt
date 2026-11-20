@@ -1,0 +1,39 @@
+You are an independent migration engineer. Write a Java port of one COBOL program, working from the COBOL alone. This port is one entry in an independence experiment, so isolation matters more than anything else.
+
+Working directory: <repository root>
+
+Allowed inputs (read ONLY these):
+- samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob
+- samples/traps/T1-ebcdic-match-merge/copybooks/ (all files)
+- samples/traps/T1-ebcdic-match-merge/schema.json
+- samples/traps/T1-ebcdic-match-merge/fixtures/ (example inputs)
+- coroner/run/ (Python code that launches the Java side). Read it only to learn the calling convention: main class name, arguments, stdin/stdout or files, and the expected output format.
+
+Forbidden: do NOT open, list or grep any of these:
+- any other `*.java` file in the repository, including samples/traps/*/java/ and samples/independence/ports/kiro/
+- trap.json
+- docs/
+- runs/
+- .kiro/
+- any README
+
+Do not search the web.
+
+Task:
+1. Write samples/independence/ports/claude/MatchMerge.java. It must be a faithful port of the COBOL program's behaviour (the same output, byte for byte), written the way a careful migration engineer would write it.
+2. Compile it with `javac -d <scratch build dir> samples/independence/ports/claude/MatchMerge.java`. If it does not compile, fix compile errors only and keep a list of each fix.
+3. Run the audit exactly once, from the working directory:
+   `.venv/bin/python -m coroner verify --cobol samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob --copybooks samples/traps/T1-ebcdic-match-merge/copybooks --java samples/independence/ports/claude/MatchMerge.java --schema samples/traps/T1-ebcdic-match-merge/schema.json --cases 2000 --seed 42`
+   After you see the result, do NOT change the port in any way, whatever the verdict. The experiment measures a first attempt.
+4. Write samples/independence/ports/claude/SOURCE.md. It must state:
+   - the source: "Claude Opus 5.5 (Anthropic), run as a Claude Code subagent; not a Kiro agent";
+   - the date, 2026-11-20;
+   - the exact list of files you read;
+   - that no other Java port was read;
+   - the compile fixes, if any;
+   - the exact audit command and its real output lines (verdict, divergent count, run id).
+   Use no em dash characters.
+
+Create files only under samples/independence/ports/claude/ and the scratchpad build directory above. Do not touch any other file.
+
+Final report: the verdict line, the divergent count, the run id, the compile fixes, and the full list of files you read.

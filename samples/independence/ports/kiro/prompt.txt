@@ -1,0 +1,11 @@
+You are in the independence track worktree (this directory). Your job in this round: act as "the Kiro agent" source of an independence proof. Write a Java port of one COBOL program, from the COBOL alone.
+
+Allowed inputs, and ONLY these: samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob, samples/traps/T1-ebcdic-match-merge/copybooks/, samples/traps/T1-ebcdic-match-merge/schema.json (the input and output record layout), samples/traps/T1-ebcdic-match-merge/fixtures/ (example inputs). Do NOT open, grep or list samples/traps/T1-ebcdic-match-merge/java/, trap.json, docs/, runs/, or any other Java file in the repository: the existing ports must not influence yours. To learn how the Java program is called (main class, arguments, stdin/stdout or files), read only coroner/run/ (the code that launches the Java side); quote the function you rely on.
+
+Write samples/independence/ports/kiro/MatchMerge.java: a faithful port of the COBOL behaviour, written as a migration engineer would, preserving the program's exact output format. Compile it with javac into a temporary directory under build/ to make sure it compiles. Then audit it with the real engine and paste the real last lines:
+.venv/bin/python -m coroner verify --cobol samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob --copybooks samples/traps/T1-ebcdic-match-merge/copybooks --java samples/independence/ports/kiro/MatchMerge.java --schema samples/traps/T1-ebcdic-match-merge/schema.json --cases 2000 --seed 42
+Whatever the verdict (ALIVE or ZOMBIE), do NOT change the port after seeing the audit result: the point is to measure what a Kiro agent produces on its first attempt. If it does not compile, you may fix compile errors only, and list each fix.
+
+Also write samples/independence/ports/kiro/SOURCE.md: produced by a Kiro agent (kiro-cli, agent coroner-builder, model claude-sonnet-4.5) on 2026-11-20, the list of input files it was allowed to read, the statement that the existing ports were not read, the compile fixes if any, and the exact audit command with its real output lines (verdict, divergent count, run id).
+
+Do not edit README.md, docs/, coroner/, samples/traps/, or anything outside samples/independence/ (except temporary build output under build/). Do not create files at the repository root. No em dash.
