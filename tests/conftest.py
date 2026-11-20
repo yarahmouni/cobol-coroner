@@ -19,6 +19,24 @@ settings.load_profile("coroner")
 from noskip_plugin import pytest_runtest_makereport  # noqa: F401
 
 
+@pytest.fixture(autouse=True, scope="function")
+def reset_ui_rate_limiter():
+    """Reset UI rate limiter before each test."""
+    import sys
+    
+    # Reset only if the module is already imported
+    mod = sys.modules.get("coroner.ui.app")
+    if mod:
+        mod.reset_rate_limiter()
+    
+    yield
+    
+    # Reset again after test
+    mod = sys.modules.get("coroner.ui.app")
+    if mod:
+        mod.reset_rate_limiter()
+
+
 @pytest.fixture(scope="module")
 def t1_faulty_run(tmp_path_factory):
     """Create a real T1 faulty run at 200 cases for UI tests."""

@@ -559,7 +559,7 @@ def test_run_audit_rate_limit_per_ip(tmp_path, tmp_exchange, monkeypatch):
 
 
 def test_run_audit_cache_control_header(app_with_exchange):
-    """Test that audit endpoints return Cache-Control: no-store."""
+    """Test that audit endpoints return Cache-Control: no-store, no-cache, must-revalidate."""
     # Test /api/run
     response = app_with_exchange.post(
         "/api/run",
@@ -572,14 +572,14 @@ def test_run_audit_cache_control_header(app_with_exchange):
     )
     
     assert response.status_code == 202
-    assert response.headers.get("Cache-Control") == "no-store"
+    assert response.headers.get("Cache-Control") == "no-store, no-cache, must-revalidate"
     
     # Test /api/job/{job_id}/status
     job_id = response.json()["job_id"]
     response = app_with_exchange.get(f"/api/job/{job_id}/status")
     
     assert response.status_code == 200
-    assert response.headers.get("Cache-Control") == "no-store"
+    assert response.headers.get("Cache-Control") == "no-store, no-cache, must-revalidate"
 
 
 def test_run_audit_form_submission(app_with_exchange):

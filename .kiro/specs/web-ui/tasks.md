@@ -164,12 +164,12 @@
 **Done when:** Tamper page and endpoint implemented, works server-side on a copy, original never modified, size limit enforced, tests pass.
 
 ## Task 15: Rate limits and validation tests (D-54)
-- [ ] Implement a small in-app rate limiter (sliding window per key, in memory, thread-safe)
-- [ ] Add rate limiters: global 100/min, per client address 20/min, per endpoint /api/run 5/min per address, /api/verify 1 per 10 seconds
-- [ ] Client address: read CF-Connecting-IP Cloudflare header ONLY when the request arrives from the cloudflared container on the internal network; otherwise the direct peer address from the socket
-- [ ] Return HTTP 429 with Retry-After header when rate limit exceeded
-- [ ] Set Cache-Control headers: static assets "public, max-age=86400", audit endpoints "no-store, no-cache, must-revalidate"
-- [ ] Tests: exceed rate limit (assert 429 with Retry-After), audit response has Cache-Control no-store, static asset response cacheable
+- [x] Implement a small in-app rate limiter (sliding window per key, in memory, thread-safe with threading.Lock)
+- [x] Add rate limiters: global 100/min, per client address 20/min, per endpoint /api/run 5/min per address, /api/verify 1 per 10 seconds per address, /api/tamper 1 per 10 seconds per address
+- [x] Client address: read CF-Connecting-IP Cloudflare header ONLY when the request arrives from the cloudflared container on the internal network; otherwise the direct peer address from the socket
+- [x] Return HTTP 429 with Retry-After header when rate limit exceeded (all paths including queue full and active audit)
+- [x] Set Cache-Control headers: static assets "public, max-age=86400", audit endpoints (/api/run, /api/job/*, /api/verify, /api/tamper) "no-store, no-cache, must-revalidate" on all responses including 422, 413, 429, 404
+- [x] Tests: exceed rate limit (assert 429 with Retry-After), audit response has Cache-Control no-store, static asset response cacheable
 
 **Requirements:** 16, 17, 21
 **Done when:** Rate limits enforced with in-app limiter, 429 with Retry-After, Cache-Control headers set correctly, tests pass.

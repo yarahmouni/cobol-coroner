@@ -164,7 +164,7 @@ def test_verify_button_sends_form_data(alive_run_with_cert, monkeypatch):
     monkeypatch.setenv("CORONER_BASE_DIR", str(base_dir))
     
     # Import app after setting env var
-    from coroner.ui.app import app
+    from coroner.ui.app import app, reset_rate_limiter
     
     # Override BASE_DIR directly
     import coroner.ui.app as app_module
@@ -233,6 +233,9 @@ def test_verify_button_sends_form_data(alive_run_with_cert, monkeypatch):
     with open(copy_cert_file, 'w', encoding='utf-8') as f:
         json.dump(copy_cert_data, f, indent=2, sort_keys=True)
         f.write('\n')
+    
+    # Reset rate limiter before second Verify post (the endpoint has 1 per 10s per IP)
+    reset_rate_limiter()
     
     # POST verify on the forged copy
     forge_response = client.post("/api/verify", data={"run_id": copy_run_id})

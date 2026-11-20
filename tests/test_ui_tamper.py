@@ -97,7 +97,7 @@ def test_tamper_status_change_gives_invalid(t1_faulty_run_with_cert, monkeypatch
     
     assert response.status_code == 200
     assert "Cache-Control" in response.headers
-    assert response.headers["Cache-Control"] == "no-store"
+    assert response.headers["Cache-Control"] == "no-store, no-cache, must-revalidate"
     
     html = response.text
     assert "INVALID" in html

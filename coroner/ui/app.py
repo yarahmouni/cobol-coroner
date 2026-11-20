@@ -27,13 +27,65 @@ async def _send_413(send: Send):
         "status": 413,
         "headers": [
             [b"content-type", b"application/json"],
-            [b"cache-control", b"no-store"],
+            [b"cache-control", b"no-store, no-cache, must-revalidate"],
         ],
     })
     await send({
         "type": "http.response.body",
         "body": b'{"detail":"Request body too large"}',
     })
+
+
+class CacheControlMiddleware:
+    """
+    Pure ASGI middleware that sets Cache-Control headers on all responses.
+    
+    - /api/* responses: no-store, no-cache, must-revalidate (any status)
+    - /static/* responses: public, max-age=86400
+    - Other paths: no Cache-Control header
+    """
+    
+    def __init__(self, app):
+        self.app = app
+    
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        """ASGI callable."""
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        
+        path = scope.get("path", "")
+        
+        # Determine header to add
+        cache_header = None
+        if path.startswith("/api/"):
+            cache_header = b"no-store, no-cache, must-revalidate"
+        elif path.startswith("/static/"):
+            cache_header = b"public, max-age=86400"
+        
+        if cache_header is None:
+            # No cache control needed, pass through
+            return await self.app(scope, receive, send)
+        
+        # Intercept send to add header
+        async def send_with_cache_control(message):
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                
+                # Remove any existing cache-control header (case-insensitive)
+                headers = [
+                    (name, value)
+                    for name, value in headers
+                    if name.lower() != b"cache-control"
+                ]
+                
+                # Add our cache-control header
+                headers.append((b"cache-control", cache_header))
+                
+                message = {**message, "headers": headers}
+            
+            await send(message)
+        
+        return await self.app(scope, receive, send_with_cache_control)
 
 
 class BodySizeLimitMiddleware:
@@ -92,6 +144,9 @@ class BodySizeLimitMiddleware:
 
 
 app = FastAPI(title="COBOL Coroner")
+
+# Add cache control middleware (applies to all responses)
+app.add_middleware(CacheControlMiddleware)
 
 # Add body size limit middleware for /api/* paths
 app.add_middleware(BodySizeLimitMiddleware)
@@ -801,7 +856,7 @@ async def run_page(request: Request, run_id: str):
 
 
 @app.post("/api/verify")
-async def verify_certificate(run_id: str = Form(...)):
+async def verify_certificate(request: Request, run_id: str = Form(...)):
     """
     Verify certificate endpoint.
     
@@ -809,17 +864,48 @@ async def verify_certificate(run_id: str = Form(...)):
     Returns htmx-compatible HTML fragment.
     Accepts application/x-www-form-urlencoded (htmx default).
     """
+    # Get client address
+    client_ip = get_client_address(request)
+    
+    # Rate limiting: /api/verify 1 per 10 seconds per client (configurable for tests)
+    verify_window = int(os.environ.get("CORONER_VERIFY_RATE_WINDOW", "10"))
+    retry_after = check_rate_limit(f"endpoint:/api/verify:ip:{client_ip}", 1, verify_window)
+    if retry_after:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded for verify", "retry_after": retry_after},
+            headers={"Retry-After": str(retry_after)}
+        )
+    
+    # Rate limiting: global 100/min
+    retry_after = check_rate_limit("global", 100, 60)
+    if retry_after:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded", "retry_after": retry_after},
+            headers={"Retry-After": str(retry_after)}
+        )
+    
+    # Rate limiting: per IP 20/min
+    retry_after = check_rate_limit(f"ip:{client_ip}", 20, 60)
+    if retry_after:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded", "retry_after": retry_after},
+            headers={"Retry-After": str(retry_after)}
+        )
+    
     validate_run_id(run_id)
     
     # Check if run directory exists
     run_dir = get_base_dir() / "runs" / run_id
     if not run_dir.exists() or not run_dir.is_dir():
-        raise HTTPException(status_code=404, detail="Run not found")
+        return JSONResponse(status_code=404, content={"detail": "Run not found"})
     
     # Check if certificate exists
     certificate_file = run_dir / "certificate.json"
     if not certificate_file.exists():
-        raise HTTPException(status_code=404, detail="Certificate not found")
+        return JSONResponse(status_code=404, content={"detail": "Certificate not found"})
     
     # Replay certificate
     result = replay_certificate(str(certificate_file))
@@ -897,6 +983,7 @@ async def tamper_form(request: Request, run_id: str):
 
 @app.post("/api/tamper")
 async def tamper_certificate(
+    request: Request,
     run_id: str = Form(...),
     status: str = Form(...),
     cases_total: int = Form(...),
@@ -910,41 +997,72 @@ async def tamper_certificate(
     and returns the validation result. The tampered copy is deleted after replay.
     
     Accepts application/x-www-form-urlencoded (htmx default).
-    Returns Cache-Control: no-store.
+    Returns Cache-Control: no-store, no-cache, must-revalidate (via middleware).
     """
+    # Get client address
+    client_ip = get_client_address(request)
+    
+    # Rate limiting: /api/tamper 1 per 10 seconds per client (same as verify, configurable for tests)
+    tamper_window = int(os.environ.get("CORONER_TAMPER_RATE_WINDOW", "10"))
+    retry_after = check_rate_limit(f"endpoint:/api/tamper:ip:{client_ip}", 1, tamper_window)
+    if retry_after:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded for tamper", "retry_after": retry_after},
+            headers={"Retry-After": str(retry_after)}
+        )
+    
+    # Rate limiting: global 100/min
+    retry_after = check_rate_limit("global", 100, 60)
+    if retry_after:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded", "retry_after": retry_after},
+            headers={"Retry-After": str(retry_after)}
+        )
+    
+    # Rate limiting: per IP 20/min
+    retry_after = check_rate_limit(f"ip:{client_ip}", 20, 60)
+    if retry_after:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded", "retry_after": retry_after},
+            headers={"Retry-After": str(retry_after)}
+        )
+    
     validate_run_id(run_id)
     
     # Validate status
     if status not in ["ALIVE", "ZOMBIE", "ERROR"]:
-        raise HTTPException(status_code=422, detail="status must be ALIVE, ZOMBIE, or ERROR")
+        return JSONResponse(status_code=422, content={"detail": "status must be ALIVE, ZOMBIE, or ERROR"})
     
     # Validate integer bounds
     if not (0 <= cases_total <= 1000000):
-        raise HTTPException(status_code=422, detail="cases_total must be between 0 and 1000000")
+        return JSONResponse(status_code=422, content={"detail": "cases_total must be between 0 and 1000000"})
     if not (0 <= cases_divergent <= 1000000):
-        raise HTTPException(status_code=422, detail="cases_divergent must be between 0 and 1000000")
+        return JSONResponse(status_code=422, content={"detail": "cases_divergent must be between 0 and 1000000"})
     if not (0 <= random_seed <= 1000000):
-        raise HTTPException(status_code=422, detail="random_seed must be between 0 and 1000000")
+        return JSONResponse(status_code=422, content={"detail": "random_seed must be between 0 and 1000000"})
     
     # Check if run directory exists
     run_dir = get_base_dir() / "runs" / run_id
     if not run_dir.exists() or not run_dir.is_dir():
-        raise HTTPException(status_code=404, detail="Run not found")
+        return JSONResponse(status_code=404, content={"detail": "Run not found"})
     
     # Check if certificate exists
     original_cert_path = run_dir / "certificate.json"
     if not original_cert_path.exists():
-        raise HTTPException(status_code=404, detail="Certificate not found")
+        return JSONResponse(status_code=404, content={"detail": "Certificate not found"})
     
     # Size limit check: 1 MB
     if original_cert_path.stat().st_size > 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Certificate too large")
+        return JSONResponse(status_code=413, content={"detail": "Certificate too large"})
     
     # Read original certificate
     try:
         cert_data = json.loads(original_cert_path.read_text())
     except (json.JSONDecodeError, OSError) as e:
-        raise HTTPException(status_code=500, detail=f"Failed to read certificate: {e}")
+        return JSONResponse(status_code=500, content={"detail": f"Failed to read certificate: {e}"})
     
     # Generate random tampered copy filename
     import secrets
@@ -997,9 +1115,7 @@ async def tamper_certificate(
             </div>
             '''
         
-        response = HTMLResponse(content=response_html)
-        response.headers["Cache-Control"] = "no-store"
-        return response
+        return HTMLResponse(content=response_html)
         
     finally:
         # Delete the tampered copy
@@ -1081,15 +1197,24 @@ class RunAuditRequest(BaseModel):
 
 
 # Rate limiting (simple in-app sliding window)
+import threading
+
+
 class RateLimiter:
-    """Thread-safe sliding window rate limiter."""
+    """
+    Thread-safe sliding window rate limiter.
+    
+    Limits are per API process (one uvicorn worker).
+    """
     
     def __init__(self):
         self._windows: Dict[str, list] = {}
+        self._lock = threading.Lock()
     
     def reset(self):
         """Reset all rate limit windows (for tests)."""
-        self._windows.clear()
+        with self._lock:
+            self._windows.clear()
     
     def is_allowed(self, key: str, limit: int, window_seconds: int) -> tuple[bool, int]:
         """
@@ -1097,28 +1222,29 @@ class RateLimiter:
         
         Returns (allowed, retry_after_seconds).
         """
-        now = time.time()
-        
-        # Get or create window for this key
-        if key not in self._windows:
-            self._windows[key] = []
-        
-        window = self._windows[key]
-        
-        # Remove expired timestamps
-        cutoff = now - window_seconds
-        window[:] = [ts for ts in window if ts > cutoff]
-        
-        # Check limit
-        if len(window) >= limit:
-            # Calculate retry-after (time until oldest request expires)
-            oldest = min(window)
-            retry_after = int(oldest + window_seconds - now) + 1
-            return False, retry_after
-        
-        # Allow request
-        window.append(now)
-        return True, 0
+        with self._lock:
+            now = time.time()
+            
+            # Get or create window for this key
+            if key not in self._windows:
+                self._windows[key] = []
+            
+            window = self._windows[key]
+            
+            # Remove expired timestamps
+            cutoff = now - window_seconds
+            window[:] = [ts for ts in window if ts > cutoff]
+            
+            # Check limit
+            if len(window) >= limit:
+                # Calculate retry-after (time until oldest request expires)
+                oldest = min(window)
+                retry_after = int(oldest + window_seconds - now) + 1
+                return False, retry_after
+            
+            # Allow request
+            window.append(now)
+            return True, 0
 
 
 # Global rate limiter
@@ -1440,7 +1566,9 @@ async def run_audit(
     Accepts both JSON and form-encoded data.
     Returns 202 Accepted with job_id (or 200 with run_id if cache hit).
     Returns 413 if body size exceeds 16 KB (enforced by middleware).
+    Returns 422 if validation fails.
     Returns 429 if queue is full or IP has active audit.
+    All responses include Cache-Control: no-store, no-cache, must-revalidate.
     """
     # Parse and validate request (JSON or form)
     if sample is None:
@@ -1449,7 +1577,7 @@ async def run_audit(
             body = await request.json()
             audit_request = RunAuditRequest(**body)
         except Exception as e:
-            raise HTTPException(status_code=422, detail=str(e))
+            return JSONResponse(status_code=422, content={"detail": str(e)})
     else:
         # Form request
         try:
@@ -1460,7 +1588,7 @@ async def run_audit(
                 cases=cases
             )
         except Exception as e:
-            raise HTTPException(status_code=422, detail=str(e))
+            return JSONResponse(status_code=422, content={"detail": str(e)})
     
     # Get client address
     client_ip = get_client_address(request)
@@ -1471,7 +1599,7 @@ async def run_audit(
         return JSONResponse(
             status_code=429,
             content={"detail": "Rate limit exceeded", "retry_after": retry_after},
-            headers={"Retry-After": str(retry_after), "Cache-Control": "no-store"}
+            headers={"Retry-After": str(retry_after)}
         )
     
     # Rate limiting: per IP 20/min
@@ -1480,7 +1608,7 @@ async def run_audit(
         return JSONResponse(
             status_code=429,
             content={"detail": "Rate limit exceeded", "retry_after": retry_after},
-            headers={"Retry-After": str(retry_after), "Cache-Control": "no-store"}
+            headers={"Retry-After": str(retry_after)}
         )
     
     # Rate limiting: per endpoint /api/run 5/min per IP
@@ -1489,7 +1617,7 @@ async def run_audit(
         return JSONResponse(
             status_code=429,
             content={"detail": "Rate limit exceeded for this endpoint", "retry_after": retry_after},
-            headers={"Retry-After": str(retry_after), "Cache-Control": "no-store"}
+            headers={"Retry-After": str(retry_after)}
         )
     
     # Check if IP has an active audit
@@ -1497,7 +1625,7 @@ async def run_audit(
         return JSONResponse(
             status_code=429,
             content={"detail": "One audit per client at a time", "retry_after": 10},
-            headers={"Retry-After": "10", "Cache-Control": "no-store"}
+            headers={"Retry-After": "10"}
         )
     
     # Check queue length (default max 3)
@@ -1506,7 +1634,7 @@ async def run_audit(
         return JSONResponse(
             status_code=429,
             content={"detail": "Queue full, try again later", "retry_after": 30},
-            headers={"Retry-After": "30", "Cache-Control": "no-store"}
+            headers={"Retry-After": "30"}
         )
     
     # Check if run already exists (cache hit)
@@ -1521,8 +1649,7 @@ async def run_audit(
         # Cache hit, return existing run
         return JSONResponse(
             status_code=200,
-            content={"run_id": cached_run_id, "cached": True},
-            headers={"Cache-Control": "no-store"}
+            content={"run_id": cached_run_id, "cached": True}
         )
     
     # Create job
@@ -1563,7 +1690,7 @@ async def run_audit(
     return JSONResponse(
         status_code=202,
         content={"job_id": job_id},
-        headers={"Location": f"/api/job/{job_id}/status", "Cache-Control": "no-store"}
+        headers={"Location": f"/api/job/{job_id}/status"}
     )
 
 
@@ -1574,45 +1701,46 @@ async def job_status(job_id: str):
     
     Returns {status: queued|running|done|error, run_id: ..., verdict: ..., cases_divergent: ..., cases_total: ...}
     When done, also returns verdict, cases_divergent and cases_total from verdict.json.
+    All responses include Cache-Control: no-store, no-cache, must-revalidate (via middleware).
     """
     # Validate job_id
     from coroner.engine_worker import validate_job_id
     
     if not validate_job_id(job_id):
-        raise HTTPException(status_code=404, detail="Invalid job_id")
+        return JSONResponse(status_code=404, content={"detail": "Invalid job_id"})
     
     # Check job directory
     exchange_dir = get_exchange_dir()
     job_dir = exchange_dir / "jobs" / job_id
     
     if not job_dir.exists():
-        raise HTTPException(status_code=404, detail="Job not found")
+        return JSONResponse(status_code=404, content={"detail": "Job not found"})
     
     # Read status
     status_file = job_dir / "status.json"
     if not status_file.exists():
-        raise HTTPException(status_code=404, detail="Status not found")
+        return JSONResponse(status_code=404, content={"detail": "Status not found"})
     
     try:
         status_data = json.loads(status_file.read_text())
     except (json.JSONDecodeError, OSError) as e:
-        raise HTTPException(status_code=500, detail=f"Failed to read status: {e}")
+        return JSONResponse(status_code=500, content={"detail": f"Failed to read status: {e}"})
     
     status = status_data.get("status")
     run_id = status_data.get("run_id")
     
-    response = {
+    response_content = {
         "status": status,
     }
     
     if run_id:
-        response["run_id"] = run_id
+        response_content["run_id"] = run_id
     
     # If status is error, include reason
     if status == "error":
         reason = status_data.get("reason")
         if reason:
-            response["reason"] = reason
+            response_content["reason"] = reason
     
     # If status is done, copy result to CORONER_BASE_DIR and clean up job
     if status == "done" and run_id:
@@ -1640,11 +1768,11 @@ async def job_status(job_id: str):
         if verdict_file.exists():
             try:
                 verdict_data = json.loads(verdict_file.read_text())
-                response["verdict"] = verdict_data.get("status")
+                response_content["verdict"] = verdict_data.get("status")
                 # For ZOMBIE, also include divergence counts
                 if verdict_data.get("status") == "ZOMBIE":
-                    response["cases_divergent"] = verdict_data.get("cases_divergent")
-                    response["cases_total"] = verdict_data.get("cases_total")
+                    response_content["cases_divergent"] = verdict_data.get("cases_divergent")
+                    response_content["cases_total"] = verdict_data.get("cases_total")
             except (json.JSONDecodeError, OSError):
                 pass
         
@@ -1667,10 +1795,7 @@ async def job_status(job_id: str):
         import shutil
         shutil.rmtree(job_dir)
     
-    return JSONResponse(
-        content=response,
-        headers={"Cache-Control": "no-store"}
-    )
+    return JSONResponse(content=response_content)
 
 
 def main():

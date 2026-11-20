@@ -405,13 +405,18 @@ class TamperRequest(BaseModel):
 
 ### Rate limiting
 
-A small in-app limiter (sliding window per key, in memory, thread-safe):
+A small in-app limiter (sliding window per key, in memory, thread-safe with threading.Lock):
 - Global: 100 requests per minute
 - Per client address: 20 requests per minute
 - Per endpoint /api/run: 5 requests per minute per address
-- Per endpoint /api/verify: 1 request per 10 seconds (one at a time)
+- Per endpoint /api/verify: 1 request per 10 seconds per address
+- Per endpoint /api/tamper: 1 request per 10 seconds per address (same as verify, separate key)
+
+All 429 responses include Retry-After header in whole seconds.
 
 Client address: read from CF-Connecting-IP Cloudflare header ONLY when the request arrives from the cloudflared container on the internal network; otherwise the direct peer address from the socket.
+
+Limits are per API process (one uvicorn worker in the deployment).
 
 ### Configuration defaults
 
