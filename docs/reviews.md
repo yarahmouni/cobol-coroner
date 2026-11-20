@@ -754,6 +754,13 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Results (operator): `run_table.py --image coroner-local:latest` in 35.9 s, the table above; tests/test_independence.py 4 passed in 23.63 s.
 - Kiro balance (2026-11-21): plan 405.95 of 531 used (125.05 left); kiroween2026 1318.57 of 4000 used (2681.43 left).
 
+### R-113 2026-11-21: community files (brief v3 item E, first part)
+- Calls p282, p286 (sonnet), p290, p303 (haiku), docs track. SECURITY.md: reports through GitHub private vulnerability reporting (direct link to security/advisories/new; enabled by the owner on 2026-11-20, API check enabled true), never a public issue; then the live demo controls, each quoted from the code or compose files (container limits, sandbox, request validation, rate limits, trusted proxy, Cache-Control, certificate replay timeout and process-group kill). CONTRIBUTING.md (setup, suites, no-skip rule, hooks and gate, specs, expected outputs only from COBOL runs), CODE_OF_CONDUCT.md (a short original text, not the Contributor Covenant), THIRD_PARTY_NOTICES.md (every pinned component with its licence or "see upstream").
+- Operator findings, removed: "Cloudflare WAF and bot protection enabled" (nothing in the repository configures or proves it), "Pydantic strict mode" (the code uses extra = "forbid"), "No pickle, no unsafe YAML, strict certificate schema" (replaced by "Replay recomputes every recorded file hash before running", checked in coroner/certificate.py replay_certificate), "We will respond as soon as possible". Checked against the code: job timeout 60 s, seed 0 to 1000000, cases 10 to 2000, extra = "forbid", bundled runs excluded from the visitor quota; htmx 2.0.4 matches the version string inside the vendored file. Dependabot alerts (owner setting) are not mentioned: the operator's token gets 404 from the API and cannot confirm them.
+- The pre-commit guard rejected the first commit (new root files not listed in docs/architecture.md); they are listed now.
+- Not yet in SECURITY.md: the /api/gate-check limits (that endpoint is not on main yet; added when it lands).
+- Kiro balance (2026-11-21): plan 405.95 of 531 used (125.05 left); kiroween2026 1318.57 of 4000 used (2681.43 left).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.

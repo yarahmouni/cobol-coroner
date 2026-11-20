@@ -45,6 +45,8 @@ COBOL + copybooks + Java 17 + schema.json
 - `.env.example`: example environment variables for Cloudflare tunnel (server only)
 - `.gitattributes`: Git attributes, line endings, byte-exact fixture, GitHub language statistics
 - `.gitignore`
+- `CODE_OF_CONDUCT.md`
+- `CONTRIBUTING.md`
 - `cloudflared-config.yml`: Cloudflare tunnel ingress configuration
 - `docker-compose.server.yml`: Docker Compose override for live server (removes published port, adds cloudflared)
 - `docker-compose.yml`: Docker Compose for local and tester mode (API, engine, init services)
@@ -53,6 +55,8 @@ COBOL + copybooks + Java 17 + schema.json
 - `LICENSE`
 - `Makefile`
 - `README.md`
+- `SECURITY.md`: how to report a vulnerability (GitHub private vulnerability reporting) and the live demo security controls
+- `THIRD_PARTY_NOTICES.md`
 - `pyproject.toml`
 
 ### Scripts
