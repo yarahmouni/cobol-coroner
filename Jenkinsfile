@@ -15,7 +15,7 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        docker run --platform linux/amd64 \
+                        docker run --init --platform linux/amd64 \
                             --name coroner-gate-${BUILD_NUMBER} \
                             -e CORONER_BASE_DIR=/tmp/coroner-runs \
                             coroner:ci \

@@ -19,7 +19,7 @@ jobs:
       
       - name: Run gate (correct Java)
         run: |
-          docker run --platform linux/amd64 --rm \
+          docker run --init --platform linux/amd64 --rm \
             -e CORONER_BASE_DIR=/tmp/coroner-runs \
             coroner:ci \
             python3 -m coroner gate
@@ -38,7 +38,7 @@ jobs:
       - name: Generate HALF_EVEN variant and run gate
         run: |
           set +e
-          output=$(docker run --platform linux/amd64 --rm \
+          output=$(docker run --init --platform linux/amd64 --rm \
             -e CORONER_BASE_DIR=/tmp/coroner-runs \
             coroner:ci \
             sh -c "python3 -m coroner.catalog.legacy_variant samples/credit-fees/java/CreditFees.java /tmp/CreditFees.java && \

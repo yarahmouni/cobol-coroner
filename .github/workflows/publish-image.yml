@@ -30,7 +30,7 @@ jobs:
       
       - name: Run tests in image
         run: |
-          docker run --rm \
+          docker run --init --rm \
             -e CORONER_NO_SKIP=1 \
             -e PYTHON=python3 \
             ghcr.io/yarahmouni/cobol-coroner:sha-${GITHUB_SHA::12} \

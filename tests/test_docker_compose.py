@@ -798,3 +798,49 @@ def _check_no_duplicate_test_names():
 def test_no_duplicate_test_names():
     """Module has no duplicate test function names."""
     _check_no_duplicate_test_names()
+
+
+def test_all_services_have_init():
+    """All three services have init: true to prevent zombie processes."""
+    with open("docker-compose.yml") as f:
+        config = yaml.safe_load(f)
+    
+    services = config["services"]
+    
+    # Check all three services have init: true
+    for service_name in ["coroner-init", "coroner-api", "coroner-engine"]:
+        service = services[service_name]
+        assert service.get("init") is True, (
+            f"Service {service_name} must have init: true to reap zombie processes"
+        )
+
+
+@pytest.mark.repo
+def test_workflows_use_docker_init():
+    """All docker run commands of the coroner image have --init flag."""
+    workflows_dir = Path(".github/workflows")
+    
+    # Files to check
+    workflow_files = [
+        "test.yml",
+        "publish-image.yml",
+        "coroner-gate.yml",
+    ]
+    
+    for workflow_file in workflow_files:
+        path = workflows_dir / workflow_file
+        with open(path) as f:
+            content = f.read()
+        
+        # Find all docker run lines
+        import re
+        docker_run_pattern = re.compile(r'docker\s+run\s+.*?coroner[:\s]', re.MULTILINE | re.DOTALL)
+        
+        for match in docker_run_pattern.finditer(content):
+            docker_run_line = match.group(0)
+            # Check if this is a coroner image run
+            if "coroner:ci" in docker_run_line or "cobol-coroner" in docker_run_line:
+                assert "--init" in docker_run_line, (
+                    f"docker run in {workflow_file} missing --init flag:\n"
+                    f"{docker_run_line[:200]}"
+                )

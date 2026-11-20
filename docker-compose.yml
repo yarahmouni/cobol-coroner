@@ -14,6 +14,7 @@ services:
       platforms:
         - linux/amd64
     image: coroner-local:latest
+    init: true
     user: "1000:1000"
     security_opt:
       - no-new-privileges:true
@@ -45,6 +46,7 @@ services:
   coroner-api:
     image: coroner-local:latest
     pull_policy: never
+    init: true
     user: "1000:1000"
     security_opt:
       - no-new-privileges:true
@@ -78,6 +80,7 @@ services:
   coroner-engine:
     image: coroner-local:latest
     pull_policy: never
+    init: true
     user: "1000:1000"
     security_opt:
       - no-new-privileges:true

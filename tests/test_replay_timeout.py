@@ -110,6 +110,65 @@ def test_cli_json_output(alive_run_2000_cases):
     assert output["cases_divergent"] == direct_result.cases_divergent
 
 
+def group_members(pgid):
+    """Return list of (pid, state) for all members of process group."""
+    members = []
+    import platform
+    import subprocess
+    
+    if platform.system() == "Linux":
+        # On Linux: read /proc/<pid>/stat for state (third field)
+        proc_dir = Path("/proc")
+        try:
+            for entry in proc_dir.iterdir():
+                if not entry.name.isdigit():
+                    continue
+                pid = int(entry.name)
+                stat_file = entry / "stat"
+                if stat_file.exists():
+                    try:
+                        stat_text = stat_file.read_text()
+                        # Format: pid (comm) state ...
+                        # Extract state (third field)
+                        parts = stat_text.split(')')
+                        if len(parts) > 1:
+                            fields = parts[1].strip().split()
+                            if len(fields) >= 3:
+                                state = fields[0]
+                                proc_pgid = int(fields[2])
+                                if proc_pgid == pgid:
+                                    members.append((pid, state))
+                    except (FileNotFoundError, ValueError, IndexError):
+                        pass
+        except (FileNotFoundError, PermissionError):
+            pass
+    else:
+        # On macOS and other systems: use ps -A
+        try:
+            ps_result = subprocess.run(
+                ["ps", "-A", "-o", "pid=,pgid=,stat="],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            if ps_result.returncode == 0:
+                for line in ps_result.stdout.strip().split('\n'):
+                    parts = line.strip().split()
+                    if len(parts) >= 3:
+                        try:
+                            pid = int(parts[0])
+                            proc_pgid = int(parts[1])
+                            state = parts[2]
+                            if proc_pgid == pgid:
+                                members.append((pid, state))
+                        except ValueError:
+                            pass
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+    
+    return members
+
+
 def test_replay_timeout_kills_process_group(alive_run_2000_cases, monkeypatch):
     """Test replay timeout kills process group and returns within timeout + 10s."""
     run_id, base_dir = alive_run_2000_cases
@@ -142,14 +201,25 @@ def test_replay_timeout_kills_process_group(alive_run_2000_cases, monkeypatch):
     pgid = get_last_replay_pgid()
     assert pgid is not None
     
-    # Verify the process group is gone
-    try:
-        os.killpg(pgid, 0)
-        # If we get here, the process group still exists
-        pytest.fail(f"Process group {pgid} still exists after timeout")
-    except ProcessLookupError:
-        # Expected: process group was killed
-        pass
+    # Right after timeout: every member should be zombie (state starts with Z)
+    members = group_members(pgid)
+    for pid, state in members:
+        assert state.startswith("Z"), f"Process {pid} in group {pgid} is in state {state}, expected zombie"
+    
+    # Poll for up to 5 seconds until the process group is empty
+    max_wait = 5.0
+    poll_start = time.time()
+    
+    while time.time() - poll_start < max_wait:
+        members = group_members(pgid)
+        if not members:
+            # Process group is empty, success
+            return
+        time.sleep(0.1)
+    
+    # If we get here after 5 seconds, the group still has members
+    members = group_members(pgid)
+    pytest.fail(f"Process group {pgid} still exists after {max_wait}s. Remaining: {members}")
 
 
 @pytest.mark.slow

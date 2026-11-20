@@ -18,7 +18,7 @@ jobs:
         run: docker build --platform linux/amd64 -t coroner:ci .
       
       - name: Run tests in image
-        run: docker run --rm --platform linux/amd64 -e CORONER_NO_SKIP=1 -e PYTHON=python3 coroner:ci python3 -m pytest -q -rs -p no:cacheprovider -m 'not slow and not repo'
+        run: docker run --init --rm --platform linux/amd64 -e CORONER_NO_SKIP=1 -e PYTHON=python3 coroner:ci python3 -m pytest -q -rs -p no:cacheprovider -m 'not slow and not repo'
       
       - name: Setup Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0

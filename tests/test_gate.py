@@ -407,6 +407,18 @@ def test_jenkinsfile_exists():
     
     assert "pipeline {" in content, "Jenkinsfile does not contain 'pipeline {'"
     assert "junit" in content, "Jenkinsfile does not contain 'junit'"
+    
+    # Check that docker run has --init
+    if "docker run" in content:
+        # Find docker run lines
+        docker_run_lines = [line for line in content.splitlines() if "docker run" in line]
+        assert len(docker_run_lines) > 0, "Jenkinsfile has 'docker run' but no matching lines"
+        
+        for line in docker_run_lines:
+            if "coroner:ci" in line or "coroner" in line:
+                assert "--init" in line, (
+                    f"docker run in Jenkinsfile missing --init flag: {line}"
+                )
 
 
 def test_gate_certificate_real(real_cert_run):
