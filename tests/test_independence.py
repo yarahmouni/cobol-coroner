@@ -1,6 +1,7 @@
 """Tests for the independence track table generation."""
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -17,32 +18,56 @@ def repo_root():
 
 def test_parse_certificate(tmp_path, repo_root):
     """Test that run_table.py can parse a real certificate."""
-    # Copy an existing run to tmp_path
-    src_run = repo_root / "runs" / "0d1e698359fb"
-    if not src_run.exists():
-        pytest.skip("Run 0d1e698359fb not found")
+    # Run the engine once in tmp_path to generate a certificate
+    env = {**os.environ, "CORONER_BASE_DIR": str(tmp_path)}
     
-    tmp_runs = tmp_path / "runs"
-    tmp_runs.mkdir()
-    dest_run = tmp_runs / "0d1e698359fb"
-    shutil.copytree(src_run, dest_run)
+    cobol = repo_root / "samples" / "traps" / "T1-ebcdic-match-merge" / "MATCH-MERGE.cob"
+    copybooks = repo_root / "samples" / "traps" / "T1-ebcdic-match-merge" / "copybooks"
+    java = repo_root / "samples" / "independence" / "ports" / "claude" / "MatchMerge.java"
+    schema = repo_root / "samples" / "traps" / "T1-ebcdic-match-merge" / "schema.json"
+    
+    result = subprocess.run(
+        [
+            sys.executable, "-m", "coroner", "verify",
+            "--cobol", str(cobol),
+            "--copybooks", str(copybooks),
+            "--java", str(java),
+            "--schema", str(schema),
+            "--cases", "50",
+            "--seed", "42",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    
+    assert result.returncode in (0, 1), f"Verify failed: {result.stderr}"
+    
+    # Extract run id from output
+    run_id = None
+    for line in result.stdout.splitlines():
+        if line.startswith("Run: runs/"):
+            run_id = line.split("/")[1]
+            break
+    
+    assert run_id is not None, "Run id not found in output"
     
     # Read certificate
-    cert_file = dest_run / "certificate.json"
+    cert_file = tmp_path / "runs" / run_id / "certificate.json"
     assert cert_file.exists()
     
     with open(cert_file, "r", encoding="utf-8") as f:
         cert = json.load(f)
     
-    # Check required fields
+    # Check required fields against what we passed
     assert cert["status"] in ("ALIVE", "ZOMBIE")
     assert "cases_divergent" in cert
     assert "cases_total" in cert
-    assert cert["cases_total"] == 2000
+    assert cert["cases_total"] == 50
     assert cert["random_seed"] == 42
     
     # Read branch reconciliation
-    recon_file = dest_run / "branch_reconciliation.json"
+    recon_file = tmp_path / "runs" / run_id / "branch_reconciliation.json"
     assert recon_file.exists()
     
     with open(recon_file, "r", encoding="utf-8") as f:
@@ -211,8 +236,7 @@ def test_same_file_detection(tmp_path, repo_root):
         
         # Test 1: A port equal to T1 faulty should match that path
         faulty_port = repo_root / "samples" / "traps" / "T1-ebcdic-match-merge" / "java" / "faulty" / "MatchMerge.java"
-        if not faulty_port.exists():
-            pytest.skip("Faulty port not found")
+        assert faulty_port.exists(), "Faulty port not found"
         
         temp_java = tmp_path / "MatchMerge.java"
         shutil.copy(faulty_port, temp_java)
@@ -222,8 +246,7 @@ def test_same_file_detection(tmp_path, repo_root):
         
         # Test 2: A port equal only to a file under samples/independence/ gives "no"
         independence_port = repo_root / "samples" / "independence" / "ports" / "kiro" / "MatchMerge.java"
-        if not independence_port.exists():
-            pytest.skip("Kiro port not found")
+        assert independence_port.exists(), "Kiro port not found"
         
         temp_java2 = tmp_path / "MatchMerge2.java"
         shutil.copy(independence_port, temp_java2)
