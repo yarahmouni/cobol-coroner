@@ -66,7 +66,9 @@ COBOL + copybooks + Java 17 + schema.json
 - `scripts/gen_rounding_ties.py`
 - `scripts/init_demo_runs.sh`: generates bundled demo runs for Docker Compose first start, checks each exit code against expected (0 ALIVE, 1 ZOMBIE)
 - `scripts/make_screenshots.py`: make screenshots: README screenshots and demo GIF from real runs through the real UI (D-58)
+- `scripts/make_srt.py`: builds the video subtitles (.srt) from the timed script table in docs/video-plan.md
 - `scripts/precommit_guard.py`
+- `scripts/record_demo.py`: records one video per scene of docs/video-plan.md with Playwright into ~/dev/lazarus-recordings, refuses when less than 5 GB would remain free
 
 ## Security
 - Container: no network, non-root user, read-only filesystem, CPU, memory and time limits.
