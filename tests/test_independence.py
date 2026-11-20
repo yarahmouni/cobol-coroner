@@ -143,13 +143,17 @@ def test_run_table_end_to_end(tmp_path, repo_root):
     with open(table_file, "r", encoding="utf-8") as f:
         table_content = f.read()
     
+    # Check that environment line is present
+    assert "Environment:" in table_content
+    
     # Parse the table and verify against certificates
     lines = table_content.strip().split("\n")
     
     # Find the data rows (skip header and separator)
     data_rows = []
     for line in lines:
-        if line.startswith("| claude") or line.startswith("| kiro") or line.startswith("| hand-written"):
+        if (line.startswith("| Kiro") or line.startswith("| Claude") or 
+            line.startswith("| hand-written")):
             data_rows.append(line)
     
     assert len(data_rows) >= 2, "Should have at least claude and kiro rows"
@@ -157,23 +161,25 @@ def test_run_table_end_to_end(tmp_path, repo_root):
     # Check each port against its certificate
     for row in data_rows:
         parts = [p.strip() for p in row.split("|")]
-        # Format: | port | source | verdict | divergent cases | run_id | java_sha256 | exposure |
-        port = parts[1]
+        # Format: | label | source | verdict | divergent cases | run_id | java_sha256 | exposure | same_file |
+        label = parts[1]
         verdict = parts[3]
         cases = parts[4]
         run_id = parts[5]
+        same_file = parts[8]
         
-        if port == "hand-written":
+        if "hand-written" in label:
             # Hand-written port should be pending
             assert verdict == "pending"
             assert cases == "pending"
             assert run_id == "pending"
+            assert same_file == "pending"
             continue
         
         # For real ports, verify against certificate
         if run_id != "pending":
             cert_file = runs_dir / run_id / "certificate.json"
-            assert cert_file.exists(), f"Certificate not found for {port}: {run_id}"
+            assert cert_file.exists(), f"Certificate not found for {label}: {run_id}"
             
             with open(cert_file, "r", encoding="utf-8") as f:
                 cert = json.load(f)
@@ -190,3 +196,46 @@ def test_run_table_end_to_end(tmp_path, repo_root):
                 assert cert["cases_total"] == total
                 # Should be 200 cases since we passed --cases 200
                 assert total == 200
+            
+            # Verify same_file column
+            assert same_file in ("no", "samples/traps/T1-ebcdic-match-merge/java/faulty/MatchMerge.java",
+                                "samples/traps/T1-ebcdic-match-merge/java/correct/MatchMerge.java")
+
+
+def test_same_file_detection(tmp_path, repo_root):
+    """Test that same_file detection works correctly and excludes samples/independence/."""
+    # Import the function
+    sys.path.insert(0, str(repo_root / "samples" / "independence"))
+    try:
+        from run_table import find_matching_repository_file, compute_full_sha256
+        
+        # Test 1: A port equal to T1 faulty should match that path
+        faulty_port = repo_root / "samples" / "traps" / "T1-ebcdic-match-merge" / "java" / "faulty" / "MatchMerge.java"
+        if not faulty_port.exists():
+            pytest.skip("Faulty port not found")
+        
+        temp_java = tmp_path / "MatchMerge.java"
+        shutil.copy(faulty_port, temp_java)
+        
+        result = find_matching_repository_file(temp_java, repo_root)
+        assert result == "samples/traps/T1-ebcdic-match-merge/java/faulty/MatchMerge.java"
+        
+        # Test 2: A port equal only to a file under samples/independence/ gives "no"
+        independence_port = repo_root / "samples" / "independence" / "ports" / "kiro" / "MatchMerge.java"
+        if not independence_port.exists():
+            pytest.skip("Kiro port not found")
+        
+        temp_java2 = tmp_path / "MatchMerge2.java"
+        shutil.copy(independence_port, temp_java2)
+        
+        result = find_matching_repository_file(temp_java2, repo_root)
+        assert result == "no", "Port equal to independence/kiro should give 'no'"
+        
+        # Test 3: Modified file should not match
+        with open(temp_java, "a", encoding="utf-8") as f:
+            f.write("\n// Modified\n")
+        
+        result = find_matching_repository_file(temp_java, repo_root)
+        assert result == "no"
+    finally:
+        sys.path.pop(0)

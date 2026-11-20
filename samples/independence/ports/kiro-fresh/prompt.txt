@@ -1,0 +1,8 @@
+You are a migration engineer. Port one COBOL batch program to Java, from the COBOL alone.
+
+Read ONLY these files: case1-input/MATCH-MERGE.cob, case1-input/copybooks/ (may be empty), case1-input/schema.json (record layouts), case1-input/fixtures/input-example.csv and case1-input/fixtures/output-example.csv (one example input and the output the COBOL program produced for it), and coroner/run/__init__.py only to learn how the Java program is launched (class name, environment variables for the input and output files). Do not open, list or search any other file or directory: no other Java file anywhere, no tests/, no samples/, no docs, no other part of coroner/.
+
+Write port/MatchMerge.java: a faithful port of the program's behaviour, preserving its exact output format. Compile it with: javac -d build/kiro-fresh port/MatchMerge.java
+If it does not compile, fix compile errors only and list each fix. Do not run any audit or comparison tool; the operator audits it afterwards. Do not change the port after compiling.
+
+Then write port/SOURCE.md: "- **Producer**: Kiro agent (kiro-cli, agent coroner-builder, model claude-sonnet-4.5), fresh session", the date 2026-11-20, the exact list of files you read, the compile command and its result, the compile fixes if any. No em dash. Create files only under port/ and build/kiro-fresh/.

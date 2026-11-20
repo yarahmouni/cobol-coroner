@@ -10,10 +10,20 @@ Writes samples/independence/TABLE.md.
 import argparse
 import hashlib
 import json
+import platform
 import re
 import subprocess
 import sys
 from pathlib import Path
+
+
+# Port name to label mapping
+PORT_LABELS = {
+    "kiro": "Kiro agent, session 1 (rules in prompt, full repository readable)",
+    "kiro-fresh": "Kiro agent, fresh isolated session",
+    "claude": "Claude Opus 5.5",
+    "hand-written": "hand-written by the author: pending",
+}
 
 
 def compute_sha256(file_path: Path) -> str:
@@ -23,6 +33,112 @@ def compute_sha256(file_path: Path) -> str:
         while chunk := f.read(8192):
             sha256.update(chunk)
     return sha256.hexdigest()[:12]
+
+
+def compute_full_sha256(file_path: Path) -> str:
+    """Compute full SHA-256 of a file."""
+    sha256 = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        while chunk := f.read(8192):
+            sha256.update(chunk)
+    return sha256.hexdigest()
+
+
+def get_tracked_java_files(repo_root: Path) -> dict[str, str]:
+    """
+    Get all tracked .java files under samples/, excluding samples/independence/.
+    
+    Returns dict: path relative to repo root -> full SHA-256 hex.
+    """
+    result = subprocess.run(
+        ["git", "ls-files", "samples/**/*.java"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+    )
+    
+    if result.returncode != 0:
+        return {}
+    
+    java_files = {}
+    for line in result.stdout.strip().split("\n"):
+        if not line:
+            continue
+        
+        # Exclude files under samples/independence/
+        if line.startswith("samples/independence/"):
+            continue
+        
+        file_path = repo_root / line
+        if file_path.exists():
+            java_files[line] = compute_full_sha256(file_path)
+    
+    return java_files
+
+
+def find_matching_repository_file(java_file: Path, repo_root: Path) -> str:
+    """
+    Check if this Java file matches any tracked .java file in samples/.
+    
+    Returns the relative path if a match is found, or "no" if not.
+    """
+    tracked = get_tracked_java_files(repo_root)
+    if not tracked:
+        return "no"
+    
+    file_hash = compute_full_sha256(java_file)
+    
+    for rel_path, tracked_hash in tracked.items():
+        if file_hash == tracked_hash:
+            return rel_path
+    
+    return "no"
+
+
+def get_environment_info(image_name: str | None) -> str:
+    """
+    Get environment information for the table header.
+    
+    If image_name is given, returns "image <name> (linux/amd64)".
+    Otherwise, returns host platform and Java default locale.
+    """
+    if image_name:
+        return f"image {image_name} (linux/amd64)"
+    
+    # Get host platform
+    host_platform = platform.platform()
+    
+    # Get Java default locale
+    try:
+        result = subprocess.run(
+            ["java", "-XshowSettings:properties", "-version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        
+        output = result.stderr  # Java prints properties to stderr
+        language = None
+        country = None
+        
+        for line in output.split("\n"):
+            line = line.strip()
+            if "user.language" in line:
+                language = line.split("=")[-1].strip()
+            elif "user.country" in line:
+                country = line.split("=")[-1].strip()
+        
+        if language and country:
+            locale = f"{language}_{country}"
+        elif language:
+            locale = language
+        else:
+            locale = "unknown"
+    except Exception:
+        locale = "unknown"
+    
+    return f"host {host_platform}, Java default locale {locale}"
+
 
 
 def read_source_label(source_md_path: Path) -> str:
@@ -92,12 +208,12 @@ def compute_exposure_summary(reconciliation: dict) -> str:
     return f"sum {total:.2f}, max {max_val:.2f}, {count} branches"
 
 
-def run_audit(port_dir: Path, repo_root: Path, cases: int) -> dict | None:
+def run_audit(port_dir: Path, repo_root: Path, cases: int, image_name: str | None) -> dict | None:
     """
     Run coroner verify on a port and return results.
     
     Returns dict with keys: run_id, status, cases_divergent, cases_total,
-    java_sha256, exposure_summary
+    java_sha256, exposure_summary, same_file
     
     Returns None if the port has no MatchMerge.java.
     """
@@ -108,48 +224,123 @@ def run_audit(port_dir: Path, repo_root: Path, cases: int) -> dict | None:
     # Compute Java SHA-256
     java_sha256 = compute_sha256(java_file)
     
+    # Check if it matches a repository file
+    same_file = find_matching_repository_file(java_file, repo_root)
+    
     # Run the engine
     t1_dir = repo_root / "samples" / "traps" / "T1-ebcdic-match-merge"
-    cmd = [
-        sys.executable,
-        "-m",
-        "coroner",
-        "verify",
-        "--cobol",
-        str(t1_dir / "MATCH-MERGE.cob"),
-        "--copybooks",
-        str(t1_dir / "copybooks"),
-        "--java",
-        str(java_file),
-        "--schema",
-        str(t1_dir / "schema.json"),
-        "--cases",
-        str(cases),
-        "--seed",
-        "42",
-    ]
     
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        cwd=repo_root,
-    )
+    if image_name:
+        # Run inside Docker container
+        port_dir_abs = port_dir.resolve()
+        
+        # Build the verification command
+        verify_cmd = (
+            f"python3 -m coroner verify "
+            f"--cobol /app/samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob "
+            f"--copybooks /app/samples/traps/T1-ebcdic-match-merge/copybooks "
+            f"--java /port/MatchMerge.java "
+            f"--schema /app/samples/traps/T1-ebcdic-match-merge/schema.json "
+            f"--cases {cases} --seed 42"
+        )
+        
+        # Extract run_id and read certificate values from inside container
+        # We need to:
+        # 1. Run verify and capture its output to get run_id
+        # 2. Read certificate.json and branch_reconciliation.json from /tmp/b
+        # 3. Print them as JSON so we can parse them
+        cmd = [
+            "docker", "run", "--rm", "--init",
+            "--platform", "linux/amd64",
+            "-v", f"{port_dir_abs}:/port:ro",
+            "-e", "CORONER_BASE_DIR=/tmp/b",
+            image_name,
+            "sh", "-c",
+            # Run verify, extract run_id, then print certificate and reconciliation
+            verify_cmd + " 2>&1 | tee /tmp/verify_output.txt && "
+            "RUN_ID=$(grep -o 'Run: runs/[a-f0-9]*' /tmp/verify_output.txt | head -1 | cut -d/ -f2) && "
+            "python3 -c \""
+            "import json, sys; "
+            "run_id = sys.argv[1]; "
+            "cert = json.load(open(f'/tmp/b/runs/{run_id}/certificate.json')); "
+            "recon = json.load(open(f'/tmp/b/runs/{run_id}/branch_reconciliation.json')); "
+            "print(json.dumps({'run_id': run_id, 'certificate': cert, 'reconciliation': recon}))"
+            "\" $RUN_ID"
+        ]
+        
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+        )
+        
+        if result.returncode != 0:
+            print(f"Error running audit for {port_dir.name} in image", file=sys.stderr)
+            print(f"Command: {' '.join(cmd)}", file=sys.stderr)
+            print(f"Output:\n{result.stdout}", file=sys.stderr)
+            print(f"Error:\n{result.stderr}", file=sys.stderr)
+            sys.exit(1)
+        
+        # Parse the JSON output (last line should be our JSON)
+        lines = result.stdout.strip().split("\n")
+        json_line = None
+        for line in reversed(lines):
+            if line.startswith("{") and "run_id" in line:
+                json_line = line
+                break
+        
+        if not json_line:
+            print(f"Error: Could not find JSON output for {port_dir.name}", file=sys.stderr)
+            print(f"Output was:\n{result.stdout}", file=sys.stderr)
+            sys.exit(1)
+        
+        data = json.loads(json_line)
+        run_id = data["run_id"]
+        cert = data["certificate"]
+        recon = data["reconciliation"]
+    else:
+        # Run on host
+        cmd = [
+            sys.executable,
+            "-m",
+            "coroner",
+            "verify",
+            "--cobol",
+            str(t1_dir / "MATCH-MERGE.cob"),
+            "--copybooks",
+            str(t1_dir / "copybooks"),
+            "--java",
+            str(java_file),
+            "--schema",
+            str(t1_dir / "schema.json"),
+            "--cases",
+            str(cases),
+            "--seed",
+            "42",
+        ]
+        
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            cwd=repo_root,
+        )
+        
+        # Extract run id from output
+        output = result.stdout + result.stderr
+        run_id = parse_run_id_from_output(output)
+        
+        if not run_id:
+            print(f"Error: Could not find run id in output for {port_dir.name}", file=sys.stderr)
+            print(f"Output was:\n{output}", file=sys.stderr)
+            sys.exit(1)
+        
+        # Read certificate
+        cert = read_certificate(run_id, repo_root)
+        
+        # Read branch reconciliation
+        recon = read_branch_reconciliation(run_id, repo_root)
     
-    # Extract run id from output
-    output = result.stdout + result.stderr
-    run_id = parse_run_id_from_output(output)
-    
-    if not run_id:
-        print(f"Error: Could not find run id in output for {port_dir.name}", file=sys.stderr)
-        print(f"Output was:\n{output}", file=sys.stderr)
-        sys.exit(1)
-    
-    # Read certificate
-    cert = read_certificate(run_id, repo_root)
-    
-    # Read branch reconciliation
-    recon = read_branch_reconciliation(run_id, repo_root)
     exposure = compute_exposure_summary(recon)
     
     return {
@@ -159,10 +350,11 @@ def run_audit(port_dir: Path, repo_root: Path, cases: int) -> dict | None:
         "cases_total": cert["cases_total"],
         "java_sha256": java_sha256,
         "exposure_summary": exposure,
+        "same_file": same_file,
     }
 
 
-def generate_table(repo_root: Path, cases: int) -> str:
+def generate_table(repo_root: Path, cases: int, image_name: str | None) -> str:
     """
     Generate the markdown table.
     
@@ -177,15 +369,23 @@ def generate_table(repo_root: Path, cases: int) -> str:
     rows = []
     for port_dir in port_dirs:
         port_name = port_dir.name
-        source_label = read_source_label(port_dir / "SOURCE.md")
+        source_label_raw = read_source_label(port_dir / "SOURCE.md")
+        
+        # Use label mapping if available, otherwise use SOURCE.md
+        if port_name in PORT_LABELS:
+            label = PORT_LABELS[port_name]
+            source_column = source_label_raw
+        else:
+            label = port_name
+            source_column = source_label_raw
         
         # Check if MatchMerge.java exists
-        result = run_audit(port_dir, repo_root, cases)
+        result = run_audit(port_dir, repo_root, cases, image_name)
         
         if result is None:
             # Port is pending
             rows.append({
-                "port": port_name,
+                "label": label,
                 "source": "pending",
                 "verdict": "pending",
                 "divergent": "pending",
@@ -193,32 +393,40 @@ def generate_table(repo_root: Path, cases: int) -> str:
                 "run_id": "pending",
                 "java_sha256": "pending",
                 "exposure": "pending",
+                "same_file": "pending",
             })
         else:
             rows.append({
-                "port": port_name,
-                "source": source_label,
+                "label": label,
+                "source": source_column,
                 "verdict": result["status"],
                 "divergent": str(result["cases_divergent"]),
                 "total": str(result["cases_total"]),
                 "run_id": result["run_id"],
                 "java_sha256": result["java_sha256"],
                 "exposure": result["exposure_summary"],
+                "same_file": result["same_file"],
             })
+    
+    # Get environment info
+    env_info = get_environment_info(image_name)
     
     # Build the markdown table
     lines = [
         "# Independence Track Results",
         "",
-        "| Port | Source | Verdict | Divergent cases | Run ID | Java SHA-256 | Branch exposure |",
-        "|------|--------|---------|-----------------|--------|--------------|-----------------|",
+        f"Environment: {env_info}",
+        "",
+        "| Port | Source | Verdict | Divergent cases | Run ID | Java SHA-256 | Branch exposure | Same file as a repository Java port? |",
+        "|------|--------|---------|-----------------|--------|--------------|-----------------|--------------------------------------|",
     ]
     
     for row in rows:
         if row["verdict"] == "pending":
             # Pending row has "pending" in every column
             line = (
-                f"| {row['port']} "
+                f"| {row['label']} "
+                f"| pending "
                 f"| pending "
                 f"| pending "
                 f"| pending "
@@ -228,13 +436,14 @@ def generate_table(repo_root: Path, cases: int) -> str:
             )
         else:
             line = (
-                f"| {row['port']} "
+                f"| {row['label']} "
                 f"| {row['source']} "
                 f"| {row['verdict']} "
                 f"| {row['divergent']} of {row['total']} "
                 f"| {row['run_id']} "
                 f"| {row['java_sha256']} "
-                f"| {row['exposure']} |"
+                f"| {row['exposure']} "
+                f"| {row['same_file']} |"
             )
         lines.append(line)
     
@@ -251,6 +460,12 @@ def main():
         type=int,
         default=2000,
         help="Number of cases to generate per audit (default: 2000)",
+    )
+    parser.add_argument(
+        "--image",
+        type=str,
+        default=None,
+        help="Docker image to run audits in (e.g., coroner-local:latest). If not specified, runs on host.",
     )
     args = parser.parse_args()
     
@@ -278,7 +493,7 @@ def main():
                 sys.exit(1)
     
     # Generate table
-    table_md = generate_table(repo_root, args.cases)
+    table_md = generate_table(repo_root, args.cases, args.image)
     
     # Write TABLE.md
     table_path = repo_root / "samples" / "independence" / "TABLE.md"

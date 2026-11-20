@@ -1,0 +1,51 @@
+3c3
+<   "description": "Trap 1: EBCDIC vs ASCII collating order in sequential match",
+---
+>   "description": "Branch subtotal match against a branch table",
+17,18c17,40
+<         "domain": ["A01", "B02", "C03", "D04", "E05", "F06", "Z99", "001", "9ZZ", "X77"],
+<         "domain_weights": [20, 20, 20, 20, 20, 20, 20, 2, 2, 2],
+---
+>         "domain": [
+>           "A01",
+>           "B02",
+>           "C03",
+>           "D04",
+>           "E05",
+>           "F06",
+>           "Z99",
+>           "001",
+>           "9ZZ",
+>           "X77"
+>         ],
+>         "domain_weights": [
+>           20,
+>           20,
+>           20,
+>           20,
+>           20,
+>           20,
+>           20,
+>           2,
+>           2,
+>           2
+>         ],
+28c50,53
+<         "amount_range": {"min": "0.01", "max": "9999.99"},
+---
+>         "amount_range": {
+>           "min": "0.01",
+>           "max": "9999.99"
+>         },
+62c87,90
+<   "output_key": ["CASE-ID", "BRANCH"],
+---
+>   "output_key": [
+>     "CASE-ID",
+>     "BRANCH"
+>   ],
+67c95
+< }
+---
+> }
+\ No newline at end of file

@@ -2,9 +2,9 @@
 
 This slot is reserved for a Java port of `samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob` written by a person without AI assistance.
 
-The operator and Kiro are language models and do not write code in this slot.
+Only the author writes this port. The operator and Kiro are language models and do not write code in this slot.
 
-The independence table shows this slot as "pending" until a person provides a hand-written port.
+The independence table shows this slot as "hand-written by the author: pending" until the author provides a hand-written port. If the author has not provided it by 2026-11-26, this row is removed from the table, never filled by anyone else.
 
 ## What would go here
 

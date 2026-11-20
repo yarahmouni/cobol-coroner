@@ -8,7 +8,8 @@ The same COBOL program (`samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob`) w
 
 1. **Kiro agent** (kiro-cli, agent coroner-builder, model claude-sonnet-4.5): written from the COBOL source alone, following standard Java practices
 2. **Claude Opus 5.5** (Anthropic), run as a Claude Code subagent: not a Kiro agent, different tool but same vendor as Kiro's default model
-3. **Hand-written port** (pending): reserved for a port written by a person without AI assistance
+3. **Kiro agent, fresh isolated session** (separate git worktree, stronger input isolation): written from the COBOL source alone in a reduced context
+4. **Hand-written port** (pending): reserved for a port written by a person without AI assistance
 
 Each port was audited by the same independent auditor: Coroner's differential engine.
 
@@ -22,6 +23,7 @@ Each source followed the same isolation rules, documented in each port's SOURCE.
 Links:
 - [kiro/SOURCE.md](ports/kiro/SOURCE.md)
 - [claude/SOURCE.md](ports/claude/SOURCE.md)
+- [kiro-fresh/SOURCE.md](ports/kiro-fresh/SOURCE.md)
 - [hand-written/README.md](ports/hand-written/README.md)
 
 ## The table
@@ -90,3 +92,42 @@ The same independent auditor (Coroner) gives the same kind of evidence for any J
 - Branch-level exposure when applicable
 
 The result does not depend on who wrote the port. The auditor is independent of the migration source.
+
+Why the session 1 numbers equal the faulty demo port
+
+The "Kiro agent, session 1" row has the same divergence count and exposure as the faulty T1 demo port in `samples/traps/T1-ebcdic-match-merge/java/faulty/MatchMerge.java` (682 of 2000 cases, exposure sum 3995184.38). This is not because they are the same file:
+
+- SHA-256 of session 1 port: 3f2b2d38...
+- SHA-256 of demo faulty port: 8d9bb18a...
+- Differing lines: 269 (diff output lines; the files have 193 and 182 lines)
+
+The numbers are equal because both audits use the same 2,000 generated cases (seed 42, same `cases_file_sha256` in the certificates) and both ports make the same ASCII-order mistake (using `String.compareTo` instead of EBCDIC collating order), so the same input cases produce divergent outputs. The first divergent case for both is GEN-001525 (its minimal input is one transaction: branch 001, amount 6253.54; see minimal_case_input.csv in each run).
+
+The session 1 port is distinct code from the demo faulty port. The identical divergence count demonstrates that Coroner detects the same mistake independently of how the mistake is expressed in the source code.
+
+## Kiro-fresh isolation
+
+The "Kiro agent, fresh isolated session" port was produced in a separate git worktree with stronger isolation to verify that the isolation rules can be enforced:
+
+- Every tracked `.java` file was deleted from the worktree
+- `docs/`, `README.md`, `.kiro/` (steering, skills, specs), all `trap.json` files and `runs/` were deleted
+- The COBOL source, copybooks and schema were copied into a neutral folder `case1-input/` (no "ebcdic" in any path name)
+- Three trap-hint comment lines were removed from the COBOL copy (see cobol-input.diff)
+- The schema `description` field was replaced with a neutral business description
+
+The COBOL code itself was unchanged, including `ALPHABET EBC IS EBCDIC`. The diffs `ports/kiro-fresh/cobol-input.diff` and `schema-input.diff` show exactly what differs from the original inputs.
+
+The fresh session agent did not run any audit. The operator audited the port once against the original `MATCH-MERGE.cob`.
+
+## Environment matters
+
+The kiro-fresh port's verdict depends on the JVM default locale because it formats amounts with `String.format("%+010.2f")`, which prints a decimal comma under a French locale.
+
+Measured verdicts (operator, 2000 cases, seed 42):
+
+- In the project Docker image (Linux, `coroner-local:latest`, the environment of CI and the live demo): **ALIVE**, 0 of 2000 divergent cases.
+- On the operator's Mac, whose JVM default locale is `fr_FR` even though the engine sets `LANG=C.UTF-8` (macOS Java ignores `LANG`): **ZOMBIE**, 2000 of 2000 divergent cases, exposure sum 5784.58 on 9 branches, grand total not matching.
+
+The kiro (session 1) and claude ports give the same verdicts in the image as on the Mac: ZOMBIE 682 cases and ALIVE 0 cases, respectively. Their verdicts were the same in both measured environments.
+
+The reference table in `TABLE.md` is produced by running all audits in the project image (`--image coroner-local:latest`), so every port is audited in the same environment.

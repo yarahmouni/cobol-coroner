@@ -1,0 +1,4 @@
+4,6d3
+<       *> Trap 1: EBCDIC vs ASCII collating order.
+<       *> Demonstrates sequential match against a branch table in EBCDIC order.
+<       *> Java port with ASCII comparison mismatches branches.
