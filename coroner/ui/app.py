@@ -1,20 +1,99 @@
 """FastAPI web UI for Coroner."""
+import hashlib
 import json
 import os
 import re
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
+from typing import Dict, Optional
 
-from fastapi import FastAPI, HTTPException, Form
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi import FastAPI, HTTPException, Form, Request
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from starlette.requests import Request
+from pydantic import BaseModel, Field, conint, field_validator
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from coroner.certificate import replay_certificate
 
+
+async def _send_413(send: Send):
+    """Send 413 Payload Too Large response."""
+    await send({
+        "type": "http.response.start",
+        "status": 413,
+        "headers": [
+            [b"content-type", b"application/json"],
+            [b"cache-control", b"no-store"],
+        ],
+    })
+    await send({
+        "type": "http.response.body",
+        "body": b'{"detail":"Request body too large"}',
+    })
+
+
+class BodySizeLimitMiddleware:
+    """
+    Pure ASGI middleware that enforces body size limit on /api/* endpoints.
+    
+    Rejects requests with Content-Length > 16384 or actual body > 16384 bytes.
+    Returns 413 Payload Too Large.
+    """
+    
+    MAX_SIZE = 16 * 1024  # 16 KB
+    
+    def __init__(self, app):
+        self.app = app
+    
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        """ASGI callable."""
+        if scope["type"] != "http" or not scope["path"].startswith("/api/"):
+            return await self.app(scope, receive, send)
+        
+        # Check Content-Length header
+        for name, value in scope.get("headers", []):
+            if name == b"content-length":
+                try:
+                    too_big = int(value) > self.MAX_SIZE
+                except ValueError:
+                    too_big = True
+                if too_big:
+                    return await _send_413(send)
+        
+        # Read and buffer body, counting bytes
+        total = 0
+        body_parts, more = [], True
+        while more:
+            message = await receive()
+            if message["type"] != "http.request":
+                break  # http.disconnect
+            total += len(message.get("body", b""))
+            if total > self.MAX_SIZE:
+                return await _send_413(send)
+            body_parts.append(message.get("body", b""))
+            more = message.get("more_body", False)
+        
+        # Replay buffered body to downstream app
+        body = b"".join(body_parts)
+        sent = False
+        
+        async def replay():
+            nonlocal sent
+            if not sent:
+                sent = True
+                return {"type": "http.request", "body": body, "more_body": False}
+            return await receive()
+        
+        return await self.app(scope, replay, send)
+
+
 app = FastAPI(title="COBOL Coroner")
+
+# Add body size limit middleware for /api/* paths
+app.add_middleware(BodySizeLimitMiddleware)
 
 # Static files
 STATIC_DIR = Path(__file__).parent / "static"
@@ -824,6 +903,612 @@ async def matrix_page(request: Request):
             "has_catalog": has_catalog,
             "traps": traps
         }
+    )
+
+
+# Pydantic models for API
+
+class RunAuditRequest(BaseModel):
+    """Request to run an audit."""
+    sample: str = Field(..., pattern=r"^(credit-fees|T1|T2|T3|T4|T5)$")
+    port: str = Field(..., pattern=r"^(correct|faulty)$")
+    seed: int = Field(..., ge=0, le=1000000)
+    cases: int = Field(..., ge=10, le=2000)
+    
+    class Config:
+        extra = "forbid"  # Reject unknown fields
+
+
+# Rate limiting (simple in-app sliding window)
+class RateLimiter:
+    """Thread-safe sliding window rate limiter."""
+    
+    def __init__(self):
+        self._windows: Dict[str, list] = {}
+    
+    def reset(self):
+        """Reset all rate limit windows (for tests)."""
+        self._windows.clear()
+    
+    def is_allowed(self, key: str, limit: int, window_seconds: int) -> tuple[bool, int]:
+        """
+        Check if a request is allowed under the rate limit.
+        
+        Returns (allowed, retry_after_seconds).
+        """
+        now = time.time()
+        
+        # Get or create window for this key
+        if key not in self._windows:
+            self._windows[key] = []
+        
+        window = self._windows[key]
+        
+        # Remove expired timestamps
+        cutoff = now - window_seconds
+        window[:] = [ts for ts in window if ts > cutoff]
+        
+        # Check limit
+        if len(window) >= limit:
+            # Calculate retry-after (time until oldest request expires)
+            oldest = min(window)
+            retry_after = int(oldest + window_seconds - now) + 1
+            return False, retry_after
+        
+        # Allow request
+        window.append(now)
+        return True, 0
+
+
+# Global rate limiter
+_rate_limiter = RateLimiter()
+
+
+def reset_rate_limiter():
+    """Reset rate limiter state (exposed for tests)."""
+    _rate_limiter.reset()
+    _active_audits.clear()
+
+
+def check_rate_limit(key: str, limit: int, window_seconds: int) -> Optional[int]:
+    """
+    Check rate limit. Returns None if allowed, retry-after seconds if denied.
+    """
+    allowed, retry_after = _rate_limiter.is_allowed(key, limit, window_seconds)
+    if not allowed:
+        return retry_after
+    return None
+
+
+def get_client_address(request: Request) -> str:
+    """
+    Get client address.
+    
+    Uses CF-Connecting-IP only when the request comes from a trusted proxy
+    (CORONER_TRUSTED_PROXY), otherwise the direct peer address.
+    
+    CORONER_TRUSTED_PROXY is a comma-separated list of proxy IPs.
+    """
+    peer_address = request.client.host if request.client else "unknown"
+    
+    # Get trusted proxies from environment
+    trusted_proxies_str = os.environ.get("CORONER_TRUSTED_PROXY", "")
+    if not trusted_proxies_str:
+        # No trusted proxies configured, never trust the header
+        return peer_address
+    
+    # Parse trusted proxies
+    trusted_proxies = [p.strip() for p in trusted_proxies_str.split(",") if p.strip()]
+    
+    if not trusted_proxies:
+        return peer_address
+    
+    # Check if peer is trusted
+    if peer_address not in trusted_proxies:
+        # Request comes from untrusted peer, ignore the header
+        return peer_address
+    
+    # Request comes from trusted proxy, use CF-Connecting-IP if present
+    cf_connecting_ip = request.headers.get("CF-Connecting-IP")
+    if cf_connecting_ip:
+        return cf_connecting_ip
+    
+    # Header not present, use peer address
+    return peer_address
+
+
+def get_exchange_dir() -> Path:
+    """Get exchange directory from environment, default /exchange."""
+    return Path(os.environ.get("CORONER_EXCHANGE_DIR", "/exchange"))
+
+
+def get_run_index() -> Dict[str, str]:
+    """
+    Read run index from CORONER_BASE_DIR/run_index.json.
+    
+    Returns a mapping from "sample:port:seed:cases" to run_id.
+    Handles both old format (key -> run_id) and new format (key -> {run_id, recorded_at}).
+    """
+    index_file = get_base_dir() / "run_index.json"
+    
+    if not index_file.exists():
+        return {}
+    
+    try:
+        raw_index = json.loads(index_file.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {}
+    
+    # Convert to simple mapping for backward compatibility
+    result = {}
+    for k, v in raw_index.items():
+        if isinstance(v, str):
+            # Old format: key -> run_id string
+            result[k] = v
+        elif isinstance(v, dict):
+            # New format: key -> {run_id, recorded_at}
+            run_id = v.get("run_id")
+            if run_id:
+                result[k] = run_id
+    
+    return result
+
+
+def update_run_index(sample: str, port: str, seed: int, cases: int, run_id: str, bundled: bool = False):
+    """
+    Update run index with a new run.
+    
+    Writes atomically to CORONER_BASE_DIR/run_index.json.
+    Enforces visitor run quota by pruning oldest entries.
+    Bundled runs (bundled=True) are never counted toward quota or deleted.
+    """
+    index_file = get_base_dir() / "run_index.json"
+    
+    # Read existing index
+    raw_index = {}
+    if index_file.exists():
+        try:
+            raw_index = json.loads(index_file.read_text())
+        except (json.JSONDecodeError, OSError):
+            raw_index = {}
+    
+    # Migrate entries without recorded_at to oldest (epoch 0)
+    index = {}
+    for k, v in raw_index.items():
+        if isinstance(v, str):
+            # Old format: key -> run_id string
+            index[k] = {"run_id": v, "recorded_at": 0.0}
+        elif isinstance(v, dict):
+            # New format: key -> {run_id, recorded_at, bundled}
+            index[k] = v
+        else:
+            # Invalid format, skip
+            continue
+    
+    # Add new entry with current timestamp and bundled flag
+    key = f"{sample}:{port}:{seed}:{cases}"
+    index[key] = {
+        "run_id": run_id,
+        "recorded_at": time.time(),
+        "bundled": bundled
+    }
+    
+    # Enforce quota (count only visitor runs, not bundled)
+    max_visitor_runs = int(os.environ.get("CORONER_MAX_VISITOR_RUNS", "100"))
+    
+    # Count visitor runs only (bundled=False or not present)
+    visitor_entries = {k: v for k, v in index.items() if not v.get("bundled", False)}
+    
+    if len(visitor_entries) > max_visitor_runs:
+        # Sort visitor entries by recorded_at (oldest first)
+        sorted_visitor_entries = sorted(visitor_entries.items(), key=lambda item: item[1].get("recorded_at", 0.0))
+        
+        # Keep only the newest max_visitor_runs entries
+        entries_to_keep = sorted_visitor_entries[-max_visitor_runs:]
+        entries_to_delete = sorted_visitor_entries[:-max_visitor_runs]
+        
+        # Delete old run directories
+        runs_dir = get_base_dir() / "runs"
+        for _, entry in entries_to_delete:
+            old_run_id = entry.get("run_id")
+            if not old_run_id:
+                continue
+            
+            # Validate run_id before building path
+            if not RUN_ID_PATTERN.match(old_run_id):
+                continue
+            
+            # Build path and verify it's within runs_dir
+            run_dir = runs_dir / old_run_id
+            
+            # Resolve to absolute path and check it's under runs_dir
+            try:
+                run_dir_resolved = run_dir.resolve()
+                runs_dir_resolved = runs_dir.resolve()
+                
+                # Check if run_dir is under runs_dir (prevent path traversal)
+                if not str(run_dir_resolved).startswith(str(runs_dir_resolved) + os.sep):
+                    continue
+                
+                # Check it's not a symlink pointing outside
+                if run_dir.is_symlink():
+                    continue
+                
+                # Delete the directory
+                if run_dir_resolved.exists() and run_dir_resolved.is_dir():
+                    import shutil
+                    shutil.rmtree(run_dir_resolved)
+            except (OSError, ValueError):
+                # Skip on any error
+                continue
+        
+        # Rebuild index: keep bundled entries + newest visitor entries
+        kept_visitor_keys = {k for k, _ in entries_to_keep}
+        bundled_entries = {k: v for k, v in index.items() if v.get("bundled", False)}
+        kept_visitor_entries = {k: v for k, v in index.items() if k in kept_visitor_keys}
+        
+        # Merge bundled + kept visitor entries
+        index = {**bundled_entries, **kept_visitor_entries}
+    
+    # Write atomically
+    temp_file = index_file.with_suffix(".tmp")
+    temp_file.write_text(json.dumps(index, indent=2))
+    temp_file.replace(index_file)
+
+
+def find_cached_run(sample: str, port: str, seed: int, cases: int) -> Optional[str]:
+    """
+    Find a cached run with identical parameters.
+    
+    Returns the run_id if found and the run folder exists, None otherwise.
+    """
+    index = get_run_index()
+    key = f"{sample}:{port}:{seed}:{cases}"
+    
+    run_id = index.get(key)
+    if not run_id:
+        return None
+    
+    # Check if run folder exists
+    run_dir = get_base_dir() / "runs" / run_id
+    if not run_dir.exists():
+        return None
+    
+    return run_id
+
+
+def generate_job_id() -> str:
+    """Generate a unique 12-character hex job ID."""
+    # Use timestamp + random bytes
+    import secrets
+    timestamp = int(time.time() * 1000)
+    random_bytes = secrets.token_bytes(6)
+    
+    # Combine and hash
+    data = timestamp.to_bytes(8, 'big') + random_bytes
+    h = hashlib.sha256(data).hexdigest()
+    return h[:12]
+
+
+# Active audits tracking (per IP)
+_active_audits: Dict[str, str] = {}  # ip -> job_id
+
+
+def has_active_audit(ip: str) -> bool:
+    """Check if an IP has an active audit."""
+    if ip not in _active_audits:
+        return False
+    
+    # Check if the job is still active
+    job_id = _active_audits[ip]
+    exchange_dir = get_exchange_dir()
+    job_dir = exchange_dir / "jobs" / job_id
+    
+    if not job_dir.exists():
+        # Job completed or deleted
+        del _active_audits[ip]
+        return False
+    
+    # Check status
+    status_file = job_dir / "status.json"
+    if not status_file.exists():
+        del _active_audits[ip]
+        return False
+    
+    try:
+        status_data = json.loads(status_file.read_text())
+        status = status_data.get("status")
+        
+        if status in ["done", "error"]:
+            # Job completed
+            del _active_audits[ip]
+            return False
+        
+        return True
+    except (json.JSONDecodeError, OSError):
+        del _active_audits[ip]
+        return False
+
+
+def mark_audit_active(ip: str, job_id: str):
+    """Mark an audit as active for an IP."""
+    _active_audits[ip] = job_id
+
+
+# Queue management
+def get_queue_length() -> int:
+    """Get current queue length (queued + running jobs)."""
+    exchange_dir = get_exchange_dir()
+    jobs_dir = exchange_dir / "jobs"
+    
+    if not jobs_dir.exists():
+        return 0
+    
+    count = 0
+    for job_dir in jobs_dir.iterdir():
+        if not job_dir.is_dir():
+            continue
+        
+        status_file = job_dir / "status.json"
+        if not status_file.exists():
+            continue
+        
+        try:
+            status_data = json.loads(status_file.read_text())
+            status = status_data.get("status")
+            
+            if status in ["queued", "running"]:
+                count += 1
+        except (json.JSONDecodeError, OSError):
+            continue
+    
+    return count
+
+
+@app.post("/api/run")
+async def run_audit(
+    request: Request,
+    sample: str = Form(None),
+    port: str = Form(None),
+    seed: int = Form(None),
+    cases: int = Form(None),
+):
+    """
+    Submit a Run audit request.
+    
+    Accepts both JSON and form-encoded data.
+    Returns 202 Accepted with job_id (or 200 with run_id if cache hit).
+    Returns 413 if body size exceeds 16 KB (enforced by middleware).
+    Returns 429 if queue is full or IP has active audit.
+    """
+    # Parse and validate request (JSON or form)
+    if sample is None:
+        # JSON request
+        try:
+            body = await request.json()
+            audit_request = RunAuditRequest(**body)
+        except Exception as e:
+            raise HTTPException(status_code=422, detail=str(e))
+    else:
+        # Form request
+        try:
+            audit_request = RunAuditRequest(
+                sample=sample,
+                port=port,
+                seed=seed,
+                cases=cases
+            )
+        except Exception as e:
+            raise HTTPException(status_code=422, detail=str(e))
+    
+    # Get client address
+    client_ip = get_client_address(request)
+    
+    # Rate limiting: global 100/min
+    retry_after = check_rate_limit("global", 100, 60)
+    if retry_after:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded", "retry_after": retry_after},
+            headers={"Retry-After": str(retry_after), "Cache-Control": "no-store"}
+        )
+    
+    # Rate limiting: per IP 20/min
+    retry_after = check_rate_limit(f"ip:{client_ip}", 20, 60)
+    if retry_after:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded", "retry_after": retry_after},
+            headers={"Retry-After": str(retry_after), "Cache-Control": "no-store"}
+        )
+    
+    # Rate limiting: per endpoint /api/run 5/min per IP
+    retry_after = check_rate_limit(f"endpoint:/api/run:ip:{client_ip}", 5, 60)
+    if retry_after:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded for this endpoint", "retry_after": retry_after},
+            headers={"Retry-After": str(retry_after), "Cache-Control": "no-store"}
+        )
+    
+    # Check if IP has an active audit
+    if has_active_audit(client_ip):
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "One audit per client at a time", "retry_after": 10},
+            headers={"Retry-After": "10", "Cache-Control": "no-store"}
+        )
+    
+    # Check queue length (default max 3)
+    max_queue_length = int(os.environ.get("CORONER_MAX_QUEUE_LENGTH", "3"))
+    if get_queue_length() >= max_queue_length:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Queue full, try again later", "retry_after": 30},
+            headers={"Retry-After": "30", "Cache-Control": "no-store"}
+        )
+    
+    # Check if run already exists (cache hit)
+    cached_run_id = find_cached_run(
+        audit_request.sample,
+        audit_request.port,
+        audit_request.seed,
+        audit_request.cases
+    )
+    
+    if cached_run_id:
+        # Cache hit, return existing run
+        return JSONResponse(
+            status_code=200,
+            content={"run_id": cached_run_id, "cached": True},
+            headers={"Cache-Control": "no-store"}
+        )
+    
+    # Create job
+    job_id = generate_job_id()
+    exchange_dir = get_exchange_dir()
+    jobs_dir = exchange_dir / "jobs"
+    jobs_dir.mkdir(parents=True, exist_ok=True)
+    
+    job_dir = jobs_dir / job_id
+    job_dir.mkdir()
+    
+    # Write request.json
+    request_data = {
+        "job_id": job_id,
+        "sample": audit_request.sample,
+        "port": audit_request.port,
+        "seed": audit_request.seed,
+        "cases": audit_request.cases,
+        "timestamp": time.time(),
+    }
+    
+    request_file = job_dir / "request.json"
+    request_file.write_text(json.dumps(request_data, indent=2))
+    
+    # Write status.json (queued)
+    status_data = {
+        "status": "queued",
+        "queued_at": time.time(),
+    }
+    
+    status_file = job_dir / "status.json"
+    status_file.write_text(json.dumps(status_data, indent=2))
+    
+    # Mark audit as active for this IP
+    mark_audit_active(client_ip, job_id)
+    
+    # Return 202 Accepted
+    return JSONResponse(
+        status_code=202,
+        content={"job_id": job_id},
+        headers={"Location": f"/api/job/{job_id}/status", "Cache-Control": "no-store"}
+    )
+
+
+@app.get("/api/job/{job_id}/status")
+async def job_status(job_id: str):
+    """
+    Get status of a job.
+    
+    Returns {status: queued|running|done|error, run_id: ..., verdict: ..., cases_divergent: ..., cases_total: ...}
+    When done, also returns verdict, cases_divergent and cases_total from verdict.json.
+    """
+    # Validate job_id
+    from coroner.engine_worker import validate_job_id
+    
+    if not validate_job_id(job_id):
+        raise HTTPException(status_code=404, detail="Invalid job_id")
+    
+    # Check job directory
+    exchange_dir = get_exchange_dir()
+    job_dir = exchange_dir / "jobs" / job_id
+    
+    if not job_dir.exists():
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Read status
+    status_file = job_dir / "status.json"
+    if not status_file.exists():
+        raise HTTPException(status_code=404, detail="Status not found")
+    
+    try:
+        status_data = json.loads(status_file.read_text())
+    except (json.JSONDecodeError, OSError) as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read status: {e}")
+    
+    status = status_data.get("status")
+    run_id = status_data.get("run_id")
+    
+    response = {
+        "status": status,
+    }
+    
+    if run_id:
+        response["run_id"] = run_id
+    
+    # If status is error, include reason
+    if status == "error":
+        reason = status_data.get("reason")
+        if reason:
+            response["reason"] = reason
+    
+    # If status is done, copy result to CORONER_BASE_DIR and clean up job
+    if status == "done" and run_id:
+        # Check if result has been copied already
+        base_dir = get_base_dir()
+        run_dir = base_dir / "runs" / run_id
+        
+        # Check if run_dir existed BEFORE the job completed (bundled run)
+        bundled = run_dir.exists()
+        
+        if not bundled:
+            # Copy result from exchange to base_dir
+            job_run_dir = job_dir / "runs" / run_id
+            
+            if job_run_dir.exists():
+                import shutil
+                runs_dir = base_dir / "runs"
+                runs_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Copy the run directory
+                shutil.copytree(job_run_dir, run_dir)
+        
+        # Read verdict from the run in CORONER_BASE_DIR
+        verdict_file = run_dir / "verdict.json"
+        if verdict_file.exists():
+            try:
+                verdict_data = json.loads(verdict_file.read_text())
+                response["verdict"] = verdict_data.get("status")
+                # For ZOMBIE, also include divergence counts
+                if verdict_data.get("status") == "ZOMBIE":
+                    response["cases_divergent"] = verdict_data.get("cases_divergent")
+                    response["cases_total"] = verdict_data.get("cases_total")
+            except (json.JSONDecodeError, OSError):
+                pass
+        
+        # Update run index (always, whether bundled or not)
+        request_file = job_dir / "request.json"
+        if request_file.exists():
+            try:
+                request_data = json.loads(request_file.read_text())
+                sample = request_data.get("sample")
+                port = request_data.get("port")
+                seed = request_data.get("seed")
+                cases = request_data.get("cases")
+                
+                if all([sample, port, seed is not None, cases is not None]):
+                    update_run_index(sample, port, seed, cases, run_id, bundled=bundled)
+            except (json.JSONDecodeError, OSError):
+                pass
+        
+        # Delete job directory
+        import shutil
+        shutil.rmtree(job_dir)
+    
+    return JSONResponse(
+        content=response,
+        headers={"Cache-Control": "no-store"}
     )
 
 

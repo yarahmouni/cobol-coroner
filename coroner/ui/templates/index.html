@@ -12,6 +12,162 @@
     <a href="/matrix" style="font-size: 1.1rem;">Detection Matrix</a>
 </nav>
 
+<section style="margin-bottom: 3rem; padding: 1.5rem; background: #1a1a1a; border-radius: 8px;">
+    <h2>Run Audit</h2>
+    <form 
+        id="run-audit-form"
+        hx-post="/api/run" 
+        hx-target="#audit-result"
+        hx-swap="innerHTML"
+        style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 1rem;"
+    >
+        <div>
+            <label for="sample" style="display: block; margin-bottom: 0.5rem;">Sample:</label>
+            <select name="sample" id="sample" required style="width: 100%; padding: 0.5rem; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #e0e0e0;">
+                <option value="credit-fees">credit-fees</option>
+                <option value="T1">T1 (EBCDIC collation)</option>
+                <option value="T2">T2 (rounding)</option>
+                <option value="T3">T3 (COMP-3 sign)</option>
+                <option value="T4">T4 (zoned overpunch)</option>
+                <option value="T5">T5 (REDEFINES)</option>
+            </select>
+        </div>
+        
+        <div>
+            <label for="port" style="display: block; margin-bottom: 0.5rem;">Port:</label>
+            <select name="port" id="port" required style="width: 100%; padding: 0.5rem; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #e0e0e0;">
+                <option value="correct">Correct</option>
+                <option value="faulty">Faulty</option>
+            </select>
+        </div>
+        
+        <div>
+            <label for="seed" style="display: block; margin-bottom: 0.5rem;">Seed (0-1000000):</label>
+            <input type="number" name="seed" id="seed" value="42" min="0" max="1000000" required style="width: 100%; padding: 0.5rem; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #e0e0e0;">
+        </div>
+        
+        <div>
+            <label for="cases" style="display: block; margin-bottom: 0.5rem;">Cases (10-2000):</label>
+            <input type="number" name="cases" id="cases" value="200" min="10" max="2000" required style="width: 100%; padding: 0.5rem; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #e0e0e0;">
+        </div>
+        
+        <div style="grid-column: 1 / -1;">
+            <button type="submit" style="padding: 0.75rem 1.5rem; background: #ff6b35; color: white; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer; font-weight: 500;">
+                Run Audit
+            </button>
+        </div>
+    </form>
+    
+    <div id="audit-result" style="margin-top: 1.5rem;"></div>
+</section>
+
+<script>
+document.body.addEventListener('htmx:afterRequest', function(event) {
+    if (event.detail.target.id === 'audit-result') {
+        const xhr = event.detail.xhr;
+        if (xhr.status === 202) {
+            // Job accepted, start polling
+            const response = JSON.parse(xhr.responseText);
+            const jobId = response.job_id;
+            
+            const resultDiv = document.getElementById('audit-result');
+            resultDiv.innerHTML = '<p style="color: #4ade80;">Audit submitted, processing...</p>';
+            
+            // Poll status every 2 seconds
+            const pollInterval = setInterval(function() {
+                fetch('/api/job/' + jobId + '/status')
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.status === 'done') {
+                            clearInterval(pollInterval);
+                            
+                            // Show verdict with appropriate styling
+                            const verdict = data.verdict;
+                            const runId = data.run_id;
+                            
+                            let html = '';
+                            if (verdict === 'ZOMBIE') {
+                                const divergent = data.cases_divergent || 0;
+                                const total = data.cases_total || 0;
+                                const divergentText = document.createElement('span');
+                                divergentText.textContent = divergent + ' of ' + total + ' cases diverge.';
+                                
+                                html = '<div class="verdict-badge zombie" style="padding: 1rem; margin: 0.5rem 0;">' +
+                                       '<div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 0.5rem;">&#9632; ZOMBIE</div>' +
+                                       '<div style="margin-bottom: 0.5rem;" id="divergent-text"></div>' +
+                                       '<a href="/run/' + runId + '" style="color: currentColor; text-decoration: underline;">Open the run</a>' +
+                                       '</div>';
+                                resultDiv.innerHTML = html;
+                                document.getElementById('divergent-text').appendChild(divergentText);
+                            } else if (verdict === 'ALIVE') {
+                                html = '<div class="verdict-badge alive" style="padding: 1rem; margin: 0.5rem 0;">' +
+                                       '<div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 0.5rem;">&#9679; ALIVE</div>' +
+                                       '<a href="/run/' + runId + '" style="color: currentColor; text-decoration: underline;">Open the run</a>' +
+                                       '</div>';
+                                resultDiv.innerHTML = html;
+                            } else {
+                                // Fallback for unknown verdict
+                                const runIdText = document.createElement('span');
+                                runIdText.textContent = runId;
+                                
+                                html = '<p style="color: #4ade80; font-weight: bold;">Audit complete: <a href="/run/' + runId + '" style="color: #ff6b35;"></a></p>';
+                                resultDiv.innerHTML = html;
+                                resultDiv.querySelector('a').appendChild(runIdText);
+                            }
+                        } else if (data.status === 'error') {
+                            clearInterval(pollInterval);
+                            
+                            // For error status, show ERROR badge with reason
+                            const reason = data.reason || 'Unknown error';
+                            const reasonSpan = document.createElement('span');
+                            reasonSpan.textContent = reason;
+                            
+                            const html = '<div class="verdict-badge error" style="padding: 1rem; margin: 0.5rem 0;">' +
+                                        '<div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 0.5rem;">&#9670; ERROR</div>' +
+                                        '<div style="margin-bottom: 0.5rem;" id="error-reason"></div>' +
+                                        '</div>';
+                            resultDiv.innerHTML = html;
+                            document.getElementById('error-reason').appendChild(reasonSpan);
+                        } else {
+                            const statusSpan = document.createElement('span');
+                            statusSpan.textContent = 'Status: ' + data.status + '...';
+                            
+                            resultDiv.innerHTML = '';
+                            resultDiv.style.color = '#4ade80';
+                            resultDiv.appendChild(statusSpan);
+                        }
+                    })
+                    .catch(err => {
+                        clearInterval(pollInterval);
+                        resultDiv.innerHTML = '<p style="color: #f87171;">Polling error.</p>';
+                    });
+            }, 2000);
+        } else if (xhr.status === 200) {
+            // Cache hit
+            const response = JSON.parse(xhr.responseText);
+            const runId = response.run_id;
+            const resultDiv = document.getElementById('audit-result');
+            
+            const runIdText = document.createElement('span');
+            runIdText.textContent = runId;
+            
+            resultDiv.innerHTML = '<p style="color: #4ade80; font-weight: bold;">Cached result: <a href="/run/' + runId + '" style="color: #ff6b35;"></a></p>';
+            resultDiv.querySelector('a').appendChild(runIdText);
+        } else if (xhr.status === 429) {
+            // Rate limited
+            const response = JSON.parse(xhr.responseText);
+            const resultDiv = document.getElementById('audit-result');
+            
+            const detailSpan = document.createElement('span');
+            detailSpan.textContent = response.detail + ' (retry after ' + response.retry_after + 's)';
+            
+            resultDiv.innerHTML = '<p style="color: #f87171;"></p>';
+            resultDiv.querySelector('p').appendChild(detailSpan);
+        }
+    }
+});
+</script>
+
 {% if runs %}
 <h2>Recent Runs</h2>
 <table>

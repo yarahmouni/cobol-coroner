@@ -244,3 +244,34 @@ def test_verify_button_sends_form_data(alive_run_with_cert, monkeypatch):
     assert "Certificate: INVALID" in forge_html
     assert "INVALID" in forge_html
     assert "Certificate: VALID" not in forge_html
+
+
+def test_verify_body_size_limit(alive_run_with_cert, monkeypatch):
+    """Test that oversized body to /api/verify is rejected with 413."""
+    run_id, base_dir = alive_run_with_cert
+    
+    monkeypatch.setenv("CORONER_BASE_DIR", str(base_dir))
+    
+    from coroner.ui.app import app
+    import coroner.ui.app as app_module
+    app_module.BASE_DIR = base_dir
+    
+    client = TestClient(app)
+    
+    # Test 1: Body with Content-Length over 16 KB
+    # Create form data with massive padding
+    padding = "x" * (17 * 1024)
+    response = client.post(
+        "/api/verify",
+        data={"run_id": run_id, "padding": padding}
+    )
+    
+    assert response.status_code == 413
+    
+    # Test 2: Body under limit is accepted
+    response = client.post(
+        "/api/verify",
+        data={"run_id": run_id}
+    )
+    
+    assert response.status_code == 200

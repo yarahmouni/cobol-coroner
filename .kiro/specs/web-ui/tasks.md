@@ -133,17 +133,17 @@
 **Done when:** Engine worker polls exchange directory, executes jobs, writes results, timeout enforced, test passes with real job execution in tmp directory.
 
 ## Task 13: Run audit endpoint with sandbox controls (D-53, D-54)
-- [ ] Add POST /api/run route: accepts RunAuditRequest (sample, port, seed, cases), validates with Pydantic
-- [ ] Compute deterministic run_id from parameters hash
-- [ ] Check if run_id exists in CORONER_BASE_DIR/runs/; if yes, return existing run
-- [ ] Check queue length (bounded, for example max 3); if full, return HTTP 429 "Queue full, try again later"
-- [ ] Check active audits per IP (client address from CF-Connecting-IP only when the request comes from the cloudflared container, otherwise the direct peer address); if one active, return HTTP 429 "One audit per client at a time"
-- [ ] Create job_id, write request.json to /exchange/jobs/{job_id}/
-- [ ] Return 202 Accepted with Location: /api/job/{job_id}/status
-- [ ] Add GET /api/job/{job_id}/status: read status.json, return {status: queued/running/done/error, run_id: ...}
-- [ ] When status done, copy result from exchange to CORONER_BASE_DIR/runs/{run_id}/, delete job directory
-- [ ] Disk quota: count visitor runs in coroner-data, remove oldest beyond limit (for example 100), keep bundled runs
-- [ ] Tests: valid request (assert 202), queue full (assert 429), second audit from same IP (assert 429), unknown field rejected, seed out of bounds rejected, case count out of bounds rejected, invalid sample rejected, body over size limit rejected
+- [x] Add POST /api/run route: accepts RunAuditRequest (sample, port, seed, cases), validates with Pydantic
+- [x] Compute deterministic run_id from parameters hash: identical parameters map to the engine's real run id through CORONER_BASE_DIR/run_index.json (no separate hash)
+- [x] Check if run_id exists in CORONER_BASE_DIR/runs/; if yes, return existing run
+- [x] Check queue length (bounded, for example max 3); if full, return HTTP 429 "Queue full, try again later"
+- [x] Check active audits per IP (client address from CF-Connecting-IP only when the request comes from the cloudflared container, otherwise the direct peer address); if one active, return HTTP 429 "One audit per client at a time"
+- [x] Create job_id, write request.json to /exchange/jobs/{job_id}/
+- [x] Return 202 Accepted with Location: /api/job/{job_id}/status
+- [x] Add GET /api/job/{job_id}/status: read status.json, return {status: queued/running/done/error, run_id: ...}
+- [x] When status done, copy result from exchange to CORONER_BASE_DIR/runs/{run_id}/, delete job directory
+- [x] Disk quota: count visitor runs in coroner-data, remove oldest beyond limit (for example 100), keep bundled runs
+- [x] Tests: valid request (assert 202), queue full (assert 429), second audit from same IP (assert 429), unknown field rejected, seed out of bounds rejected, case count out of bounds rejected, invalid sample rejected, body over size limit rejected
 
 **Requirements:** 15, 16
 **Done when:** Run audit endpoint accepts requests, computes deterministic run_id, enforces queue and per-IP limits, validates input, returns 202 and job status, sandbox controls tested.
