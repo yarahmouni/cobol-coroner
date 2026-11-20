@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -824,3 +825,29 @@ async def matrix_page(request: Request):
             "traps": traps
         }
     )
+
+
+def main():
+    """
+    Entry point that checks CORONER_ENGINE_MODE.
+    
+    When CORONER_ENGINE_MODE=worker, runs the engine worker.
+    When CORONER_ENGINE_MODE=api (or unset), runs FastAPI (caller starts uvicorn).
+    """
+    engine_mode = os.environ.get("CORONER_ENGINE_MODE", "api")
+    
+    if engine_mode == "worker":
+        # Run engine worker
+        from coroner.engine_worker import worker_loop
+        worker_loop()
+    elif engine_mode == "api":
+        # FastAPI mode: do nothing, let uvicorn start the app
+        # This main() is not called when uvicorn starts the app object
+        pass
+    else:
+        print(f"Unknown CORONER_ENGINE_MODE: {engine_mode}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

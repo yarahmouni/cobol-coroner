@@ -35,6 +35,7 @@ COBOL + copybooks + Java 17 + schema.json
 - `coroner/cli.py`: command-line interface and pipeline orchestration.
 - `coroner/mcp`: MCP server with thin layer over the engine.
 - `coroner/ui`: FastAPI web application with Jinja2 templates and htmx. Static assets at `coroner/ui/static/`, templates at `coroner/ui/templates/`.
+- `coroner/engine_worker.py`: Engine worker that polls exchange directory and executes verification jobs in isolated container (D-54).
 - `coroner/gate.py`: CI gate that checks verdict and certificate validity.
 
 ## Repository layout

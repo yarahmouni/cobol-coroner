@@ -245,11 +245,11 @@ Job hand-off:
 2. API writes status.json: {status: queued}
 3. Engine polls /exchange/jobs/, picks oldest queued job
 4. Engine writes status.json: {status: running, started_at}
-5. Engine runs coroner verify, writes all outputs to job directory
-6. Engine writes result.json and status.json: {status: done, completed_at}
+5. Engine runs coroner verify as a subprocess with timeout (default 60s), which kills the process group on timeout
+6. Engine writes result.json and status.json: {status: done, completed_at} or {status: error, reason: timeout}
 7. API reads result, extracts visitor data, deletes job directory
 
-Timeout: engine sets alarm(60) at job start, writes status.json: {status: error, reason: timeout} on SIGALRM.
+Timeout: engine runs coroner verify as a subprocess with timeout (default 60 s from CORONER_JOB_TIMEOUT). On timeout, the subprocess timeout kills the process group and writes status.json: {status: error, reason: timeout}.
 
 ### Docker Compose structure
 

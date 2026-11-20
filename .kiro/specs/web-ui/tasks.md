@@ -120,14 +120,14 @@
 
 
 ## Task 12: Engine/API container split with exchange directory (D-54)
-- [ ] Create coroner/engine_worker.py: polls /exchange/jobs/, picks oldest queued job, runs coroner verify, writes result.json and status.json
+- [x] Create coroner/engine_worker.py: polls /exchange/jobs/, picks oldest queued job, runs coroner verify, writes result.json and status.json
 - [ ] Update coroner/ui/app.py: add CORONER_ENGINE_MODE environment variable (api or worker)
 - [ ] When CORONER_ENGINE_MODE=worker, run engine_worker.py main loop instead of FastAPI
 - [ ] When CORONER_ENGINE_MODE=api, FastAPI routes remain unchanged
-- [ ] Exchange directory structure: /exchange/jobs/{job_id}/ with request.json, status.json, result files
-- [ ] Job hand-off: API writes request.json and status.json (queued), engine updates status (running, done, error), writes result
-- [ ] Add timeout: engine sets alarm(60) at job start, catches SIGALRM, writes status.json (error, timeout)
-- [ ] Test: create request.json in tmp exchange dir, run engine_worker once, assert result.json written and status done
+- [x] Exchange directory structure: /exchange/jobs/{job_id}/ with request.json, status.json, result files
+- [x] Job hand-off: API writes request.json and status.json (queued), engine updates status (running, done, error), writes result
+- [x] Add timeout: engine runs coroner verify as a subprocess with timeout (default 60s), subprocess timeout kills the process group, writes status.json (error, timeout)
+- [x] Test: create request.json in tmp exchange dir, run engine_worker once, assert result.json written and status done
 
 **Requirements:** 13, 14
 **Done when:** Engine worker polls exchange directory, executes jobs, writes results, timeout enforced, test passes with real job execution in tmp directory.
