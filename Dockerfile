@@ -1,12 +1,30 @@
 # Multi-stage Dockerfile for COBOL Coroner smoke test
 # Base: python:3.12-slim-bookworm pinned by digest
 # Contains: GnuCOBOL 3.2.0 (built from source), OpenJDK 17, Python 3.12
+# apt reads a fixed Debian snapshot (date in DEBIAN_SNAPSHOT); the base image is pinned by digest; to update, change the date and the pins together. Testers and the live server use the prebuilt image from GitHub Container Registry pinned by digest and never rebuild.
+
+ARG DEBIAN_SNAPSHOT=20261119T000000Z
 
 # Builder stage: compile GnuCOBOL 3.2.0 from official GNU tarball
 FROM python@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df AS builder
 
+ARG DEBIAN_SNAPSHOT
+
+# Configure apt to use snapshot.debian.org
+RUN echo "Types: deb\n\
+URIs: http://snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT}\n\
+Suites: bookworm bookworm-updates\n\
+Components: main\n\
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg\n\
+\n\
+Types: deb\n\
+URIs: http://snapshot.debian.org/archive/debian-security/${DEBIAN_SNAPSHOT}\n\
+Suites: bookworm-security\n\
+Components: main\n\
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg" > /etc/apt/sources.list.d/debian.sources
+
 # Install build dependencies with pinned versions
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update -o Acquire::Check-Valid-Until=false && apt-get install -y --no-install-recommends \
     build-essential=12.9 \
     xz-utils=5.4.1-1+deb12u2 \
     libgmp-dev=2:6.2.1+dfsg1-1.1 \
@@ -34,10 +52,24 @@ RUN python3 /tmp/download_junit.py
 # Final stage: runtime image
 FROM python@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df
 
+ARG DEBIAN_SNAPSHOT
+
+# Configure apt to use snapshot.debian.org
+RUN echo "Types: deb\n\
+URIs: http://snapshot.debian.org/archive/debian/${DEBIAN_SNAPSHOT}\n\
+Suites: bookworm bookworm-updates\n\
+Components: main\n\
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg\n\
+\n\
+Types: deb\n\
+URIs: http://snapshot.debian.org/archive/debian-security/${DEBIAN_SNAPSHOT}\n\
+Suites: bookworm-security\n\
+Components: main\n\
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg" > /etc/apt/sources.list.d/debian.sources
+
 # Install runtime dependencies with pinned versions
-# Debian removes superseded security versions, so a pin that no longer exists breaks fresh builds; update the pin to the current candidate (apt-cache policy) when that happens.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    openjdk-17-jdk-headless=17.0.21.1+2-1~deb12u1 \
+RUN apt-get update -o Acquire::Check-Valid-Until=false && apt-get install -y --no-install-recommends \
+    openjdk-17-jdk-headless=17.0.21+9-1~deb12u1 \
     libgmp10=2:6.2.1+dfsg1-1.1 \
     libgmp-dev=2:6.2.1+dfsg1-1.1 \
     libdb5.3=5.3.28+dfsg2-1 \
