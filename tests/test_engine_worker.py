@@ -57,10 +57,10 @@ def test_update_status(tmp_path):
     assert data["started_at"] == 200
 
 
-def test_find_oldest_queued_job(tmp_path):
+def test_find_oldest_queued_job(tmp_path, monkeypatch):
     """Test finding oldest queued job."""
     # Set CORONER_EXCHANGE_DIR
-    os.environ["CORONER_EXCHANGE_DIR"] = str(tmp_path)
+    monkeypatch.setenv("CORONER_EXCHANGE_DIR", str(tmp_path))
     
     jobs_dir = tmp_path / "jobs"
     jobs_dir.mkdir()
@@ -132,7 +132,7 @@ def test_resolve_sample_paths_credit_fees(tmp_path):
     assert Path(schema_path).exists()
     assert Path(copybooks_path).exists()
     
-    # Faulty port (generates variant)
+    # Faulty port (uses or generates variant at build/variants/CreditFees.java)
     cobol_path2, java_path2, schema_path2, copybooks_path2 = resolve_sample_paths("credit-fees", "faulty", tmp_path)
     
     # COBOL, schema and copybooks should be the same
@@ -140,10 +140,18 @@ def test_resolve_sample_paths_credit_fees(tmp_path):
     assert schema_path2 == schema_path
     assert copybooks_path2 == copybooks_path
     
-    # Java should be the generated variant in tmp_path
-    assert Path(java_path2).parent == tmp_path
-    assert Path(java_path2).name == "CreditFees_HALF_EVEN.java"
-    assert Path(java_path2).exists()
+    # Java should be at build/variants/CreditFees.java (repository-relative)
+    from coroner.engine_worker import get_repo_root
+    repo_root = get_repo_root()
+    expected_variant = repo_root / "build" / "variants" / "CreditFees.java"
+    
+    assert Path(java_path2) == expected_variant, f"Expected {expected_variant}, got {java_path2}"
+    assert Path(java_path2).exists(), f"Variant not found at {java_path2}"
+    
+    # Verify it's the HALF_EVEN variant
+    content = Path(java_path2).read_text()
+    assert "RoundingMode.HALF_EVEN" in content
+    assert "RoundingMode.HALF_UP" not in content
 
 
 def test_resolve_sample_paths_traps(tmp_path):
@@ -186,9 +194,9 @@ def test_resolve_sample_paths_invalid_port(tmp_path):
         resolve_sample_paths("credit-fees", "invalid", tmp_path)
 
 
-def test_execute_job_invalid_job_id(tmp_path):
+def test_execute_job_invalid_job_id(tmp_path, monkeypatch):
     """Test execute_job with invalid job_id."""
-    os.environ["CORONER_EXCHANGE_DIR"] = str(tmp_path)
+    monkeypatch.setenv("CORONER_EXCHANGE_DIR", str(tmp_path))
     
     job_dir = tmp_path / "invalid_id"
     job_dir.mkdir()
@@ -211,9 +219,9 @@ def test_execute_job_invalid_job_id(tmp_path):
     assert "invalid job_id format" in status_data["reason"]
 
 
-def test_execute_job_missing_request(tmp_path):
+def test_execute_job_missing_request(tmp_path, monkeypatch):
     """Test execute_job with missing request.json."""
-    os.environ["CORONER_EXCHANGE_DIR"] = str(tmp_path)
+    monkeypatch.setenv("CORONER_EXCHANGE_DIR", str(tmp_path))
     
     job_dir = tmp_path / "a26c32ac9519"
     job_dir.mkdir()
@@ -228,9 +236,9 @@ def test_execute_job_missing_request(tmp_path):
     assert "request.json not found" in status_data["reason"]
 
 
-def test_execute_job_invalid_seed(tmp_path):
+def test_execute_job_invalid_seed(tmp_path, monkeypatch):
     """Test execute_job with seed out of bounds."""
-    os.environ["CORONER_EXCHANGE_DIR"] = str(tmp_path)
+    monkeypatch.setenv("CORONER_EXCHANGE_DIR", str(tmp_path))
     
     job_dir = tmp_path / "a26c32ac9519"
     job_dir.mkdir()
@@ -253,9 +261,9 @@ def test_execute_job_invalid_seed(tmp_path):
     assert "seed must be an integer between 0 and 1000000" in status_data["reason"]
 
 
-def test_execute_job_invalid_cases(tmp_path):
+def test_execute_job_invalid_cases(tmp_path, monkeypatch):
     """Test execute_job with cases out of bounds."""
-    os.environ["CORONER_EXCHANGE_DIR"] = str(tmp_path)
+    monkeypatch.setenv("CORONER_EXCHANGE_DIR", str(tmp_path))
     
     job_dir = tmp_path / "b26c32ac9519"
     job_dir.mkdir()
@@ -278,9 +286,9 @@ def test_execute_job_invalid_cases(tmp_path):
     assert "cases must be an integer between 10 and 2000" in status_data["reason"]
 
 
-def test_execute_job_unknown_sample(tmp_path):
+def test_execute_job_unknown_sample(tmp_path, monkeypatch):
     """Test execute_job with unknown sample."""
-    os.environ["CORONER_EXCHANGE_DIR"] = str(tmp_path)
+    monkeypatch.setenv("CORONER_EXCHANGE_DIR", str(tmp_path))
     
     job_dir = tmp_path / "c26c32ac9519"
     job_dir.mkdir()
@@ -304,13 +312,13 @@ def test_execute_job_unknown_sample(tmp_path):
 
 
 @pytest.mark.slow
-def test_execute_job_credit_fees_correct(tmp_path):
+def test_execute_job_credit_fees_correct(tmp_path, monkeypatch):
     """
     Test execute_job with credit-fees correct port.
     
     Compares worker result with direct run_verify call.
     """
-    os.environ["CORONER_EXCHANGE_DIR"] = str(tmp_path)
+    monkeypatch.setenv("CORONER_EXCHANGE_DIR", str(tmp_path))
     
     job_dir = tmp_path / "a26c32ac9519"
     job_dir.mkdir()
@@ -384,13 +392,13 @@ def test_execute_job_credit_fees_correct(tmp_path):
 
 
 @pytest.mark.slow
-def test_execute_job_t1_faulty_zombie(tmp_path):
+def test_execute_job_t1_faulty_zombie(tmp_path, monkeypatch):
     """
     Test execute_job with T1 faulty port (ZOMBIE).
     
     Uses a small case count (30) for speed.
     """
-    os.environ["CORONER_EXCHANGE_DIR"] = str(tmp_path)
+    monkeypatch.setenv("CORONER_EXCHANGE_DIR", str(tmp_path))
     
     job_dir = tmp_path / "e26c32ac9519"
     job_dir.mkdir()
@@ -445,7 +453,7 @@ def test_execute_job_t1_faulty_zombie(tmp_path):
 
 
 @pytest.mark.slow
-def test_execute_job_timeout(tmp_path):
+def test_execute_job_timeout(tmp_path, monkeypatch):
     """
     Test that job timeout is enforced.
     
@@ -453,8 +461,8 @@ def test_execute_job_timeout(tmp_path):
     which should take longer than 1 second. The subprocess timeout
     kills the process group.
     """
-    os.environ["CORONER_EXCHANGE_DIR"] = str(tmp_path)
-    os.environ["CORONER_JOB_TIMEOUT"] = "1"  # 1 second timeout
+    monkeypatch.setenv("CORONER_EXCHANGE_DIR", str(tmp_path))
+    monkeypatch.setenv("CORONER_JOB_TIMEOUT", "1")  # 1 second timeout
     
     job_dir = tmp_path / "d26c32ac9519"
     job_dir.mkdir()
@@ -501,6 +509,3 @@ def test_execute_job_timeout(tmp_path):
     except ProcessLookupError:
         # Expected: process group is gone
         pass
-    
-    # Reset timeout env var
-    del os.environ["CORONER_JOB_TIMEOUT"]

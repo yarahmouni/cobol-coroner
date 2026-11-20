@@ -13,70 +13,92 @@ from coroner.certificate import generate_certificate, replay_certificate, comput
 @pytest.fixture(scope="module")
 def small_run_alive(tmp_path_factory):
     """Generate a small ALIVE run for testing (30 cases)."""
-    from coroner.cli import verify_command
+    from coroner.cli import run_verify
     
-    cobol = "samples/credit-fees/CREDIT-FEES.cob"
-    copybooks = "samples/credit-fees/copybooks"
-    java = "samples/credit-fees/java/CreditFees.java"
-    schema = "samples/credit-fees/schema.json"
+    tmp_base = tmp_path_factory.mktemp("cert_alive")
+    
+    cobol = Path("samples/credit-fees/CREDIT-FEES.cob").resolve()
+    copybooks = Path("samples/credit-fees/copybooks").resolve()
+    java = Path("samples/credit-fees/java/CreditFees.java").resolve()
+    schema = Path("samples/credit-fees/schema.json").resolve()
     
     # Run verification with 30 cases
-    exit_code = verify_command(cobol, copybooks, java, schema, cases=30, seed=123)
+    verdict, run_dir = run_verify(
+        cobol_path=str(cobol),
+        copybooks_dir=str(copybooks),
+        java_path=str(java),
+        schema_path=str(schema),
+        num_cases=30,
+        seed=123,
+        timings=False,
+        base_dir=str(tmp_base),
+    )
     
-    # Find the run directory
-    runs_dir = Path("runs")
-    run_dirs = sorted(runs_dir.glob("*"), key=lambda p: p.stat().st_mtime, reverse=True)
-    run_id = run_dirs[0].name
+    run_id = run_dir.name
+    run_dir_str = str(run_dir)
     
     yield {
         "run_id": run_id,
-        "run_dir": f"runs/{run_id}",
-        "exit_code": exit_code,
-        "cobol": cobol,
-        "copybooks": copybooks,
-        "java": java,
-        "schema": schema
+        "run_dir": run_dir_str,
+        "exit_code": 0,
+        "cobol": str(cobol),
+        "copybooks": str(copybooks),
+        "java": str(java),
+        "schema": str(schema),
+        "base_dir": str(tmp_base)
     }
 
 
 @pytest.fixture(scope="module")
 def small_run_zombie(tmp_path_factory):
     """Generate a small ZOMBIE run for testing (30 cases with legacy variant)."""
-    from coroner.cli import verify_command
+    from coroner.cli import run_verify
     from coroner.catalog.legacy_variant import generate_half_even_variant
     
-    cobol = "samples/credit-fees/CREDIT-FEES.cob"
-    copybooks = "samples/credit-fees/copybooks"
-    java_orig = "samples/credit-fees/java/CreditFees.java"
-    schema = "samples/credit-fees/schema.json"
+    tmp_base = tmp_path_factory.mktemp("cert_zombie")
     
-    # Generate legacy variant
-    os.makedirs("build/test_variants", exist_ok=True)
-    java_variant = "build/test_variants/CreditFees.java"
-    generate_half_even_variant(java_orig, java_variant)
+    cobol = Path("samples/credit-fees/CREDIT-FEES.cob").resolve()
+    copybooks = Path("samples/credit-fees/copybooks").resolve()
+    java_orig = Path("samples/credit-fees/java/CreditFees.java").resolve()
+    schema = Path("samples/credit-fees/schema.json").resolve()
+    
+    # Generate legacy variant in tmp_base
+    variant_dir = tmp_base / "variant"
+    variant_dir.mkdir()
+    java_variant = variant_dir / "CreditFees.java"
+    generate_half_even_variant(str(java_orig), str(java_variant))
     
     # Run verification with 30 cases
-    exit_code = verify_command(cobol, copybooks, java_variant, schema, cases=30, seed=123)
+    verdict, run_dir = run_verify(
+        cobol_path=str(cobol),
+        copybooks_dir=str(copybooks),
+        java_path=str(java_variant),
+        schema_path=str(schema),
+        num_cases=30,
+        seed=123,
+        timings=False,
+        base_dir=str(tmp_base),
+    )
     
-    # Find the run directory
-    runs_dir = Path("runs")
-    run_dirs = sorted(runs_dir.glob("*"), key=lambda p: p.stat().st_mtime, reverse=True)
-    run_id = run_dirs[0].name
+    run_id = run_dir.name
+    run_dir_str = str(run_dir)
     
     yield {
         "run_id": run_id,
-        "run_dir": f"runs/{run_id}",
-        "exit_code": exit_code,
-        "cobol": cobol,
-        "copybooks": copybooks,
-        "java": java_variant,
-        "schema": schema
+        "run_dir": run_dir_str,
+        "exit_code": 1,
+        "cobol": str(cobol),
+        "copybooks": str(copybooks),
+        "java": str(java_variant),
+        "schema": str(schema),
+        "base_dir": str(tmp_base)
     }
 
 
 def test_certificate_generated_alive(small_run_alive):
     """Certificate is generated after ALIVE run with all required fields."""
     run_dir = small_run_alive["run_dir"]
+    base_dir = small_run_alive["base_dir"]
     cert_path = f"{run_dir}/certificate.json"
     
     assert os.path.isfile(cert_path), "certificate.json not found"
@@ -174,9 +196,10 @@ def test_certificate_generated_zombie(small_run_zombie):
 def test_replay_valid_alive(small_run_alive):
     """Replay of ALIVE certificate succeeds with exit code 0."""
     run_dir = small_run_alive["run_dir"]
+    base_dir = small_run_alive["base_dir"]
     cert_path = f"{run_dir}/certificate.json"
     
-    result = replay_certificate(cert_path)
+    result = replay_certificate(cert_path, base_dir=base_dir)
     
     assert result.valid is True
     assert result.reason == ""
@@ -194,9 +217,10 @@ def test_replay_valid_alive(small_run_alive):
 def test_replay_valid_zombie(small_run_zombie):
     """Replay of ZOMBIE certificate succeeds with exit code 1."""
     run_dir = small_run_zombie["run_dir"]
+    base_dir = small_run_zombie["base_dir"]
     cert_path = f"{run_dir}/certificate.json"
     
-    result = replay_certificate(cert_path)
+    result = replay_certificate(cert_path, base_dir=base_dir)
     
     assert result.valid is True
     assert result.reason == ""
@@ -223,7 +247,8 @@ def test_replay_invalid_content(small_run_alive, tmp_path):
         json.dump(cert, f, indent=2, sort_keys=True)
     
     # Replay should detect tampering
-    result = replay_certificate(str(temp_cert))
+    base_dir = small_run_alive["base_dir"]
+    result = replay_certificate(str(temp_cert), base_dir=base_dir)
     
     assert result.valid is False
     assert "certificate content was modified" in result.reason
@@ -264,7 +289,8 @@ def test_replay_invalid_cases_file(small_run_alive, tmp_path):
         json.dump(cert, f, indent=2, sort_keys=True)
     
     # Replay should detect cases file hash mismatch (file changed, but hash in cert still references old content)
-    result = replay_certificate(str(temp_cert))
+    base_dir = small_run_alive["base_dir"]
+    result = replay_certificate(str(temp_cert), base_dir=base_dir)
     
     assert result.valid is False
     assert "cases file hash mismatch" in result.reason
@@ -294,7 +320,8 @@ def test_replay_invalid_metrics_tampering(small_run_alive, tmp_path):
         json.dump(cert, f, indent=2, sort_keys=True)
     
     # Replay should detect the mismatch when re-running
-    result = replay_certificate(str(temp_cert))
+    base_dir = small_run_alive["base_dir"]
+    result = replay_certificate(str(temp_cert), base_dir=base_dir)
     
     assert result.valid is False
     assert "replay mismatch" in result.reason
@@ -304,11 +331,12 @@ def test_replay_invalid_metrics_tampering(small_run_alive, tmp_path):
 def test_replay_tool_version_warnings(small_run_alive, tmp_path, monkeypatch):
     """Tool version differences produce warnings but not invalidity."""
     run_dir = small_run_alive["run_dir"]
+    base_dir = small_run_alive["base_dir"]
     cert_path = f"{run_dir}/certificate.json"
     
     # This test is hard to implement without actually changing tool versions.
     # We verify the structure is correct and warnings exist in the result.
-    result = replay_certificate(cert_path)
+    result = replay_certificate(cert_path, base_dir=base_dir)
     
     assert result.valid is True
     assert isinstance(result.warnings, list)
@@ -319,7 +347,8 @@ def test_replay_missing_file(tmp_path):
     """Replay of non-existent certificate returns error."""
     fake_cert = tmp_path / "nonexistent.json"
     
-    result = replay_certificate(str(fake_cert))
+    # When the certificate file doesn't exist, base_dir is irrelevant
+    result = replay_certificate(str(fake_cert), base_dir=str(tmp_path))
     
     assert result.valid is False
     assert "file not found" in result.reason.lower() or "invalid certificate" in result.reason.lower()
@@ -406,7 +435,7 @@ def test_certificate_cobc_flags_tampering(tmp_path):
     
     # First verify the original certificate replays as VALID
     from coroner.certificate import replay_certificate
-    result_orig = replay_certificate(str(cert_path))
+    result_orig = replay_certificate(str(cert_path), base_dir=str(tmp_path))
     assert result_orig.valid is True
     assert result_orig.verdict.status == "ALIVE"
     
@@ -426,7 +455,7 @@ def test_certificate_cobc_flags_tampering(tmp_path):
         json.dump(cert_tampered, f, indent=2, sort_keys=True)
     
     # Replay should detect the mismatch (outputs differ when compiled without -fsign=EBCDIC)
-    result_tampered = replay_certificate(str(temp_cert))
+    result_tampered = replay_certificate(str(temp_cert), base_dir=str(tmp_path))
     
     assert result_tampered.valid is False
     assert "replay mismatch" in result_tampered.reason

@@ -2,6 +2,7 @@
 import sys
 import os
 import time
+import json
 import argparse
 from pathlib import Path
 
@@ -494,6 +495,7 @@ def main():
     verify_parser.add_argument("--seed", type=int, default=42, help="Random seed (default: 42)")
     verify_parser.add_argument("--tie-share", type=float, default=0.06, help="Fraction of cases that are rounding ties (default: 0.06)")
     verify_parser.add_argument("--timings", action="store_true", help="Print per-step timings")
+    verify_parser.add_argument("--json", action="store_true", help="Output JSON for certificate replay (used by subprocess)")
     
     # traps command
     traps_parser = subparsers.add_parser("traps", help="Run trap catalog")
@@ -517,8 +519,36 @@ def main():
             # Certificate replay mode
             from coroner.certificate import replay_certificate
             
+            # Honor CORONER_BASE_DIR
+            base_dir = os.environ.get('CORONER_BASE_DIR')
+            
             try:
-                result = replay_certificate(args.certificate)
+                result = replay_certificate(args.certificate, base_dir)
+                
+                # JSON output mode (for subprocess)
+                if args.json:
+                    output = {
+                        "valid": result.valid,
+                        "reason": result.reason,
+                        "verdict_status": result.verdict.status if result.verdict else None,
+                        "verdict_sub_label": result.verdict.sub_label if result.verdict else None,
+                        "cases_total": result.cases_total,
+                        "cases_divergent": result.cases_divergent,
+                        "run_return_codes": list(result.verdict.run_return_codes) if result.verdict else [0, 0],
+                        "paragraph_coverage_reached": result.paragraph_coverage_reached,
+                        "paragraph_coverage_total": result.paragraph_coverage_total,
+                        "branch_coverage_reached": result.branch_coverage_reached,
+                        "branch_coverage_total": result.branch_coverage_total,
+                        "cases_file": result.cases_file,
+                        "warnings": result.warnings
+                    }
+                    print(json.dumps(output))
+                    
+                    # Exit code: 0 for ALIVE, 1 for ZOMBIE, 3 for INVALID
+                    if result.valid:
+                        return 0 if result.verdict.status == "ALIVE" else 1
+                    else:
+                        return 3
                 
                 # Print warnings to stderr
                 for warning in result.warnings:
@@ -541,7 +571,25 @@ def main():
                     return 3
                     
             except Exception as e:
-                print(f"Error: {e}", file=sys.stderr)
+                if args.json:
+                    # Return error result as JSON
+                    error_output = {
+                        "valid": False,
+                        "reason": f"replay failed: {str(e)}",
+                        "verdict_status": None,
+                        "verdict_sub_label": None,
+                        "cases_total": 0,
+                        "cases_divergent": 0,
+                        "paragraph_coverage_reached": 0,
+                        "paragraph_coverage_total": 0,
+                        "branch_coverage_reached": 0,
+                        "branch_coverage_total": 0,
+                        "cases_file": "",
+                        "warnings": []
+                    }
+                    print(json.dumps(error_output))
+                else:
+                    print(f"Error: {e}", file=sys.stderr)
                 return 2
         
         # Run mode

@@ -4,6 +4,8 @@ import html
 import json
 import os
 import re
+import signal
+import subprocess
 import sys
 import time
 from datetime import datetime
@@ -15,9 +17,10 @@ from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field, conint, field_validator
+from starlette.concurrency import run_in_threadpool
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from coroner.certificate import replay_certificate, compute_certificate_sha256
+from coroner.certificate import replay_certificate, compute_certificate_sha256, ReplayResult
 
 
 async def _send_413(send: Send):
@@ -855,6 +858,154 @@ async def run_page(request: Request, run_id: str):
 
 
 
+# Last replay process group ID (for tests)
+_last_replay_pgid = None
+
+
+def get_last_replay_pgid() -> Optional[int]:
+    """Get the last replay process group ID (for tests)."""
+    return _last_replay_pgid
+
+
+def replay_with_timeout(certificate_path: str, base_dir: str, timeout_seconds: int) -> ReplayResult:
+    """
+    Replay a certificate with a timeout using a child process.
+    
+    Runs `coroner verify <certificate_path> --json` as a subprocess with timeout.
+    If the replay exceeds the timeout, kills the process group and returns an error ReplayResult.
+    
+    Args:
+        certificate_path: Path to certificate file
+        base_dir: Base directory for runs
+        timeout_seconds: Timeout in seconds
+    
+    Returns:
+        ReplayResult with valid=False and appropriate reason if timeout or other error
+    """
+    global _last_replay_pgid
+    
+    # Build command: certificate is a positional argument, not --certificate
+    cmd = [
+        sys.executable,
+        "-m",
+        "coroner",
+        "verify",
+        certificate_path,
+        "--json"
+    ]
+    
+    # Set environment
+    env = os.environ.copy()
+    env["CORONER_BASE_DIR"] = str(base_dir)
+    
+    try:
+        # Start subprocess with process group
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            start_new_session=True,
+            env=env,
+        )
+        
+        # Record pgid for tests
+        _last_replay_pgid = proc.pid
+        
+        try:
+            # Wait for completion with timeout
+            stdout, stderr = proc.communicate(timeout=timeout_seconds)
+        except subprocess.TimeoutExpired:
+            # Kill the process group
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            
+            # Collect output
+            proc.communicate()
+            
+            # Return timeout error
+            return ReplayResult(
+                valid=False,
+                reason="replay timed out",
+                verdict=None,
+                cases_total=0,
+                cases_divergent=0,
+                paragraph_coverage_reached=0,
+                paragraph_coverage_total=0,
+                branch_coverage_reached=0,
+                branch_coverage_total=0,
+                cases_file="",
+                warnings=[]
+            )
+        
+        # Parse JSON output
+        try:
+            result_data = json.loads(stdout)
+        except json.JSONDecodeError:
+            # Not valid JSON, return error with stderr excerpt
+            stderr_excerpt = stderr[:200] if stderr else "(no stderr)"
+            return ReplayResult(
+                valid=False,
+                reason=f"replay failed: {stderr_excerpt}",
+                verdict=None,
+                cases_total=0,
+                cases_divergent=0,
+                paragraph_coverage_reached=0,
+                paragraph_coverage_total=0,
+                branch_coverage_reached=0,
+                branch_coverage_total=0,
+                cases_file="",
+                warnings=[]
+            )
+        
+        # Build ReplayResult from JSON
+        from coroner.verdict import Verdict
+        
+        verdict = None
+        if result_data.get("verdict_status"):
+            # Construct Verdict with all required fields
+            run_return_codes_list = result_data.get("run_return_codes", [0, 0])
+            verdict = Verdict(
+                status=result_data["verdict_status"],
+                sub_label=result_data.get("verdict_sub_label", ""),
+                cases_total=result_data.get("cases_total", 0),
+                cases_divergent=result_data.get("cases_divergent", 0),
+                run_return_codes=(run_return_codes_list[0], run_return_codes_list[1])
+            )
+        
+        return ReplayResult(
+            valid=result_data["valid"],
+            reason=result_data.get("reason", ""),
+            verdict=verdict,
+            cases_total=result_data.get("cases_total", 0),
+            cases_divergent=result_data.get("cases_divergent", 0),
+            paragraph_coverage_reached=result_data.get("paragraph_coverage_reached", 0),
+            paragraph_coverage_total=result_data.get("paragraph_coverage_total", 0),
+            branch_coverage_reached=result_data.get("branch_coverage_reached", 0),
+            branch_coverage_total=result_data.get("branch_coverage_total", 0),
+            cases_file=result_data.get("cases_file", ""),
+            warnings=result_data.get("warnings", [])
+        )
+        
+    except Exception as e:
+        # Other error
+        return ReplayResult(
+            valid=False,
+            reason=f"replay failed: {str(e)}",
+            verdict=None,
+            cases_total=0,
+            cases_divergent=0,
+            paragraph_coverage_reached=0,
+            paragraph_coverage_total=0,
+            branch_coverage_reached=0,
+            branch_coverage_total=0,
+            cases_file="",
+            warnings=[]
+        )
+
+
 @app.post("/api/verify")
 async def verify_certificate(request: Request, run_id: str = Form(...)):
     """
@@ -907,30 +1058,48 @@ async def verify_certificate(request: Request, run_id: str = Form(...)):
     if not certificate_file.exists():
         return JSONResponse(status_code=404, content={"detail": "Certificate not found"})
     
-    # Replay certificate
-    result = replay_certificate(str(certificate_file))
+    # Replay certificate off the event loop with timeout
+    replay_timeout = int(os.environ.get("CORONER_REPLAY_TIMEOUT", "90"))
+    base_dir = get_base_dir()
+    result = await run_in_threadpool(
+        replay_with_timeout,
+        str(certificate_file),
+        str(base_dir),
+        replay_timeout
+    )
     
     # Build HTML fragment
     if result.valid:
-        html = f'''
+        # Escape all dynamic values
+        status = html.escape(result.verdict.status if result.verdict else "not recorded")
+        cases_total = html.escape(str(result.cases_total))
+        cases_divergent = html.escape(str(result.cases_divergent))
+        para_reached = html.escape(str(result.paragraph_coverage_reached))
+        para_total = html.escape(str(result.paragraph_coverage_total))
+        branch_reached = html.escape(str(result.branch_coverage_reached))
+        branch_total = html.escape(str(result.branch_coverage_total))
+        
+        html_content = f'''
         <div style="padding: 1rem; background: #1b4d3e; color: #4ade80; border-radius: 4px;">
             <div style="font-weight: bold; font-size: 1.2rem; margin-bottom: 0.5rem;">Certificate: VALID</div>
-            <div>Status: {result.verdict.status if result.verdict else "not recorded"}</div>
-            <div>Cases: {result.cases_total}</div>
-            <div>Divergences: {result.cases_divergent}</div>
-            <div>Paragraph coverage: {result.paragraph_coverage_reached}/{result.paragraph_coverage_total}</div>
-            <div>Branch coverage (Coroner definition): {result.branch_coverage_reached}/{result.branch_coverage_total}</div>
+            <div>Status: {status}</div>
+            <div>Cases: {cases_total}</div>
+            <div>Divergences: {cases_divergent}</div>
+            <div>Paragraph coverage: {para_reached}/{para_total}</div>
+            <div>Branch coverage (Coroner definition): {branch_reached}/{branch_total}</div>
         </div>
         '''
     else:
-        html = f'''
+        # Escape the reason
+        escaped_reason = html.escape(result.reason)
+        html_content = f'''
         <div style="padding: 1rem; background: #4d1b1b; color: #f87171; border-radius: 4px;">
             <div style="font-weight: bold; font-size: 1.2rem; margin-bottom: 0.5rem;">Certificate: INVALID</div>
-            <div>{result.reason}</div>
+            <div>{escaped_reason}</div>
         </div>
         '''
     
-    return HTMLResponse(content=html)
+    return HTMLResponse(content=html_content)
 
 
 @app.get("/tamper", response_class=HTMLResponse)
@@ -1092,21 +1261,33 @@ async def tamper_certificate(
             json.dump(cert_data, f, indent=2, sort_keys=True)
             f.write('\n')
         
-        # Replay the tampered certificate
-        result = replay_certificate(str(tampered_path))
+        # Replay the tampered certificate off the event loop with timeout
+        replay_timeout = int(os.environ.get("CORONER_REPLAY_TIMEOUT", "90"))
+        base_dir = get_base_dir()
+        result = await run_in_threadpool(
+            replay_with_timeout,
+            str(tampered_path),
+            str(base_dir),
+            replay_timeout
+        )
         
         # Build HTML fragment
         if result.valid:
+            # Escape all dynamic values
+            status = html.escape(result.verdict.status if result.verdict else "not recorded")
+            cases_total = html.escape(str(result.cases_total))
+            cases_divergent = html.escape(str(result.cases_divergent))
+            
             response_html = f'''
             <div style="padding: 1rem; background: #1b4d3e; color: #4ade80; border-radius: 4px;">
                 <div style="font-weight: bold; font-size: 1.2rem; margin-bottom: 0.5rem;">Certificate: VALID</div>
-                <div>Status: {result.verdict.status if result.verdict else "not recorded"}</div>
-                <div>Cases: {result.cases_total}</div>
-                <div>Divergences: {result.cases_divergent}</div>
+                <div>Status: {status}</div>
+                <div>Cases: {cases_total}</div>
+                <div>Divergences: {cases_divergent}</div>
             </div>
             '''
         else:
-            # Escape the reason for safe display
+            # Escape the reason (note: already escaped above, but for consistency)
             escaped_reason = html.escape(result.reason)
             response_html = f'''
             <div style="padding: 1rem; background: #4d1b1b; color: #f87171; border-radius: 4px;">

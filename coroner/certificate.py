@@ -62,18 +62,25 @@ def compute_certificate_sha256(cert: dict) -> str:
     return hashlib.sha256(canonical_json.encode('utf-8')).hexdigest()
 
 
-def _make_relative_path(file_path: str) -> str:
+def _make_relative_path(file_path: str, base_path: str = ".") -> str:
     """
-    Make path relative to repository root if inside it.
-    Otherwise return absolute path.
+    Make path relative to base_path.
+    For backwards compatibility with old certificates that contain absolute paths.
+    
+    Args:
+        file_path: Path to make relative
+        base_path: Base directory (default current directory)
+        
+    Returns:
+        Relative path when inside base_path, otherwise absolute path
     """
     try:
         abs_path = os.path.abspath(file_path)
-        cwd = os.path.abspath(os.getcwd())
+        abs_base = os.path.abspath(base_path)
         
-        # Check if file is under cwd
-        if os.path.commonpath([abs_path, cwd]) == cwd:
-            return os.path.relpath(abs_path, cwd)
+        # Check if file is under base
+        if os.path.commonpath([abs_path, abs_base]) == abs_base:
+            return os.path.relpath(abs_path, abs_base)
         else:
             return abs_path
     except (ValueError, TypeError):
@@ -177,11 +184,14 @@ def generate_certificate(
         "timestamp": inputs["timestamp"],
         
         # File paths (relative when inside repository)
-        "cobol_file": _make_relative_path(cobol_file),
-        "copybook_dir": _make_relative_path(copybook_dir),
-        "java_file": _make_relative_path(java_file),
-        "schema_file": _make_relative_path(schema_file),
-        "cases_file": _make_relative_path(f"{run_dir}/generated_cases.csv"),
+        # Source files are relative to current directory (repository root)
+        "cobol_file": _make_relative_path(cobol_file, "."),
+        "copybook_dir": _make_relative_path(copybook_dir, "."),
+        "java_file": _make_relative_path(java_file, "."),
+        "schema_file": _make_relative_path(schema_file, "."),
+        # cases_file is always relative to base_dir: "runs/<run_id>/generated_cases.csv"
+        # This ensures the certificate can be replayed regardless of the base directory
+        "cases_file": f"runs/{run_id}/generated_cases.csv",
         
         # Verdict
         "status": verdict_data["status"],
@@ -215,7 +225,7 @@ def generate_certificate(
         f.write('\n')
 
 
-def replay_certificate(certificate_path: str) -> ReplayResult:
+def replay_certificate(certificate_path: str, base_dir: Optional[str] = None) -> ReplayResult:
     """
     Replay and validate a certificate offline.
     
@@ -228,11 +238,16 @@ def replay_certificate(certificate_path: str) -> ReplayResult:
     
     Args:
         certificate_path: Path to certificate.json
+        base_dir: Base directory for resolving relative paths (default: CORONER_BASE_DIR or ".")
         
     Returns:
         ReplayResult with validation status, verdict, coverage, warnings
     """
     warnings = []
+    
+    # Resolve base_dir
+    if base_dir is None:
+        base_dir = os.environ.get("CORONER_BASE_DIR", ".")
     
     try:
         # Step 1: Load and verify content hash
@@ -342,6 +357,11 @@ def replay_certificate(certificate_path: str) -> ReplayResult:
         
         # Verify cases file
         cases_file = cert["cases_file"]
+        # Resolve relative paths against base_dir
+        # Absolute paths (old certificates) are used as is
+        if not os.path.isabs(cases_file):
+            cases_file = os.path.join(base_dir, cases_file)
+        
         if not os.path.isfile(cases_file):
             return ReplayResult(
                 valid=False, reason=f"cases file not found: {cases_file}",

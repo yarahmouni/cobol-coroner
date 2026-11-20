@@ -108,6 +108,15 @@ COPY --chown=coroner:coroner . .
 RUN mkdir -p build/junit && chown -R coroner:coroner build
 COPY --from=builder --chown=coroner:coroner /build/junit/ build/junit/
 
+# Generate HALF_EVEN variant at build time (as root, before switching to coroner user)
+# This pre-generates build/variants/CreditFees.java so the worker and init_demo_runs.sh
+# can reference it without generating it into a job directory that gets deleted
+RUN mkdir -p build/variants && \
+    python3 -m coroner.catalog.legacy_variant \
+        samples/credit-fees/java/CreditFees.java \
+        build/variants/CreditFees.java && \
+    chown -R coroner:coroner build
+
 # Install Python dependencies (runtime, dev and test groups) as root
 RUN python3 -m pip install --no-cache-dir -e ".[dev,test]"
 

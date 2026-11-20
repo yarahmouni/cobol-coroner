@@ -1,7 +1,8 @@
 PYTHON ?= .venv/bin/python
 SCREENSHOT_CHANNEL ?=
+URL ?= http://127.0.0.1:8000
 
-.PHONY: test test-all smoke smoke-ui demo zombie serve java-sample hooks junit-jars acceptance precommit traps demo-ebcdic coroner-gate screenshots
+.PHONY: test test-all smoke smoke-ui demo zombie serve java-sample hooks junit-jars acceptance precommit traps demo-ebcdic coroner-gate screenshots deploy-check
 
 test:
 	$(PYTHON) -m pytest -q
@@ -60,3 +61,6 @@ coroner-gate:
 
 screenshots:
 	SCREENSHOT_CHANNEL=$(SCREENSHOT_CHANNEL) $(PYTHON) scripts/make_screenshots.py
+
+deploy-check:
+	$(PYTHON) scripts/deploy_check.py --url $(URL)

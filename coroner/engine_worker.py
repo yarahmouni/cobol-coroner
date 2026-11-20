@@ -98,15 +98,25 @@ def resolve_sample_paths(sample: str, port: str, job_dir: Path) -> Tuple[str, st
             if not java_path.exists():
                 raise ValueError(f"Java file not found: {java_path}")
         elif port == "faulty":
-            # Generate HALF_EVEN variant into job directory
-            from coroner.catalog.legacy_variant import generate_half_even_variant
+            # Use pre-generated HALF_EVEN variant from build/variants/
+            # If missing on host (developer machine without make zombie), generate it there
+            # In the image it is prebuilt by init_demo_runs.sh
+            variant_path = repo_root / "build" / "variants" / "CreditFees.java"
             
-            source_java = sample_dir / "java" / "CreditFees.java"
-            if not source_java.exists():
-                raise ValueError(f"source Java file not found: {source_java}")
+            if not variant_path.exists():
+                # Generate the variant
+                from coroner.catalog.legacy_variant import generate_half_even_variant
+                
+                source_path = sample_dir / "java" / "CreditFees.java"
+                if not source_path.exists():
+                    raise ValueError(f"Source Java file not found: {source_path}")
+                
+                # Create build/variants/ if needed
+                variant_path.parent.mkdir(parents=True, exist_ok=True)
+                
+                # Generate HALF_EVEN variant
+                generate_half_even_variant(str(source_path), str(variant_path))
             
-            variant_path = job_dir / "CreditFees_HALF_EVEN.java"
-            generate_half_even_variant(str(source_java), str(variant_path))
             java_path = variant_path
         else:
             raise ValueError(f"unknown port: {port}")

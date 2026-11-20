@@ -225,12 +225,12 @@
 **Done when:** Test book with scenarios written, generator executes all scenarios and writes measured results, make test-book works locally and against URL, test checks Actual results are generated.
 
 ## Task 19: Automated deployment check (Req 19, D-53)
-- [ ] Add `make deploy-check` target: accepts URL parameter (for example `make deploy-check URL=https://coroner.iqoba.com`)
-- [ ] Before checking the URL, build the image from a real `git clone` of the commit being deployed (no working-tree files) and fail if it does not build; same rule as make smoke-ui (owner, 2026-11-18)
-- [ ] Subset of test book scenarios: Run audit on T1 faulty (assert ZOMBIE), T1 correct (assert ALIVE), Tamper (assert INVALID with reason)
-- [ ] Use httpx to call the URL, check responses
-- [ ] Exit 1 if any check fails, exit 0 if all pass
-- [ ] Test: run deploy-check against local TestClient, assert exit 0
+- [x] Add `make deploy-check` target: accepts URL parameter (for example `make deploy-check URL=https://coroner.iqoba.com`)
+- [x] Before checking the URL, build the image from a real `git clone` of the commit being deployed (no working-tree files) and fail if it does not build; same rule as make smoke-ui (owner, 2026-11-18)
+- [x] Subset of test book scenarios: Run audit on T1 faulty (assert ZOMBIE), T1 correct (assert ALIVE), Tamper (assert INVALID with reason)
+- [x] Use httpx to call the URL, check responses
+- [x] Exit 1 if any check fails, exit 0 if all pass
+- [x] Test: run deploy-check against local TestClient, assert exit 0
 
 **Requirements:** 19
 **Done when:** make deploy-check runs automated checks against a URL, fails loudly on unexpected result, works locally and against live site.
