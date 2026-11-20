@@ -9,3 +9,4 @@ target/
 *.class
 .env
 .DS_Store
+prompts/

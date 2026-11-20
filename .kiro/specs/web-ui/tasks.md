@@ -228,7 +228,7 @@
 ## Task 20: Deployment documentation and README update (Req 20, D-52)
 - [ ] Create docs/deploy.md: prerequisites, tunnel creation commands with placeholders (cloudflared tunnel create, cloudflared tunnel route dns), container limits, measured resource usage from Task 17, demo data generation commands (make traps, make demo-ebcdic, make demo, make zombie), how to update, how to stop, uptime monitor setup with placeholders (no email or account id)
 - [ ] State limits: engine 2 CPUs 2 GB, API 1 CPU 512 MB, cloudflared 0.25 CPU 128 MB, sum 2688 MB
-- [ ] State free memory requirement: at least 8 GiB for host's other service
+- [ ] State that host memory used by other services is out of scope; Coroner stays within its own container limits
 - [ ] State platform: linux/amd64
 - [ ] Note: "The server currently uses Wi-Fi; a wired Ethernet connection is recommended for the judging period."
 - [ ] Update README.md: add Live demo section with link https://coroner.iqoba.com and link to docs/deploy.md

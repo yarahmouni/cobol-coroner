@@ -192,7 +192,7 @@ All tests use real runs produced by the engine at small case counts in a tmp bas
 - API limits: 1 CPU, 512 MB memory (no swap)
 - cloudflared limits: 0.25 CPU, 128 MB memory (no swap)
 - Sum of all Coroner memory limits
-- Free memory requirement: at least 8 GiB free for the host's other service
+- Host memory used by other services is out of scope; Coroner stays within its own container limits
 - Measured peak memory and CPU per sample at 2,000 cases
 - Which measurement method was used (docker stats or cgroup files)
 - Platform: linux/amd64

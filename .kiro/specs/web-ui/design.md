@@ -357,7 +357,7 @@ volumes:
     name: coroner-exchange
 ```
 
-Memory budget: 512 MB + 2048 MB + 128 MB = 2688 MB (well under the 8 GiB free requirement).
+Memory budget: 512 MB + 2048 MB + 128 MB = 2688 MB. Host memory used by other services is out of scope; Coroner stays within its own container limits.
 
 ### Run audit flow
 
@@ -544,7 +544,7 @@ File: docs/deploy.md
 - API: 1 CPU, 512 MB memory (no swap)
 - cloudflared: 0.25 CPU, 128 MB memory (no swap)
 - Total memory: 2688 MB
-- Free memory requirement: at least 8 GiB for host's other service
+- Host memory used by other services is out of scope; Coroner stays within its own container limits
 
 Measured peak usage at 2,000 cases:
 - credit-fees: 487 MB, 1.2 CPUs, 4.3 s
@@ -596,7 +596,7 @@ Check interval: 5 minutes
 - Demo data generation commands documented
 - Test book structure and generator design complete
 - Deployment guide outline written with placeholders for secrets
-- Memory budget computed: 2688 MB (under 8 GiB free requirement)
+- Memory budget computed: 2688 MB. Host memory used by other services is out of scope; Coroner stays within its own container limits
     # ...
     assert "Given" in response.text
     assert "When" in response.text
