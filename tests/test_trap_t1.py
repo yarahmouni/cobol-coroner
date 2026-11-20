@@ -211,19 +211,44 @@ def test_coroner_faulty_java_zombie(tmp_path):
     assert "return code differs" not in result.stdout
 
 
+@pytest.mark.slow
 def test_exposure_independent_verification():
     """
     Independent verification: run COBOL and Java directly on a real run,
     aggregate per branch with trimmed codes, verify against verdict.json.
     """
     import json
+    import re
+    import sys
     from decimal import Decimal
     from collections import defaultdict
     
-    # Use the real 2000-case run the operator measured
-    run_dir = Path("runs/00fb3823e8f8")
-    if not run_dir.exists():
-        pytest.skip("Run runs/00fb3823e8f8 not found")
+    # Create a run with the T1 faulty port at 2000 cases, seed 42
+    result = subprocess.run(
+        [
+            sys.executable, "-m", "coroner", "verify",
+            "--cobol", str(TRAP_DIR / "MATCH-MERGE.cob"),
+            "--copybooks", str(TRAP_DIR / "copybooks"),
+            "--java", str(TRAP_DIR / "java/faulty/MatchMerge.java"),
+            "--schema", str(TRAP_DIR / "schema.json"),
+            "--cases", "2000",
+            "--seed", "42"
+        ],
+        capture_output=True,
+        text=True,
+        timeout=120
+    )
+    
+    assert result.returncode == 1, f"Expected ZOMBIE (exit 1), got {result.returncode}"
+    
+    # Parse run_id from output
+    match = re.search(r'Run: runs/([a-f0-9]+)', result.stdout)
+    assert match, f"Could not find 'Run: runs/<id>' in output: {result.stdout}"
+    run_id = match.group(1)
+    
+    # Use exactly that run directory
+    run_dir = Path("runs") / run_id
+    assert run_dir.exists(), f"Run directory {run_dir} not found"
     
     # Read verdict
     with open(run_dir / "verdict.json") as f:

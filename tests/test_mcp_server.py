@@ -2,6 +2,7 @@
 import asyncio
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -110,6 +111,22 @@ def test_alive_run_workflow(tmp_path):
 
 def test_zombie_run_workflow(tmp_path):
     """Test ZOMBIE run workflow: run_differential_check, get_verdict, get_failure_report, export_junit_test."""
+    import sys
+    
+    # Generate the HALF_EVEN variant inside the repository (build/variants/)
+    variants_dir = Path(__file__).parent.parent / "build" / "variants"
+    variants_dir.mkdir(parents=True, exist_ok=True)
+    variant_java = variants_dir / "CreditFees.java"
+    result = subprocess.run(
+        [sys.executable, "-m", "coroner.catalog.legacy_variant", 
+         "samples/credit-fees/java/CreditFees.java", str(variant_java)],
+        capture_output=True,
+        text=True,
+        timeout=10
+    )
+    assert result.returncode == 0, f"Variant generation failed: {result.stderr}"
+    assert variant_java.exists(), "Variant file not created"
+    
     async def workflow(session):
         # Step 1: Run differential check (ZOMBIE with HALF_EVEN variant)
         zombie_result = await session.call_tool("run_differential_check", arguments={

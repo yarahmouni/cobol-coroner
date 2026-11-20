@@ -39,5 +39,6 @@ pythonpath = ["."]
 testpaths = ["tests"]
 markers = [
     "slow: marks tests as slow (deselected by default)",
+    "repo: needs the git checkout; runs on the CI checkout, outside the image",
 ]
 addopts = "-m 'not slow'"

@@ -916,6 +916,7 @@ def test_card_from_real_zombie_run():
     from pathlib import Path
     import subprocess
     import json
+    import re
     
     # Run make zombie (legacy variant, 2000 cases, seed 42)
     result = subprocess.run(
@@ -928,26 +929,14 @@ def test_card_from_real_zombie_run():
     # Verify it exits 2 (ZOMBIE verdict means CLI exit 1, make reports 2)
     assert result.returncode == 2, f"Expected exit 2, got {result.returncode}. Output: {result.stdout}\nStderr: {result.stderr}"
     
-    # Find the run directory (should be runs/227fcf67095d for seed 42)
-    runs_dir = Path("runs")
-    run_dirs = sorted(runs_dir.glob("*"))
+    # Parse run_id from output line "Run: runs/<id>"
+    match = re.search(r'Run: runs/([a-f0-9]+)', result.stdout)
+    assert match, f"Could not find 'Run: runs/<id>' in output: {result.stdout}"
+    run_id = match.group(1)
     
-    # Filter out temp directory and find ZOMBIE runs
-    zombie_runs = []
-    for run_dir in run_dirs:
-        if run_dir.name == "temp":
-            continue
-        verdict_path = run_dir / "verdict.json"
-        if verdict_path.exists():
-            with open(verdict_path, 'r') as f:
-                verdict = json.load(f)
-                if verdict.get("status") == "ZOMBIE":
-                    zombie_runs.append((run_dir, verdict_path.stat().st_mtime))
-    
-    # Take the most recent ZOMBIE run
-    assert len(zombie_runs) > 0, "No ZOMBIE run directories found"
-    zombie_runs.sort(key=lambda x: x[1], reverse=True)
-    run_dir = zombie_runs[0][0]
+    # Use exactly that run directory
+    run_dir = Path("runs") / run_id
+    assert run_dir.exists(), f"Run directory {run_dir} not found"
     
     # Verify card.txt exists
     card_path = run_dir / "card.txt"
@@ -1033,6 +1022,8 @@ def test_card_from_real_zombie_run():
 )
 def test_no_card_for_alive_run():
     """Test that an ALIVE run does not create card.txt."""
+    import re
+    
     # Run make demo (correct Java, should be ALIVE)
     result = subprocess.run(
         ["make", "demo"],
@@ -1044,12 +1035,14 @@ def test_no_card_for_alive_run():
     # Verify it exits 0 (ALIVE)
     assert result.returncode == 0, f"Expected exit 0, got {result.returncode}. Output: {result.stdout}\nStderr: {result.stderr}"
     
-    # Find the run directory
-    runs_dir = Path("runs")
-    run_dirs = sorted(runs_dir.glob("*"))
+    # Parse run_id from output line "Run: runs/<id>"
+    match = re.search(r'Run: runs/([a-f0-9]+)', result.stdout)
+    assert match, f"Could not find 'Run: runs/<id>' in output: {result.stdout}"
+    run_id = match.group(1)
     
-    assert len(run_dirs) > 0, "No run directories found"
-    run_dir = run_dirs[-1]
+    # Use exactly that run directory
+    run_dir = Path("runs") / run_id
+    assert run_dir.exists(), f"Run directory {run_dir} not found"
     
     # Verify card.txt does NOT exist for ALIVE
     card_path = run_dir / "card.txt"

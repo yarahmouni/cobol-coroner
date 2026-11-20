@@ -363,6 +363,8 @@ def _check_tool_available(tool: str) -> bool:
 
 def _run_program(program_type: str, input_csv: str, output_csv: str, timeout: float = 30) -> int:
     """Run COBOL or Java program on the given input."""
+    import os
+    
     if program_type == "cobol":
         # Compile COBOL
         compile_result = subprocess.run(
@@ -381,7 +383,7 @@ def _run_program(program_type: str, input_csv: str, output_csv: str, timeout: fl
         # Run COBOL
         result = subprocess.run(
             ["build/test_compare_cobol"],
-            env={"INPUT_FILE": input_csv, "OUTPUT_FILE": output_csv},
+            env={**os.environ, "INPUT_FILE": input_csv, "OUTPUT_FILE": output_csv},
             capture_output=True,
             timeout=timeout
         )
@@ -405,7 +407,7 @@ def _run_program(program_type: str, input_csv: str, output_csv: str, timeout: fl
         # Run Java
         result = subprocess.run(
             ["java", "-cp", "build/test_compare_java", "CreditFees"],
-            env={"INPUT_FILE": input_csv, "OUTPUT_FILE": output_csv},
+            env={**os.environ, "INPUT_FILE": input_csv, "OUTPUT_FILE": output_csv},
             capture_output=True,
             timeout=timeout
         )

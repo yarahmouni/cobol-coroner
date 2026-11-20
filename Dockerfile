@@ -35,8 +35,9 @@ RUN python3 /tmp/download_junit.py
 FROM python@sha256:935c3c5b12357a7e10caa9c1e6ca5692344d97cf229832ef584be2cec9fc03df
 
 # Install runtime dependencies with pinned versions
+# Debian removes superseded security versions, so a pin that no longer exists breaks fresh builds; update the pin to the current candidate (apt-cache policy) when that happens.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    openjdk-17-jdk-headless=17.0.21+9-1~deb12u1 \
+    openjdk-17-jdk-headless=17.0.21.1+2-1~deb12u1 \
     libgmp10=2:6.2.1+dfsg1-1.1 \
     libgmp-dev=2:6.2.1+dfsg1-1.1 \
     libdb5.3=5.3.28+dfsg2-1 \
@@ -45,6 +46,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libncurses-dev=6.4-4 \
     gcc=4:12.2.0-3 \
     libc6-dev=2.36-9+deb12u14 \
+    git=1:2.39.5-0+deb12u3 \
+    make=4.3-4.1 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copy GnuCOBOL installation from builder stage
@@ -61,15 +64,10 @@ RUN groupadd -g 1000 coroner && \
 
 # Set up working directory
 WORKDIR /app
+RUN chown coroner:coroner /app
 
-# Copy application files
-COPY --chown=coroner:coroner coroner/ coroner/
-COPY --chown=coroner:coroner smoke/ smoke/
-COPY --chown=coroner:coroner samples/ samples/
-COPY --chown=coroner:coroner tests/ tests/
-COPY --chown=coroner:coroner scripts/ scripts/
-COPY --chown=coroner:coroner pyproject.toml pyproject.toml
-COPY --chown=coroner:coroner .kiro/coroner-scope.json .kiro/coroner-scope.json
+# Copy application files from clean context
+COPY --chown=coroner:coroner . .
 
 # Create build directory and copy JUnit jar from builder stage
 RUN mkdir -p build/junit && chown -R coroner:coroner build

@@ -1,6 +1,5 @@
 .venv
-build/*
-!build/junit
+build/
 .git
 __pycache__
 *.pyc
@@ -9,4 +8,7 @@ __pycache__
 .pytest_cache
 *.egg-info
 runs
+prompts
+.env*
+*.log
 .DS_Store

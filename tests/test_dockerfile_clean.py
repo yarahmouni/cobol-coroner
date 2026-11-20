@@ -4,7 +4,10 @@ import re
 import subprocess
 from pathlib import Path
 
+import pytest
 
+
+@pytest.mark.repo
 def test_dockerfile_clean():
     """Verify all COPY/ADD source paths in Dockerfile are not gitignored and exist in git ls-files."""
     repo_root = Path(__file__).resolve().parents[1]
@@ -28,6 +31,10 @@ def test_dockerfile_clean():
     
     # For each source path, verify it's not gitignored and exists in git ls-files
     for path in source_paths:
+        # Special case: "." means the whole context, always valid
+        if path == ".":
+            continue
+        
         # Check if gitignored
         check_ignore = subprocess.run(
             ['git', 'check-ignore', '-q', path],

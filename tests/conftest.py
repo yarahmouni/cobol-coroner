@@ -15,6 +15,9 @@ settings.register_profile(
 # Load the profile
 settings.load_profile("coroner")
 
+# Import the hook from the plugin module
+from noskip_plugin import pytest_runtest_makereport  # noqa: F401
+
 
 @pytest.fixture(scope="module")
 def t1_faulty_run(tmp_path_factory):

@@ -4,13 +4,13 @@ SCREENSHOT_CHANNEL ?=
 .PHONY: test test-all smoke smoke-ui demo zombie serve java-sample hooks junit-jars acceptance precommit traps demo-ebcdic coroner-gate screenshots
 
 test:
-	.venv/bin/pytest -q
+	$(PYTHON) -m pytest -q
 
 test-all:
-	.venv/bin/pytest -q -m ''
+	$(PYTHON) -m pytest -q -m ''
 
 acceptance:
-	.venv/bin/pytest -m slow -s
+	$(PYTHON) -m pytest -m slow -s
 
 smoke:
 	docker build -t coroner:smoke . && docker run --rm coroner:smoke
@@ -24,18 +24,18 @@ smoke-ui:
 	docker run --rm coroner:smoke python3 -m pytest -q -rs -p no:cacheprovider $(wildcard tests/test_ui*.py) tests/test_branch_reconciliation.py
 
 demo:
-	@.venv/bin/python -m coroner verify --cobol samples/credit-fees/CREDIT-FEES.cob --copybooks samples/credit-fees/copybooks --java samples/credit-fees/java/CreditFees.java --schema samples/credit-fees/schema.json; exit $$?
+	@$(PYTHON) -m coroner verify --cobol samples/credit-fees/CREDIT-FEES.cob --copybooks samples/credit-fees/copybooks --java samples/credit-fees/java/CreditFees.java --schema samples/credit-fees/schema.json; exit $$?
 
 zombie:
 	@mkdir -p build/variants
-	@.venv/bin/python -m coroner.catalog.legacy_variant samples/credit-fees/java/CreditFees.java build/variants/CreditFees.java
-	@.venv/bin/python -m coroner verify --cobol samples/credit-fees/CREDIT-FEES.cob --copybooks samples/credit-fees/copybooks --java build/variants/CreditFees.java --schema samples/credit-fees/schema.json; exit $$?
+	@$(PYTHON) -m coroner.catalog.legacy_variant samples/credit-fees/java/CreditFees.java build/variants/CreditFees.java
+	@$(PYTHON) -m coroner verify --cobol samples/credit-fees/CREDIT-FEES.cob --copybooks samples/credit-fees/copybooks --java build/variants/CreditFees.java --schema samples/credit-fees/schema.json; exit $$?
 
 traps:
-	@.venv/bin/python -m coroner traps
+	@$(PYTHON) -m coroner traps
 
 serve:
-	.venv/bin/uvicorn coroner.ui.app:app --host 127.0.0.1 --port 8000
+	$(PYTHON) -m uvicorn coroner.ui.app:app --host 127.0.0.1 --port 8000
 
 java-sample:
 	@mkdir -p build/java
@@ -46,14 +46,14 @@ hooks:
 	@echo "git config core.hooksPath .githooks"
 
 junit-jars:
-	@.venv/bin/python scripts/download_junit.py
+	@$(PYTHON) scripts/download_junit.py
 
 precommit:
 	@JAVA_FILE=$${CORONER_PRECOMMIT_JAVA:-samples/credit-fees/java/CreditFees.java}; \
-	.venv/bin/python -m coroner verify --cobol samples/credit-fees/CREDIT-FEES.cob --copybooks samples/credit-fees/copybooks --java "$$JAVA_FILE" --schema samples/credit-fees/schema.json --cases 500 --seed 42; exit $$?
+	$(PYTHON) -m coroner verify --cobol samples/credit-fees/CREDIT-FEES.cob --copybooks samples/credit-fees/copybooks --java "$$JAVA_FILE" --schema samples/credit-fees/schema.json --cases 500 --seed 42; exit $$?
 
 demo-ebcdic:
-	@.venv/bin/python -m coroner.demo_ebcdic
+	@$(PYTHON) -m coroner.demo_ebcdic
 
 coroner-gate:
 	$(PYTHON) -m coroner gate $(GATE_ARGS)
