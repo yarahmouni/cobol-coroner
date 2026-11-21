@@ -10,6 +10,24 @@ from typing import Optional
 RUN_ID_PATTERN = re.compile(r"^[0-9a-f]{12}$")
 
 
+def exposure_line(verdict_data: dict) -> Optional[str]:
+    """
+    The one-line exposure for the Run audit result, built from the fields of a run's verdict.json.
+
+    Returns "Exposure: <exposure_sum> across <affected_branches> branch(es)" when verdict.json
+    records both fields and affected_branches is above 0, otherwise None. exposure_sum is used
+    exactly as recorded (a decimal string); nothing is added, rounded or recomputed.
+    """
+    exposure_sum = verdict_data.get("exposure_sum")
+    affected = verdict_data.get("affected_branches")
+    if not isinstance(exposure_sum, str) or not exposure_sum:
+        return None
+    if isinstance(affected, bool) or not isinstance(affected, int) or affected <= 0:
+        return None
+    noun = "branch" if affected == 1 else "branches"
+    return f"Exposure: {exposure_sum} across {affected} {noun}"
+
+
 def parse_card(card_text: str) -> Optional[dict]:
     """
     Split the text of card.txt into its Given, When and Then parts and its COBOL lines.

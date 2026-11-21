@@ -61,11 +61,26 @@
             </button>
         </div>
     </form>
+
+    <p style="color: var(--secondary-text); margin-top: 1rem; margin-bottom: 0;">Inputs are generated from the seed. The COBOL output is the reference.</p>
     
     <div id="audit-result" style="margin-top: 1.5rem;"></div>
 </section>
 
 <script>
+// Shows the exposure line of the run, exactly as the server sent it, before the "Open the run" link.
+function showExposure(resultDiv, exposureLine) {
+    if (typeof exposureLine !== 'string' || exposureLine === '') {
+        return;
+    }
+    const badge = resultDiv.querySelector('.verdict-badge');
+    const line = document.createElement('div');
+    line.id = 'exposure-text';
+    line.style.marginBottom = '0.5rem';
+    line.textContent = exposureLine;
+    badge.insertBefore(line, badge.querySelector('a'));
+}
+
 document.body.addEventListener('htmx:afterRequest', function(event) {
     if (event.detail.target.id === 'audit-result') {
         const xhr = event.detail.xhr;
@@ -103,12 +118,14 @@ document.body.addEventListener('htmx:afterRequest', function(event) {
                                        '</div>';
                                 resultDiv.innerHTML = html;
                                 document.getElementById('divergent-text').appendChild(divergentText);
+                                showExposure(resultDiv, data.exposure_line);
                             } else if (verdict === 'ALIVE') {
                                 html = '<div class="verdict-badge alive" style="padding: 1rem; margin: 0.5rem 0;">' +
                                        '<div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 0.5rem;">&#9679; ALIVE</div>' +
                                        '<a href="/run/' + runId + '" style="color: currentColor; text-decoration: underline;">Open the run</a>' +
                                        '</div>';
                                 resultDiv.innerHTML = html;
+                                showExposure(resultDiv, data.exposure_line);
                             } else {
                                 // Fallback for unknown verdict
                                 const runIdText = document.createElement('span');

@@ -2071,7 +2071,8 @@ async def job_status(job_id: str):
     Get status of a job.
     
     Returns {status: queued|running|done|error, run_id: ..., verdict: ..., cases_divergent: ..., cases_total: ...}
-    When done, also returns verdict, cases_divergent and cases_total from verdict.json.
+    When done, also returns verdict, cases_divergent and cases_total from verdict.json, and
+    exposure_line (a string built from the exposure fields of verdict.json, or null).
     All responses include Cache-Control: no-store, no-cache, must-revalidate (via middleware).
     """
     # Validate job_id
@@ -2136,10 +2137,14 @@ async def job_status(job_id: str):
         
         # Read verdict from the run in CORONER_BASE_DIR
         verdict_file = run_dir / "verdict.json"
+        response_content["exposure_line"] = None
         if verdict_file.exists():
             try:
+                from coroner.ui.pages import exposure_line
+
                 verdict_data = json.loads(verdict_file.read_text())
                 response_content["verdict"] = verdict_data.get("status")
+                response_content["exposure_line"] = exposure_line(verdict_data)
                 # For ZOMBIE, also include divergence counts
                 if verdict_data.get("status") == "ZOMBIE":
                     response_content["cases_divergent"] = verdict_data.get("cases_divergent")
