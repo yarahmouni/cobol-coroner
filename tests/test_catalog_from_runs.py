@@ -294,3 +294,279 @@ def test_init_script_keeps_runs_and_rebuilds_the_catalog(tmp_path):
     assert not list((base / "build").glob(".init-*"))
     assert not list((base / "build").glob(".catalog-scratch-*"))
     assert_replay_valid(base, BUNDLED_IDS[0])
+
+
+# A catalog problem must never keep the live site from starting (owner rule, 2026-11-21).
+# docker-compose.yml makes coroner-api wait for coroner-init to exit 0, so the init script
+# must exit 0 when only the catalog rebuild fails.
+
+WARNING_KEPT = (
+    "WARNING: catalog rebuild failed (exit 2); "
+    "the previous catalog files are kept and the site starts with them."
+)
+WARNING_NO_CATALOG = (
+    "WARNING: catalog rebuild failed (exit 2); "
+    "no catalog file exists yet, the Detection Matrix has no data until a rebuild succeeds."
+)
+
+
+def last_stdout_line(result):
+    return [line for line in result.stdout.splitlines() if line.strip()][-1]
+
+
+def run_init_script(base: Path, variant: Path, python: str = None) -> subprocess.CompletedProcess:
+    """The real scripts/init_demo_runs.sh on a base directory (what coroner-init runs)."""
+    env = os.environ.copy()
+    env.update({
+        "CORONER_BASE_DIR": str(base),
+        "PYTHON": python or sys.executable,
+        "CORONER_VARIANT_JAVA": str(variant),
+    })
+    return subprocess.run(
+        ["bash", "scripts/init_demo_runs.sh"],
+        cwd=REPO, env=env, capture_output=True, text=True, timeout=1500,
+    )
+
+
+def free_port() -> int:
+    import socket
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+class RealApi:
+    """The real API (uvicorn coroner.ui.app:app) on a free port, serving a given base directory."""
+
+    def __init__(self, base: Path, workdir: Path):
+        self.port = free_port()
+        self.url = f"http://127.0.0.1:{self.port}"
+        env = os.environ.copy()
+        env["CORONER_BASE_DIR"] = str(base)
+        env["CORONER_EXCHANGE_DIR"] = str(workdir / "exchange")
+        self.log = open(workdir / "uvicorn.log", "w")
+        self.process = subprocess.Popen(
+            [sys.executable, "-m", "uvicorn", "coroner.ui.app:app", "--host", "127.0.0.1", "--port", str(self.port)],
+            cwd=REPO, env=env, stdout=self.log, stderr=subprocess.STDOUT,
+        )
+
+    def wait_ready(self):
+        import time
+
+        import httpx
+
+        for _ in range(120):
+            if self.process.poll() is not None:
+                break
+            try:
+                if httpx.get(self.url + "/", timeout=2.0).status_code == 200:
+                    return
+            except httpx.HTTPError:
+                pass
+            time.sleep(0.25)
+        self.log.flush()
+        pytest.fail("the API did not become ready:\n" + Path(self.log.name).read_text())
+
+    def stop(self):
+        self.process.terminate()
+        try:
+            self.process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            self.process.kill()
+            self.process.wait(timeout=10)
+        self.log.close()
+
+
+@pytest.fixture(scope="module")
+def started_base(tmp_path_factory):
+    """
+    A base directory as left by a first start of coroner-init: the four bundled runs, the ten
+    catalog runs and a good catalog. Never modified: every test works on a copy of its runs/.
+    """
+    root = tmp_path_factory.mktemp("init_started")
+    base = root / "data"
+    variant = root / "variants" / "build" / "variants" / "CreditFees.java"
+    generate_half_even_variant(str(REPO / "samples/credit-fees/java/CreditFees.java"), str(variant))
+    result = run_init_script(base, variant)
+    assert result.returncode == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
+    assert last_stdout_line(result) == "Bundled demo runs generated."
+    assert (base / "runs" / "trap_catalog.json").is_file()
+    for run_id in BUNDLED_IDS:
+        assert (base / "runs" / run_id / "certificate.json").is_file()
+    return base, variant
+
+
+def broken_copy(started_base, tmp_path, drop_catalog: bool):
+    """
+    A copy of the started base in which the catalog rebuild must fail the way R-156 tests force
+    it: a run folder that exists but is not found by inputs.json (T2 faulty, inputs.json removed).
+    With drop_catalog, the two catalog files are removed as well.
+    """
+    source, variant = started_base
+    base = tmp_path / "data"
+    shutil.copytree(source / "runs", base / "runs")
+    t2_faulty_id = catalog_trap(base, "T2")["faulty_run_id"]
+    (base / "runs" / t2_faulty_id / "inputs.json").unlink()
+    if drop_catalog:
+        (base / "runs" / "trap_catalog.json").unlink()
+        (base / "runs" / "trap_catalog.txt").unlink()
+    return base, variant
+
+
+def get_page(client, url):
+    import html
+
+    response = client.get(url)
+    return response.status_code, html.unescape(response.text)
+
+
+def test_catalog_failure_does_not_stop_init_and_the_api_serves_the_kept_catalog(started_base, tmp_path):
+    from coroner.cases import case_label, load_cases_registry
+
+    import httpx
+
+    base, variant = broken_copy(started_base, tmp_path, drop_catalog=False)
+    kept_json = (base / "runs" / "trap_catalog.json").read_bytes()
+    kept_txt = (base / "runs" / "trap_catalog.txt").read_bytes()
+    kept_catalog = json.loads(kept_json)
+    before = snapshot(base)
+
+    result = run_init_script(base, variant)
+
+    # The rebuild failed (the script prints its output), the script did not
+    assert result.returncode == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
+    assert "already exists" in result.stdout
+    assert WARNING_KEPT in result.stdout.splitlines()
+    assert WARNING_NO_CATALOG not in result.stdout
+    assert last_stdout_line(result) == "Bundled demo runs generated."
+    assert "Bundled runs kept: " + " ".join(BUNDLED_IDS) + "; generated: none" in result.stdout
+
+    # The previous catalog is byte for byte unchanged, no run file changed, no partial or temporary file
+    assert (base / "runs" / "trap_catalog.json").read_bytes() == kept_json
+    assert (base / "runs" / "trap_catalog.txt").read_bytes() == kept_txt
+    assert snapshot(base) == before
+    assert sorted(p.name for p in (base / "runs").iterdir() if p.is_file()) == ["trap_catalog.json", "trap_catalog.txt"]
+    assert scratch_folders(base) == []
+
+    # The real API starts on that base and serves the existing runs and the kept catalog
+    registry = load_cases_registry()
+    t1 = next(t for t in kept_catalog["traps"] if t["id"] == "T1")
+    api = RealApi(base, tmp_path)
+    try:
+        api.wait_ready()
+        with httpx.Client(timeout=30.0) as client:
+            status, _ = get_page(client, api.url + "/")
+            assert status == 200
+            status, matrix = get_page(client, api.url + "/matrix")
+            assert status == 200
+            assert "Detection Matrix not available yet" not in matrix
+            for trap in kept_catalog["traps"]:
+                assert case_label(trap["id"], registry) in matrix
+            assert f"{t1['cases_detected']} of {t1['cases_generated']}" in matrix
+            for run_id in BUNDLED_IDS:
+                status, _ = get_page(client, f"{api.url}/run/{run_id}")
+                assert status == 200, f"GET /run/{run_id} gave {status}"
+    finally:
+        api.stop()
+
+
+def test_catalog_failure_with_no_catalog_file_still_starts(started_base, tmp_path):
+    import httpx
+
+    base, variant = broken_copy(started_base, tmp_path, drop_catalog=True)
+    before = snapshot(base)
+
+    result = run_init_script(base, variant)
+
+    assert result.returncode == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
+    assert WARNING_NO_CATALOG in result.stdout.splitlines()
+    assert WARNING_KEPT not in result.stdout
+    assert last_stdout_line(result) == "Bundled demo runs generated."
+
+    # Nothing was invented: no catalog file, no run file changed, no temporary file
+    assert snapshot(base) == before
+    assert [p.name for p in (base / "runs").iterdir() if p.is_file()] == []
+    assert scratch_folders(base) == []
+
+    api = RealApi(base, tmp_path)
+    try:
+        api.wait_ready()
+        with httpx.Client(timeout=30.0) as client:
+            status, _ = get_page(client, api.url + "/")
+            assert status == 200
+            status, matrix = get_page(client, api.url + "/matrix")
+            assert status == 200
+            assert "Detection Matrix not available yet" in matrix
+            status, _ = get_page(client, f"{api.url}/run/{BUNDLED_IDS[0]}")
+            assert status == 200
+    finally:
+        api.stop()
+
+
+def test_bundled_run_failure_still_exits_2(started_base, tmp_path):
+    """Only the catalog step became non-fatal: a failing bundled run keeps its exit 2."""
+    source, _ = started_base
+    base = tmp_path / "data"
+    shutil.copytree(source / "runs", base / "runs")
+    # The HALF_EVEN bundled run is missing and its Java file does not exist, so generating it fails
+    shutil.rmtree(base / "runs" / BUNDLED_IDS[3])
+    result = run_init_script(base, tmp_path / "no-such-variant" / "CreditFees.java")
+    assert result.returncode == 2, f"stdout: {result.stdout}\nstderr: {result.stderr}"
+    assert "Bundled demo runs generated." not in result.stdout
+    assert "WARNING: catalog rebuild failed" not in result.stdout
+
+
+def test_missing_catalog_file_after_a_successful_rebuild_does_not_stop_init(started_base, tmp_path):
+    """
+    The rebuild exits 0 but trap_catalog.txt is missing afterwards: the script warns and still
+    exits 0, so coroner-api starts. PYTHON points to a wrapper that runs the real python and, only
+    for "-m coroner traps", deletes runs/trap_catalog.txt with pathlib after the real command,
+    keeping the exit code of the real command.
+    """
+    import shlex
+
+    import httpx
+
+    source, variant = started_base
+    base = tmp_path / "data"
+    shutil.copytree(source / "runs", base / "runs")
+    before = snapshot(base)
+
+    wrapper = tmp_path / "python-wrapper.sh"
+    real = shlex.quote(sys.executable)
+    wrapper.write_text(
+        "#!/usr/bin/env bash\n"
+        f"{real} \"$@\"\n"
+        "rc=$?\n"
+        "if [ \"$1\" = \"-m\" ] && [ \"$2\" = \"coroner\" ] && [ \"$3\" = \"traps\" ]; then\n"
+        f"    {real} -c \"import os, pathlib; "
+        "pathlib.Path(os.environ['CORONER_BASE_DIR'], 'runs', 'trap_catalog.txt').unlink(missing_ok=True)\"\n"
+        "fi\n"
+        "exit $rc\n"
+    )
+    wrapper.chmod(0o755)
+
+    result = run_init_script(base, variant, python=str(wrapper))
+
+    assert result.returncode == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
+    lines = result.stdout.splitlines()
+    assert (
+        "WARNING: catalog rebuild reported success but trap_catalog.txt is missing; "
+        "the site starts without it."
+    ) in lines
+    assert not any("trap_catalog.json is missing" in line for line in lines)
+    assert "WARNING: catalog rebuild failed" not in result.stdout
+    assert last_stdout_line(result) == "Bundled demo runs generated."
+    assert not (base / "runs" / "trap_catalog.txt").exists()
+    assert (base / "runs" / "trap_catalog.json").is_file()
+    after = snapshot(base)
+    assert {k: v for k, v in after.items() if k in before} == before
+
+    api = RealApi(base, tmp_path)
+    try:
+        api.wait_ready()
+        with httpx.Client(timeout=30.0) as client:
+            assert client.get(api.url + "/").status_code == 200
+    finally:
+        api.stop()

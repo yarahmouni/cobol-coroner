@@ -744,6 +744,29 @@ def test_engine_depends_on_init():
     assert "coroner-init" in services["coroner-engine"].get("depends_on", {})
 
 
+def test_api_waits_for_init_to_complete_successfully():
+    """
+    The API needs the bundled runs on a first start, so it waits for coroner-init to exit 0.
+    That is safe only because scripts/init_demo_runs.sh exits 0 when just the catalog rebuild
+    fails (a WARNING, previous catalog kept). If this condition changes, revisit that rule:
+    a catalog problem must never keep the live site from starting.
+    """
+    with open("docker-compose.yml") as f:
+        services = yaml.safe_load(f)["services"]
+    depends_on = services["coroner-api"]["depends_on"]
+    assert depends_on["coroner-init"]["condition"] == "service_completed_successfully"
+
+
+def test_dockerignore_lists_local_only_folders():
+    """Local-only folders stay out of the build context (.worktrees alone was 1.5 GB)."""
+    lines = {line.strip() for line in Path(".dockerignore").read_text().splitlines()}
+    for entry in (".worktrees", ".hypothesis", ".playwright-mcp"):
+        assert entry in lines, f".dockerignore must list {entry}"
+    # What the image and its tests need must stay in the context
+    for needed in (".kiro", "samples", "scripts", "smoke", "tests", "docs", "coroner", "docs/"):
+        assert needed not in lines, f".dockerignore must not exclude {needed}"
+
+
 # Check for duplicate test function names at module load time
 def _check_no_duplicate_test_names():
     """Fail if any test function name is defined more than once in this module."""

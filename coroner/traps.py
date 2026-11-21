@@ -494,6 +494,9 @@ def write_catalog_files(catalog: dict[str, Any], base_dir: str = ".") -> None:
     runs_dir = Path(base_dir) / "runs"
     runs_dir.mkdir(exist_ok=True)
 
+    # Render first: a rendering error must not leave a new JSON next to an old text file
+    text = render_catalog_text(catalog)
+
     # Write JSON with sorted keys
     json_path = runs_dir / "trap_catalog.json"
     _write_atomically(json_path, json.dumps(catalog, indent=2, sort_keys=True))
@@ -501,7 +504,7 @@ def write_catalog_files(catalog: dict[str, Any], base_dir: str = ".") -> None:
 
     # Write text rendering
     txt_path = runs_dir / "trap_catalog.txt"
-    _write_atomically(txt_path, render_catalog_text(catalog))
+    _write_atomically(txt_path, text)
     print(f"Wrote {txt_path}")
 
 

@@ -5,6 +5,8 @@
 # run folder does not exist, an existing run folder is never touched, and runs/trap_catalog.json
 # and runs/trap_catalog.txt are always rebuilt from the runs on disk (python -m coroner traps
 # --from-runs). Each verify must return its expected exit code (0 ALIVE, 1 ZOMBIE).
+# A failing catalog rebuild is not fatal: the script prints a WARNING, keeps the previous catalog
+# files and exits 0, so coroner-api always starts. A failing bundled-run step still exits 2.
 #
 # Environment: CORONER_BASE_DIR (default /data), PYTHON (default python3),
 # CORONER_VARIANT_JAVA (default build/variants/CreditFees.java, the HALF_EVEN variant).
@@ -119,16 +121,20 @@ rc=$?
 set -e
 cat /tmp/trap_catalog.log
 if [ "$rc" -ne 0 ]; then
-    echo "ERROR: trap_catalog expected exit 0, got $rc"
-    exit 2
-fi
-if [ ! -f "$BASE_DIR/runs/trap_catalog.json" ]; then
-    echo "ERROR: trap_catalog.json not found"
-    exit 2
-fi
-if [ ! -f "$BASE_DIR/runs/trap_catalog.txt" ]; then
-    echo "ERROR: trap_catalog.txt not found"
-    exit 2
+    # A catalog problem must never keep the API from starting (coroner-api waits for this script
+    # to exit 0). The rebuild writes both files atomically, so a failure leaves the previous files
+    # byte for byte as they were.
+    if [ -f "$BASE_DIR/runs/trap_catalog.json" ]; then
+        echo "WARNING: catalog rebuild failed (exit $rc); the previous catalog files are kept and the site starts with them."
+    else
+        echo "WARNING: catalog rebuild failed (exit $rc); no catalog file exists yet, the Detection Matrix has no data until a rebuild succeeds."
+    fi
+else
+    for catalog_file in trap_catalog.json trap_catalog.txt; do
+        if [ ! -f "$BASE_DIR/runs/$catalog_file" ]; then
+            echo "WARNING: catalog rebuild reported success but $catalog_file is missing; the site starts without it."
+        fi
+    done
 fi
 
 echo "Bundled demo runs generated."

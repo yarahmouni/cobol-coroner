@@ -71,6 +71,9 @@ services:
       - CORONER_EXCHANGE_DIR=/exchange
       - CORONER_ENGINE_MODE=api
     command: python3 -m uvicorn coroner.ui.app:app --host 0.0.0.0 --port 8000
+    # The API needs the bundled runs on a first start, so it waits for coroner-init. The init
+    # script exits 0 when only the catalog rebuild fails (it prints a WARNING and keeps the
+    # previous catalog files), so a catalog problem never keeps the API from starting.
     depends_on:
       coroner-init:
         condition: service_completed_successfully

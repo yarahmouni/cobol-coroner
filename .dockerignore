@@ -12,3 +12,13 @@ prompts
 .env*
 *.log
 .DS_Store
+# Local-only folders that git does not track (measured: .worktrees alone is 1.5 GB)
+.worktrees
+.hypothesis
+.playwright-mcp
+# Local-only entries of .gitignore, also when nested
+**/target
+**/*.class
+**/.DS_Store
+**/__pycache__
+**/*.pyc
