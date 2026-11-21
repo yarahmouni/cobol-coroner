@@ -5,7 +5,7 @@ import random
 from decimal import Decimal
 from pathlib import Path
 
-from coroner.parse.schema import Schema, SchemaColumn
+from coroner.parse.schema import GeneratorScriptError, Schema, SchemaColumn
 
 # Generator version for regression testing
 # Increment when generation logic changes in a way that affects output bytes
@@ -541,6 +541,60 @@ def generate_dirty_numeric(
         return ''.join(char_list)
 
 
+def generate_cases_from_script(schema: Schema, rng: random.Random, num_cases: int, base_dir: str) -> str:
+    """
+    Generate cases with the schema's generator_script and write generated_cases.csv.
+
+    The script path was checked when the schema was loaded (inside the schema
+    folder, symlinks resolved). The file is read once, compiled from those
+    bytes and executed in a fresh namespace: no import machinery, no
+    __pycache__ written next to the script. It must define
+    generate_cases(schema, rng, num_cases) and return one dict per case with
+    exactly the schema's input column names. str, int and Decimal values are
+    accepted (Decimal is written at the column's scale); anything else is an error.
+
+    Returns:
+        Path to generated_cases.csv (LF line endings, UTF-8)
+    """
+    script_path = Path(schema.generator_script_path)
+    namespace = {"__name__": "coroner_generator_script", "__file__": str(script_path)}
+    exec(compile(script_path.read_bytes(), str(script_path), "exec"), namespace)
+    script_fn = namespace.get("generate_cases")
+    if not callable(script_fn):
+        raise GeneratorScriptError(f"generator script has no generate_cases function: {schema.generator_script}")
+    
+    cases = script_fn(schema, rng, num_cases)
+    if not isinstance(cases, list) or len(cases) != num_cases:
+        raise GeneratorScriptError(f"generator script must return a list of {num_cases} cases")
+    
+    columns = {col.name: col for col in schema.input_columns}
+    rows = []
+    for index, case in enumerate(cases, start=1):
+        if not isinstance(case, dict) or set(case) != set(columns):
+            raise GeneratorScriptError(f"generator script case {index} does not have exactly the schema input columns")
+        row = {}
+        for name, value in case.items():
+            if isinstance(value, Decimal) and columns[name].scale is not None:
+                text = format_decimal(value, columns[name].scale, columns[name].signed)
+            elif type(value) in (str, int):
+                text = str(value)
+            else:
+                raise GeneratorScriptError(f"generator script case {index} column {name}: unsupported value type {type(value).__name__}")
+            if '\n' in text or '\r' in text:
+                raise GeneratorScriptError(f"generator script case {index} column {name}: line break in value")
+            row[name] = text
+        rows.append(row)
+    
+    output_dir = Path(base_dir) / 'runs' / 'temp'
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / 'generated_cases.csv'
+    with open(output_path, 'w', encoding='utf-8', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=[col.name for col in schema.input_columns], lineterminator='\n')
+        writer.writeheader()
+        writer.writerows(rows)
+    return str(output_path)
+
+
 def generate_cases(
     schema: Schema,
     cobol_structure: dict,
@@ -564,6 +618,10 @@ def generate_cases(
         Path to generated_cases.csv
     """
     rng = random.Random(seed)
+    
+    # A schema with generator_script uses that script instead of the built-in generator
+    if schema.generator_script_path:
+        return generate_cases_from_script(schema, rng, num_cases, base_dir)
     
     # Check if we are generating multiple rows per case
     if schema.case_rows:

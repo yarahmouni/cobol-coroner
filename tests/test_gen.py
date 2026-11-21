@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from coroner.gen import generate_cases, draw_int, draw_decimal, generate_case_id
-from coroner.parse.schema import load_schema
+from coroner.parse.schema import GeneratorScriptError, load_schema
 
 
 def test_draw_int_in_range():
@@ -467,3 +467,64 @@ def test_draw_decimal_by_magnitude_distribution():
     assert large > 50, "Not enough large values"
     # Huge values should be present but less common
     assert huge > 0, "No huge values generated"
+
+
+# generator_script (schema key): the engine validates what the script returns
+
+SCRIPT_SCHEMA = {
+    "program": "TEST-PROGRAM",
+    "description": "Test program",
+    "input": {"file": "in.csv", "columns": [
+        {"name": "CASE-ID", "type": "string", "pic": "X(10)", "description": "id"},
+        {"name": "AMOUNT", "type": "decimal", "pic": "S9(5)V99", "description": "amount"},
+        {"name": "COUNT", "type": "integer", "pic": "9(3)", "description": "count"}]},
+    "output": {"file": "out.csv", "columns": [
+        {"name": "CASE-ID", "type": "string", "pic": "X(10)", "description": "id"}]},
+}
+
+
+def load_with_script(tmp_path, script_source):
+    import json
+    (tmp_path / "gen.py").write_text(script_source)
+    (tmp_path / "schema.json").write_text(json.dumps(dict(SCRIPT_SCHEMA, generator_script="gen.py")))
+    return load_schema(str(tmp_path / "schema.json"))
+
+
+def test_generator_script_receives_the_seeded_rng_and_writes_the_csv(tmp_path):
+    schema = load_with_script(tmp_path, (
+        "from decimal import Decimal\n"
+        "def generate_cases(schema, rng, num_cases):\n"
+        "    return [{'CASE-ID': f'C{i}', 'AMOUNT': Decimal(int(rng.random() * 100000)) / 100, 'COUNT': i}\n"
+        "            for i in range(num_cases)]\n"
+    ))
+    path = generate_cases(schema, {}, 7, 3, 0.06, str(tmp_path / "base"))
+    again = generate_cases(schema, {}, 7, 3, 0.06, str(tmp_path / "base2"))
+    other = generate_cases(schema, {}, 8, 3, 0.06, str(tmp_path / "base3"))
+    data = Path(path).read_bytes()
+    assert data == Path(again).read_bytes()
+    assert data != Path(other).read_bytes()
+    rows = list(csv.DictReader(data.decode().splitlines()))
+    assert [r["CASE-ID"] for r in rows] == ["C0", "C1", "C2"]
+    assert all(len(r["AMOUNT"].split(".")[1]) == 2 for r in rows)  # Decimal written at the column scale
+    assert [r["COUNT"] for r in rows] == ["0", "1", "2"]
+    assert b"\r" not in data
+    assert not (tmp_path / "__pycache__").exists()
+
+
+@pytest.mark.parametrize("body, message", [
+    ("return []", "list of 2 cases"),
+    ("return [{'CASE-ID': 'A', 'AMOUNT': '1.00'}] * 2", "exactly the schema input columns"),
+    ("return [{'CASE-ID': 'A', 'AMOUNT': '1.00', 'COUNT': 1, 'EXTRA': 1}] * 2", "exactly the schema input columns"),
+    ("return [{'CASE-ID': 'A', 'AMOUNT': 1.5, 'COUNT': 1}] * 2", "unsupported value type float"),
+    ("return [{'CASE-ID': 'A\\nB', 'AMOUNT': '1.00', 'COUNT': 1}] * 2", "line break"),
+])
+def test_generator_script_bad_output_is_an_error(tmp_path, body, message):
+    schema = load_with_script(tmp_path, f"def generate_cases(schema, rng, num_cases):\n    {body}\n")
+    with pytest.raises(GeneratorScriptError, match=message):
+        generate_cases(schema, {}, 1, 2, 0.06, str(tmp_path / "base"))
+
+
+def test_generator_script_without_generate_cases_is_an_error(tmp_path):
+    schema = load_with_script(tmp_path, "x = 1\n")
+    with pytest.raises(GeneratorScriptError, match="no generate_cases function"):
+        generate_cases(schema, {}, 1, 2, 0.06, str(tmp_path / "base"))

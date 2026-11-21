@@ -6,7 +6,7 @@ import json
 import argparse
 from pathlib import Path
 
-from coroner.parse.schema import load_schema
+from coroner.parse.schema import load_schema, GeneratorScriptError
 from coroner.parse.copybook import parse_cobol_structure
 from coroner.gen import generate_cases
 from coroner.run import compile_cobol, compile_java, run_cobol, run_java, run_cobol_instrumented
@@ -470,6 +470,10 @@ def verify_command(cobol: str, copybooks: str, java: str, schema: str,
         # Return exit code
         return 0 if verdict.status == "ALIVE" else 1
         
+    except GeneratorScriptError as e:
+        # Refused before any import or run: no verdict, no certificate
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 2
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         return 2

@@ -4,7 +4,7 @@ import json
 import pytest
 import tempfile
 import os
-from coroner.parse.schema import load_schema, parse_pic, SchemaColumn, Schema
+from coroner.parse.schema import load_schema, parse_pic, SchemaColumn, Schema, GeneratorScriptError
 
 
 def test_parse_pic_signed_decimal():
@@ -255,3 +255,49 @@ def test_load_schema_missing_input_file():
             load_schema(temp_path)
     finally:
         os.unlink(temp_path)
+
+
+GENERATOR_SCHEMA = {
+    "program": "TEST-PROGRAM",
+    "description": "Test program",
+    "input": {"file": "in.csv", "columns": [
+        {"name": "CASE-ID", "type": "string", "pic": "X(10)", "description": "id"}]},
+    "output": {"file": "out.csv", "columns": [
+        {"name": "CASE-ID", "type": "string", "pic": "X(10)", "description": "id"}]},
+}
+
+
+def write_schema_with_script(folder, declared):
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / "schema.json"
+    path.write_text(json.dumps(dict(GENERATOR_SCHEMA, generator_script=declared)))
+    return path
+
+
+def test_schema_without_generator_script_has_none(tmp_path):
+    path = tmp_path / "schema.json"
+    path.write_text(json.dumps(GENERATOR_SCHEMA))
+    schema = load_schema(str(path))
+    assert schema.generator_script is None
+    assert schema.generator_script_path is None
+
+
+def test_generator_script_is_relative_to_the_schema_folder(tmp_path):
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "gen.py").write_text("def generate_cases(schema, rng, num_cases):\n    return []\n")
+    schema = load_schema(str(write_schema_with_script(tmp_path, "scripts/gen.py")))
+    assert schema.generator_script == "scripts/gen.py"
+    assert schema.generator_script_path == str((tmp_path / "scripts" / "gen.py").resolve())
+
+
+def test_generator_script_must_be_a_non_empty_string(tmp_path):
+    for bad in ("", 5, ["gen.py"]):
+        path = write_schema_with_script(tmp_path, bad)
+        with pytest.raises(ValueError, match="generator_script must be a non-empty string"):
+            load_schema(str(path))
+
+
+def test_generator_script_directory_is_not_a_script(tmp_path):
+    (tmp_path / "scripts").mkdir()
+    with pytest.raises(GeneratorScriptError, match="not found"):
+        load_schema(str(write_schema_with_script(tmp_path, "scripts")))

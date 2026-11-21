@@ -13,309 +13,112 @@ Source: https://github.com/aws-samples/aws-mainframe-modernization-carddemo comm
 
 **Never use**: "AWS-approved", "validated", "certified", "official", "audits CardDemo", "all programs".
 
+## Isolation of the porting agent
+
+This spec, PROBE.md and generator.py record what the audit found about CBACT04C. The Java port is made by a separate Kiro session that must not read them. That session may read only:
+- samples/carddemo-cbact04c/adapted/CBACT04C.cob (the program to port)
+- samples/carddemo-cbact04c/upstream/cpy/*.cpy (its copybooks)
+- samples/carddemo-cbact04c/schema.json (the input and output contract: column names, types, formats)
+
+Its prompt must not say how to compute, round or order anything.
+
 ## Bounded Path
 
 ### In Scope
 
-The interest calculation loop processing transaction category balances (adapted/CBACT04C.cob lines 186-231):
-- **1000-TCATBALF-GET-NEXT**: Sequential read of transaction category balance records (lines 295-326)
-- **1050-UPDATE-ACCOUNT**: Update account current balance with accumulated interest, zero out cycle credit/debit (lines 327-355)
-- **1100-GET-ACCT-DATA**: Random read of account record by account ID (lines 356-378)
-- **1110-GET-XREF-DATA**: Random read of card cross-reference by alternate key FD-XREF-ACCT-ID (lines 379-401); when XREFFILE-STATUS is not '00', the program abends (line 399 calls 9999-ABEND-PROGRAM)
-- **1200-GET-INTEREST-RATE**: Random read of disclosure group record by (account group ID, transaction type, transaction category); when DISCGRP-STATUS is '23' (record not found), falls back to DEFAULT group via 1200-A-GET-DEFAULT-INT-RATE (lines 402-429, fallback lines 426-429)
-- **1200-A-GET-DEFAULT-INT-RATE**: Reads DISCGRP-FILE with group ID 'DEFAULT' (same type and category); abends if DEFAULT is also missing (lines 431-451)
-- **1300-COMPUTE-INTEREST**: Interest calculation: `COMPUTE WS-MONTHLY-INT = (TRAN-CAT-BAL * DIS-INT-RATE) / 1200` (line 457); skipped when DIS-INT-RATE = 0 (line 218)
-- **1300-B-WRITE-TX**: Write interest transaction record to sequential output file; TRAN-ID built from PARM-DATE and WS-TRANID-SUFFIX (lines 464-503)
-- **1400-COMPUTE-FEES**: Stub, no implementation (lines 505-507)
-- **Z-GET-DB2-FORMAT-TIMESTAMP**: Builds DB2-FORMAT-TS from PARM-DATE with fixed time 12:00:00.00 (lines 576-590)
+The interest loop of CBACT04C and the paragraphs it performs:
+- **1000-TCATBALF-GET-NEXT**: sequential read of the transaction category balance file (key order: account id, type, category)
+- **1050-UPDATE-ACCOUNT**: add the account's accumulated interest to ACCT-CURR-BAL, zero the cycle credit and debit, rewrite the account
+- **1100-GET-ACCT-DATA**: read the account by id; a missing account ends in the abend routine
+- **1110-GET-XREF-DATA**: read the card cross-reference by account id (alternate key). INVALID KEY only displays "ACCOUNT NOT FOUND"; the status check that follows treats any status other than "00" as an error and performs the abend routine (measured: exit 231, see Findings)
+- **1200-GET-INTEREST-RATE** and **1200-A-GET-DEFAULT-INT-RATE**: read the rate for (account group, type, category); when it is missing (status 23) read the DEFAULT group for the same type and category; when that is missing too, abend
+- **1300-COMPUTE-INTEREST**, **1300-B-WRITE-TX**: compute the monthly interest for one category balance, add it to the account total and write one interest transaction
+- **1400-COMPUTE-FEES**: empty stub
+- **Z-GET-DB2-FORMAT-TIMESTAMP**: timestamps built from the run date (fixed time 12:00:00, the only upstream change, adapted/CBACT04C.cob lines 614 to 621)
 
 ### Out of Scope
 
-- File open/close paragraphs (0000-TCATBALF-OPEN through 0400-TRANFILE-OPEN lines 184-280, 9000-TCATBALF-CLOSE through 9400-TRANFILE-CLOSE lines 509-574): not part of business logic
-- Error handling paragraphs (9999-ABEND-PROGRAM line 592, 9910-DISPLAY-IO-STATUS line 598): adapted/CEE3ABD.cob is a stub that DISPLAYs the abend code and STOPs RUN with RETURN-CODE = abend code
+- File open and close paragraphs, I/O status display paragraphs
+- adapted/CEE3ABD.cob stands in for the z/OS abend service: it displays the abend code and stops with RETURN-CODE 231 (abend code 999)
 - All other CardDemo programs
 
-## Adaptation Requirements
+## Findings (measured on GnuCOBOL 3.2.0, recorded in samples/carddemo-cbact04c/PROBE.md)
 
-### 1. Adaptation Already Done
+1. **Sign convention.** Upstream stores signed amounts with an EBCDIC zoned overpunch in the last character ("{" is +0, "}" is -0, A to I are +1 to +9, J to R are -1 to -9). Under GnuCOBOL's default convention the same bytes are read inconsistently, so every program of the sample, harness included, is compiled with `-fsign=EBCDIC`. The engine takes it from `cobc_flags` in schema.json.
+2. **Last account.** The interest of the last account of a run (in key order) is computed and written as a transaction, but 1050-UPDATE-ACCOUNT never runs for it: its balance is not updated. A single-account run updates no balance. This is upstream behavior; the audit preserves it.
+3. **Abends.** Three causes, measured through the harness on the 200 cases of seed 42 from the final generator: an account without cross-reference record (10 cases), a category balance on an unused account slot, i.e. account 0 (6 cases), a needed type and category with no rate and no DEFAULT rate (14 cases); one case had two causes. Every case with at least one cause gave exit status 231 (31 cases); the 169 cases with none gave exit status 0.
+4. **Interest.** The COMPUTE in 1300-COMPUTE-INTEREST has no ROUNDED phrase. Its result field WS-MONTHLY-INT is S9(09)V99.
 
-The following changes are already applied in adapted/CBACT04C.cob (see CHANGES.md):
+## Harness (adapted/HARNESS-CBACT04C.cob, written, see CHANGES.md)
 
-**Lines 614-621**: FUNCTION CURRENT-DATE replaced by PARM-DATE parameter (X(10), format YYYY-MM-DD) with fixed time 12:00:00. This is the only change to the upstream program.
+CBACT04C keeps state in WORKING-STORAGE between calls and ends an abend with STOP RUN. The harness therefore runs each case as separate processes (LOAD-FILES, RUN-CBACT04C, DUMP-ACCT through CALL "SYSTEM") in its own work directory, so neither state nor an abend leaks into another case. It builds the helper programs itself at start with `make -C <sample dir> BUILD_DIR=<work dir>/bin harness-helpers` and removes its work directory at the end.
 
-**ASSIGN clauses**: Unchanged from upstream. They use environment variables TCATBALF, XREFFILE, ACCTFILE, DISCGRP, TRANSACT without the EXTERNAL keyword (GnuCOBOL accepts them as written).
+The engine runs it like any other program: `cobc -x -Wall -I <copybooks> -fsign=EBCDIC`, then INPUT_FILE and OUTPUT_FILE in the environment.
 
-**CEE3ABD**: Not replaced inside adapted/CBACT04C.cob. Line 595 still calls 'CEE3ABD'. The stub is in adapted/CEE3ABD.cob (compiled separately with `cobc -m`): it DISPLAYs "CEE3ABD ABEND CODE <code>", moves the code to RETURN-CODE, and STOPs RUN.
+### Input contract: one CSV row per case, 157 columns
 
-**Copybooks**: Used from upstream/cpy via `-I` compiler flag (see Makefile line 18).
+- CASE-ID (X(10)), PARM-DATE (X(10), digits and hyphens only)
+- 5 account slots, columns ending in -1 to -5: ACCT-ID (9(11), 0 = unused), ACCT-GROUP-ID (X(10)), ACCT-CURR-BAL, ACCT-CURR-CYC-CREDIT, ACCT-CURR-CYC-DEBIT (S9(10)V99), XREF-CARD-NUM (X(16)), XREF-EXISTS (Y or N)
+- 10 category balance slots, columns ending in -1 to -10: CATBAL-ACCT-INDEX (0 = unused, 1 to 5 names an account slot; a slot that is unused means account 0; above 5 makes the row malformed), CATBAL-TYPE (X(2)), CATBAL-CAT (9(4)), CATBAL-BAL (S9(9)V99)
+- 20 rate slots, columns ending in -1 to -20: RATE-GROUP (X(10), blank = unused), RATE-TYPE (X(2)), RATE-CAT (9(4)), RATE-VALUE (S9(4)V99)
 
-### 2. Probe Programs Already Built
+### Output contract: one CSV row per case, 98 columns
 
-- **adapted/RUN-CBACT04C.cob**: Driver that accepts PARM-DATE from environment variable CARDDEMO_PARM_DATE, calls CBACT04C with EXTERNAL-PARMS, then STOPs RUN.
-- **adapted/LOAD-FILES.cob**: Loads text fixtures into indexed files (see Makefile targets probe-upstream, probe-nonzero, probe-missing-default).
-- **adapted/DUMP-ACCT.cob**: Dumps account file records to display output (ACCT-ID and ACCT-CURR-BAL per line).
-- **adapted/CEE3ABD.cob**: Stub replacing z/OS Language Environment service CEE3ABD.
+- CASE-ID, EXIT-CODE (exit status of the interest run; 252 malformed row, 251 work files not written)
+- UPDATED-BAL-1 to 5: the account balance after the run, empty when the account is not in the dump
+- NUM-TRANSACTIONS (all interest transactions written; empty on a malformed row)
+- 10 transaction slots, columns TX-n-ID, -TYPE, -CAT, -SOURCE, -DESC, -AMT, -CARD-NUM, -ORIG-TS, -PROC-TS, in write order, empty beyond NUM-TRANSACTIONS
+- Amounts are plain signed decimals at scale 2 (no plus sign, no leading zeros). They are string columns in schema.json because they are empty when absent, and the engine's decimal comparison treats an empty value as a divergence. The comparison is therefore exact text after trimming trailing spaces; a port must write the same text.
 
-### 3. New Requirement: Audit Harness
+## Case Generation (schema key generator_script)
 
-A NEW file adapted/HARNESS-CBACT04C.cob must be written to wrap CBACT04C for differential testing (documented in CHANGES.md as an addition).
+The engine's built-in generator cannot express relations between columns (a category balance naming an account slot, a rate for the group of that account, abend conditions). schema.json therefore declares `"generator_script": "generator.py"`.
 
-## Harness Requirements
+### Engine rules
 
-### The Problem: State Between Calls
+1. The path is relative to the folder that contains schema.json. After resolving symlinks it must be inside that folder and be a regular file. Otherwise the run stops with `ERROR: generator script outside schema directory: <declared path>` (or `generator script not found`), exit status 2, no run directory, no verdict, no certificate. The check happens when the schema is loaded, before any import or execution.
+2. The engine reads the script once, compiles those bytes and runs them in a fresh namespace (no import machinery, no __pycache__ next to the script).
+3. The script defines `generate_cases(schema, rng, num_cases)` and returns a list of `num_cases` dicts with exactly the schema's input column names. Values are str, int or Decimal (Decimal is written at the column's scale); anything else, and any line break in a value, is an error.
+4. The script draws only from the `rng` it is given, through `rng.random()` (D-30). The same seed gives the same generated_cases.csv byte for byte.
+5. The script never computes an expected outcome. Expected results come only from running the COBOL harness.
 
-CBACT04C (lines 167, 170, 173) maintains state in WORKING-STORAGE between calls:
-- WS-LAST-ACCT-NUM: the last account processed
-- WS-FIRST-TIME: 'Y' on first call, then 'N'
-- WS-TRANID-SUFFIX: incremented per transaction written
+### Hash and certificate
 
-It ends with GOBACK (line 232), not STOP RUN. If CANCEL is not called between cases, state from one case leaks into the next.
+- inputs.json gains `generator_script` and `generator_script_sha256` only when the schema declares a script. The run id includes the hash only in that case, so every other run id is unchanged (bundled ids f584d5f35228, 29c15f04407b, df4d7929ce44, 08d14a07bcdb).
+- certificate.json gains the same two keys under the same condition.
+- Replay refuses the certificate when the schema declares a script and the certificate has no hash, when the certificate has a hash and the schema declares none, and when the script on disk no longer matches (`generator script hash mismatch`).
+- The gate (coroner/gate.py) and the pre-commit lookup (coroner/hooks.py) include the script hash in the files a certificate must match.
 
-When an abend occurs (1110-GET-XREF-DATA line 399 or 1200-A-GET-DEFAULT-INT-RATE line 449 calls 9999-ABEND-PROGRAM), the stub CEE3ABD.cob (line 13) STOPs RUN with RETURN-CODE = abend code. This ends the whole run unit, so no case after an abend would execute.
+### What the generator covers
 
-### Solution: Separate Process Per Case
-
-The harness runs each case in its own process by calling LOAD-FILES, RUN-CBACT04C and DUMP-ACCT through CALL "SYSTEM" (a GnuCOBOL extension). Each CALL "SYSTEM" forks a subprocess that executes the command and returns its exit code.
-
-The engine runs a COBOL program by setting environment variables INPUT_FILE and OUTPUT_FILE, then executing the binary: `result = subprocess.run([binary], ..., env={..., 'INPUT_FILE': input_csv, 'OUTPUT_FILE': output_csv})` (from coroner/run/__init__.py run_cobol). The harness must read INPUT_FILE and write OUTPUT_FILE.
-
-**Per-case steps**:
-1. Read one case from INPUT_FILE
-2. Write the case's text files (tcatbal.txt, cardxref.txt, acctdata.txt, discgrp.txt) to a temporary directory under TMPDIR or the current directory (never fixed /tmp/cbact04c-<CASE-ID>)
-3. CALL "SYSTEM" to run LOAD-FILES, passing environment variables for input text paths and output .dat paths
-4. CALL "SYSTEM" to run RUN-CBACT04C with CARDDEMO_PARM_DATE and the .dat paths
-5. CALL "SYSTEM" to run DUMP-ACCT to read the updated account file
-6. Read back the transaction file and account dump
-7. Extract the case's interest amounts, updated balances, transaction count and exit code
-8. Write one output CSV row to OUTPUT_FILE
-9. Clean up temporary files
-
-**Per-case cost**: The probe runs one case (7 transactions, 4 accounts) in well under a second (measured from `make probe-nonzero`). A 200-case audit will run in reasonable time (estimated under 60 seconds).
-
-**Alternative rejected**: CANCEL 'CBACT04C' between cases would reset WORKING-STORAGE, but an abend in CEE3ABD would still end the harness. The separate-process approach isolates both state and abends.
-
-## Data Model
-
-### What CBACT04C Actually Does
-
-CBACT04C reads TCATBAL-FILE sequentially (one TRAN-CAT-BAL-RECORD per iteration, copybook CVTRA01Y.cpy):
-- TRANCAT-ACCT-ID (9(11))
-- TRANCAT-TYPE-CD (X(02))
-- TRANCAT-CD (9(04))
-- TRAN-CAT-BAL (S9(09)V99)
-
-When the account ID changes (line 199), it:
-1. Calls 1050-UPDATE-ACCOUNT to add WS-TOTAL-INT to ACCT-CURR-BAL and zero ACCT-CURR-CYC-CREDIT and ACCT-CURR-CYC-DEBIT (lines 350-354)
-2. Resets WS-TOTAL-INT to zero (line 203)
-3. Reads the new account's ACCOUNT-RECORD via 1100-GET-ACCT-DATA (line 206)
-4. Reads the CARD-XREF-RECORD via 1110-GET-XREF-DATA by alternate key FD-XREF-ACCT-ID (line 208)
-
-For each TRAN-CAT-BAL-RECORD, it:
-1. Looks up DIS-GROUP-RECORD by (ACCT-GROUP-ID, TRANCAT-TYPE-CD, TRANCAT-CD) in 1200-GET-INTEREST-RATE (line 216)
-2. If DISCGRP-STATUS is '23', falls back to group 'DEFAULT' via 1200-A-GET-DEFAULT-INT-RATE (line 426)
-3. If DIS-INT-RATE is not zero (line 217), computes `WS-MONTHLY-INT = (TRAN-CAT-BAL * DIS-INT-RATE) / 1200` (line 457)
-4. Adds WS-MONTHLY-INT to WS-TOTAL-INT (line 459)
-5. Writes one TRAN-RECORD with TRAN-ID from PARM-DATE and WS-TRANID-SUFFIX, type '01', category '05', TRAN-AMT = WS-MONTHLY-INT, TRAN-CARD-NUM from XREF-CARD-NUM (lines 464-503)
-
-After the last TRAN-CAT-BAL-RECORD, it calls 1050-UPDATE-ACCOUNT for the last account (line 228).
-
-### Missing XREF and Missing DEFAULT
-
-**Missing XREF** (1110-GET-XREF-DATA INVALID KEY, line 396): The program DISPLAYs "ACCOUNT NOT FOUND: <account>" but does NOT abort. If XREFFILE-STATUS is not '00', it calls 9999-ABEND-PROGRAM (line 399). The probe missing-default dataset has XREF records for all accounts, so this path is not tested.
-
-**Missing DEFAULT** (1200-A-GET-DEFAULT-INT-RATE, line 449): The program calls 9999-ABEND-PROGRAM, which calls CEE3ABD with code 999 (line 595), and the stub exits with RETURN-CODE 231 (operator measurement: probe/missing-default/exit-code.txt shows 231).
-
-### Output Data
-
-**TRANSACT file** (FD-TRANFILE-REC, copybook CVTRA05Y.cpy, 350 bytes per record): One record per interest transaction. The harness extracts:
-- TRAN-ID (X(16))
-- TRAN-TYPE-CD (X(02), always '01')
-- TRAN-CAT-CD (9(04), always '0005')
-- TRAN-SOURCE (X(10), always 'System')
-- TRAN-DESC (X(100), format 'Int. for a/c <account>')
-- TRAN-AMT (S9(09)V99)
-- TRAN-CARD-NUM (X(16))
-- TRAN-ORIG-TS (X(26), DB2 format timestamp)
-- TRAN-PROC-TS (X(26), DB2 format timestamp)
-
-**ACCOUNT file** (updated in place): Lines 350-354 add WS-TOTAL-INT to ACCT-CURR-BAL, zero ACCT-CURR-CYC-CREDIT and ACCT-CURR-CYC-DEBIT. DUMP-ACCT displays ACCT-ID and ACCT-CURR-BAL per line.
-
-## Case Generation Rules
-
-### Input Structure (one CSV row per case)
-
-**Fixed columns**:
-- CASE-ID: X(10), the case identifier
-- PARM-DATE: X(10), the parameter date (YYYY-MM-DD)
-
-**Per-account slots** (up to 5 accounts, indexed 1 to 5):
-- ACCT-ID-N: 9(11)
-- ACCT-GROUP-ID-N: X(10)
-- ACCT-CURR-BAL-N: S9(09)V99
-- ACCT-CURR-CYC-CREDIT-N: S9(09)V99
-- ACCT-CURR-CYC-DEBIT-N: S9(09)V99
-- XREF-CARD-NUM-N: X(16)
-- XREF-EXISTS-N: X(1), 'Y' or 'N' (whether the account has an XREF record)
-
-**Per-category-balance slots** (up to 20, indexed 1 to 20):
-- CATBAL-ACCT-INDEX-N: 9(1), which account this balance belongs to (1 to 5)
-- CATBAL-TYPE-N: X(02)
-- CATBAL-CAT-N: 9(04)
-- CATBAL-BAL-N: S9(09)V99
-
-**Per-rate slots** (up to 30, indexed 1 to 30):
-- RATE-GROUP-N: X(10)
-- RATE-TYPE-N: X(02)
-- RATE-CAT-N: 9(04)
-- RATE-VALUE-N: S9(04)V99
-
-**Per-generator rules** (schema extension needed if the engine cannot express them):
-- Accounts: 1 to 5 (probe-nonzero has 4 accounts, missing-default has 2)
-- Category balances per case: 1 to 10 (probe-nonzero has 7 balances)
-- Rates: 5 to 20 (probe-nonzero has 9 rates, missing-default has 6 non-DEFAULT rates)
-- Transactions written per case: 0 to 10 (probe-nonzero writes 7)
-- Some accounts have XREF-EXISTS = 'N' (missing XREF, exercises the abend path)
-- Some category balances reference a (group, type, category) with no rate entry and no DEFAULT entry (missing DEFAULT, exit 231)
-- Some category balances reference a (group, type, category) with no group-specific rate but DEFAULT exists (exercises the fallback)
-- Balances include negative (overdrafts), zero and positive
-- Rates include 0 (no interest) and several non-zero values
-
-The harness check (Task 3) covers only probe-nonzero and missing-default datasets (upstream-sample has 50 transactions and is too large for the 10-transaction maximum).
-
-### Output Structure (one CSV row per case)
-
-**Fixed columns**:
-- CASE-ID: X(10), echoed from input
-- EXIT-CODE: 9(3), actual exit code
-
-**Per-account columns** (5 accounts):
-- UPDATED-BAL-N: S9(09)V99, ACCT-CURR-BAL after interest posted
-- UPDATED-CYC-CREDIT-N: S9(09)V99, should be zero
-- UPDATED-CYC-DEBIT-N: S9(09)V99, should be zero
-
-**Per-transaction columns** (up to 10 transactions, in write order):
-- TX-N-ID: X(16)
-- TX-N-TYPE: X(02)
-- TX-N-CAT: 9(04)
-- TX-N-SOURCE: X(10)
-- TX-N-DESC: X(100)
-- TX-N-AMT: S9(09)V99
-- TX-N-CARD-NUM: X(16)
-- TX-N-ORIG-TS: X(26)
-- TX-N-PROC-TS: X(26)
-
-**Count column**:
-- NUM-TRANSACTIONS: 9(2), number of transaction records written (0 to 10)
-
-### Engine Extension Needed
-
-The current schema.json (coroner/parse/schema.py lines 1-230) supports:
-- Per-column `domain` (list of string values or "dirty_numeric")
-- Per-column `domain_weights` (dict or list)
-- Optional `case_rows` (min and max rows per case)
-- Optional `output_key` (list of column names for multi-row matching)
-
-**Not supported**:
-- Relations between columns (for example "CATBAL-ACCT-INDEX-1 must be 1, 2, 3, 4 or 5 and reference an existing account")
-- Conditional generation (for example "when XREF-EXISTS-N is 'N', expect exit code 231")
-- Variable-length arrays (for example "generate 1 to 20 category balances, each referencing one of the 5 accounts")
-
-**Smallest extension** (new task after harness and Java port):
-- Add `generator_script` optional key to schema.json: path to a Python script that takes (schema, rng, num_cases) and returns a list of dicts (one per case)
-- The script can enforce any rule the schema cannot express
-- Security requirement: The script path must resolve (after resolving symlinks) inside the directory that contains the schema.json, else the run stops with an ERROR verdict and message "generator script outside schema directory". Test: tests/test_generator_script_security.py creates a schema.json with generator_script pointing to /tmp/evil.py and asserts the run fails with ERROR.
-
-## Comparison Rules
-
-- Field-by-field exact comparison per existing engine (coroner/compare/__init__.py)
-- Interest amounts: decimal with exact scale 2 (S9(09)V99)
-- Transaction IDs: string exact match
-- Timestamps: exact match (deterministic)
-- Account balances: exact decimal match (scale 2)
-- Exit code: exact integer match
-
-## Engine Unchanged (Option A)
-
-The current engine (coroner/cli.py run_verify, coroner/run/__init__.py, coroner/gen/__init__.py) runs one COBOL program and one Java program on the same generated input CSV, comparing their output CSVs. CBACT04C reads four INDEXED files and writes a sequential TRANSACT file plus updates ACCOUNT records.
-
-**Option A** (chosen, engine unchanged):
-- Write adapted/HARNESS-CBACT04C.cob that accepts one input CSV row per generated case
-- Each row has the case's accounts, balances, rates, XREF existence flags
-- The harness writes text files, calls LOAD-FILES, RUN-CBACT04C and DUMP-ACCT through CALL "SYSTEM" (separate process per case to isolate state and abends)
-- The harness flattens the outputs (transactions and updated balances) into one output CSV row
-- The Java side implements the same CSV contract around the ported logic
-- The engine sees one CSV in, one CSV out: no engine changes
-
-**Option B** (larger change, not chosen):
-- Extend schema.json to declare multiple input files and multiple output files
-- Extend coroner/run/__init__.py run_verify to set multiple environment variables per file
-- Extend coroner/compare to compare multiple output files
-
-**Decision**: Option A. The engine stays unchanged. adapted/CBACT04C.cob stays unchanged (it is the port target). The harness wraps it for differential testing.
+Negative, zero and positive category balances; zero and non-zero rates; groups with their own rate; groups that fall back to DEFAULT; needed type and category with no rate and no DEFAULT (abend); accounts without a cross-reference record (abend); a category balance on an unused account slot (abend); several category balances on one account; account slots in an order different from key order; single-account cases (the last-account behavior, in every case with a category balance). Amounts stay inside their PIC limits, so no case overflows a field.
 
 ## Java Port Requirements
 
-### Source
+Java 17 port produced **only** by a Kiro agent in an isolated session (see Isolation) from the adapted CBACT04C.cob, the copybooks and the contract in schema.json (Java 17, BigDecimal for money, explicit RoundingMode and scale). The prompt does not tell the agent how to compute or round. The port reads INPUT_FILE and writes OUTPUT_FILE with the 98 output columns. Prompt, transcript and the files the agent read are saved in docs/evidence/. The port is never hand-edited: a ZOMBIE is reported as ZOMBIE, an ALIVE as ALIVE.
 
-Java 17 port produced **only** by a Kiro agent from:
-- The adapted CBACT04C.cob (samples/carddemo-cbact04c/adapted/CBACT04C.cob)
-- The copybooks (samples/carddemo-cbact04c/upstream/cpy/*.cpy)
-- The I/O contract (input CSV columns and output CSV columns from schema.json)
-- Language rules: Java 17, BigDecimal for money, RoundingMode explicit
+## Comparison Rules
 
-**The prompt must not tell the agent how to compute or round**. No hint about the formula, no "HALF_UP rounding", no algorithm description. The agent reads the COBOL source and produces whatever it produces; that output is audited as is, never hand-edited.
-
-The Kiro prompt (stating only the I/O contract, Java 17 and BigDecimal), the full CardDemo spec and the complete transcript are saved in docs/evidence/carddemo-cbact04c-port.txt.
-
-### Never Hand-Edited
-
-The Java port is **never** hand-edited to create a ZOMBIE verdict. If the Kiro-generated port is ZOMBIE, report it as ZOMBIE. If ALIVE, report ALIVE.
+Per the engine (coroner/compare/__init__.py): exact comparison, no tolerance (D-09), string columns after trimming trailing spaces, return codes compared as OS exit statuses (D-31). The harness's own exit status is 0 when the run completes; the program's abend status travels in the EXIT-CODE column.
 
 ## Acceptance Criteria
 
-1. **Feasibility probe succeeds** (already done, see PROBE.md): 
-   - adapted/CBACT04C.cob compiles with cobc
-   - adapted/LOAD-FILES.cob compiles and runs
-   - adapted/RUN-CBACT04C calls CBACT04C with PARM-DATE
-   - adapted/DUMP-ACCT dumps account balances
-   - CBACT04C runs with loaded data: probe-nonzero exits 0 with 7 transactions, probe-missing-default exits 231
+1. Feasibility probe (done, PROBE.md): the adapted program compiles and runs under GnuCOBOL; probe-nonzero exits 0, missing-default exits 231.
+2. Harness written and checked against the probe outputs before any Java exists (done, tasks 2 and 3).
+3. schema.json and generator.py written, the engine extension in place and tested (done, tasks 4 to 7).
+4. `coroner verify` runs end to end on CardDemo with a stand-in Java program that ports nothing and gives ZOMBIE at 20 cases (done, task 7).
+5. The run time of the harness fits the engine's run timeout at the case count of the audit (open, task 8).
+6. A Kiro port from the isolated session is audited at 200 cases; ALIVE or ZOMBIE is reported as it comes out (open, tasks 9 and 10).
+7. Documentation: CHANGES.md lists every added file; the sample README carries the public wording; nothing claims "audits CardDemo" or "all programs".
 
-2. **Harness adapted/HARNESS-CBACT04C.cob written**: Reads one CSV row, writes text files, calls LOAD-FILES, RUN-CBACT04C and DUMP-ACCT through CALL "SYSTEM", flattens outputs into one CSV row
+## Measured run time (this Mac, stand-in Java, seed 42, final generator)
 
-3. **Harness checked against probe outputs before Java exists**: Each of the three probe datasets (upstream-sample, probe-nonzero, missing-default) run through the harness gives the same interest amounts, updated balances and exit code as recorded in probe/*
-
-4. **Schema.json or generator_script written**: Describes the per-case input and output structure (accounts, category balances, rates, transactions)
-
-5. **Kiro agent generates Java port**: From adapted/CBACT04C.cob, the copybooks, the I/O contract and Java 17 + BigDecimal only (no algorithm hint)
-
-6. **Coroner runs differential audit**: 
-   - COBOL harness and Java on same generated cases
-   - Field-by-field comparison of outputs
-   - Verdict ALIVE or ZOMBIE with divergence details
-
-7. **Documentation**:
-   - samples/carddemo-cbact04c/CHANGES.md already lists the timestamp change (line 2) and the new files (lines 8-12)
-   - samples/carddemo-cbact04c/LICENSE and NOTICE already preserved from upstream
-   - README section stating the required public wording
-   - Never claims "audits CardDemo" or "all programs"
-
-## Time Box
-
-Per D-62: One day of feasibility work. If the probe or Kiro port fails in a way that cannot be fixed within the bounded-path constraints, document the facts and make a go/no-go decision.
-
-## Success Metric
-
-A measured run on N generated cases (suggested N=200 for development, 2000 for catalog) gives:
-- ALIVE verdict if the Kiro port is correct
-- ZOMBIE verdict with exact divergence details if the port has a defect
-
-The verdict wording must state: "no behavioral difference across the tested scenarios; not a certification for all inputs."
-
+- 20 cases, `coroner verify --timings`: reference run 9.02 s, instrumented coverage run 13.47 s, report generation 6.17 s, total 30.8 s, verdict ZOMBIE on 20 cases.
+- 200 cases: the reference run took 50.66 s (under the 60 s run timeout), then the instrumented coverage run (-ftraceall) exceeded the timeout: `Error: COBOL execution timed out after 60.0s`, exit 2, 113 s in total. An earlier 200-case run (before the generator's abend probabilities were lowered) already timed out in the reference run.
+- The harness binary alone on the same 200 cases (INPUT_FILE and OUTPUT_FILE set by hand, no tracing): 52.94 s real. From the 20-case and 200-case reference runs the cost looks like about 7 s fixed plus 0.22 s per case (an estimate from two points, not a profile).
+- The engine runs the harness twice (reference, then the instrumented build, which is slower), each with the 60 s run timeout. On a ZOMBIE the report step also takes the instrumented binary for the single-case re-run (6.17 s at 20 cases). 200 cases therefore does not fit the timeout on this machine. This spec does not change the engine's timeout; the decision is task 8.
 
 ## Uncertain
 
-1. The per-case subprocess cost: Will 200 cases complete in reasonable time? (Estimated from probe: well under a second per case, so under 2 minutes total. The 60-second target applies to verify, not individual samples.)
-
-2. CALL "SYSTEM" return value on non-zero exit: Does GnuCOBOL correctly capture the child's exit status? (Probe measurement shows exit code 231 is returned. Accepted.)
-
-3. Generator script signature: Does the engine's generate_cases call match what the script expects? (Checked: coroner/gen/__init__.py defines generate_cases(schema, num_cases, seed). The script receives these arguments.)
+1. Whether the generated cases reach every branch of CBACT04C. The coverage reported for the harness (20 cases, stand-in: paragraph coverage 34/34, branch coverage 66/99) describes the harness program, not CBACT04C, which runs in subprocesses and is not instrumented.
+2. A CSV value containing a comma would break the harness (it splits on commas without quoting). The generator never writes one and a test checks that no quote character appears in the cases file.

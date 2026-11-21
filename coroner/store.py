@@ -11,6 +11,7 @@ import importlib.metadata
 
 from coroner.verdict import Verdict
 from coroner.compare import ComparisonResult
+from coroner.parse.schema import resolve_generator_script
 from coroner.run import _build_subprocess_env
 
 
@@ -50,10 +51,37 @@ def compute_run_id(inputs: dict) -> str:
         }
     }
     
+    # Present only for schemas with a generator_script, so other run ids stay unchanged
+    if inputs.get("generator_script_sha256"):
+        data["generator_script_sha256"] = inputs["generator_script_sha256"]
+    
     canonical = json.dumps(data, sort_keys=True, separators=(',', ':'))
     hasher.update(canonical.encode('utf-8'))
     
     return hasher.hexdigest()[:12]
+
+
+def generator_script_info(schema_path: str) -> tuple[str, str] | None:
+    """
+    (declared path, SHA-256) of the schema's generator script, or None when the
+    schema has none.
+
+    The script path is resolved and checked by resolve_generator_script (inside
+    the schema folder), so the hash is always of a file that passed that check.
+    Only the generator_script key is read: schema validation is load_schema's job.
+    """
+    try:
+        with open(schema_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except json.JSONDecodeError:
+        return None
+    declared = data.get("generator_script") if isinstance(data, dict) else None
+    if declared is None:
+        return None
+    if not isinstance(declared, str) or not declared:
+        raise ValueError("generator_script must be a non-empty string")
+    script_path = resolve_generator_script(schema_path, declared)
+    return declared, hashlib.sha256(script_path.read_bytes()).hexdigest()
 
 
 def copybook_file_hashes(directory: str) -> dict[str, str]:
@@ -207,6 +235,11 @@ def collect_inputs(
         "timestamp": timestamp,
         "cobc_flags": cobc_flags if cobc_flags else []
     }
+    
+    # Schemas with a generator_script record the script and its hash
+    script_info = generator_script_info(schema_path)
+    if script_info:
+        result["generator_script"], result["generator_script_sha256"] = script_info
     
     return result
 

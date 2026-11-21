@@ -9,7 +9,7 @@ import shutil
 from pathlib import Path
 from typing import Optional
 
-from coroner.store import copybook_file_hashes
+from coroner.store import copybook_file_hashes, generator_script_info
 
 
 def compute_file_hash(path: str) -> str:
@@ -82,6 +82,11 @@ def find_certificate(repo_root: Path, scope: dict) -> Optional[str]:
     current_java_hash = compute_file_hash(str(repo_root / scope["java"]))
     current_schema_hash = compute_file_hash(str(repo_root / scope["schema"]))
     current_copybook_hashes = copybook_file_hashes(str(repo_root / scope["copybooks"]))
+    try:
+        script_info = generator_script_info(str(repo_root / scope["schema"]))
+    except ValueError:  # includes GeneratorScriptError
+        return None
+    current_script_hash = script_info[1] if script_info else None
     
     matching_certs = []
     
@@ -100,7 +105,8 @@ def find_certificate(repo_root: Path, scope: dict) -> Optional[str]:
             # Check if hashes match (use actual certificate field names)
             if (cert_data.get("cobol_file_sha256") == current_cobol_hash and
                 cert_data.get("java_file_sha256") == current_java_hash and
-                cert_data.get("schema_file_sha256") == current_schema_hash):
+                cert_data.get("schema_file_sha256") == current_schema_hash and
+                cert_data.get("generator_script_sha256") == current_script_hash):
                 
                 # Check copybook hashes
                 cert_copybooks = cert_data.get("copybook_hashes", {})

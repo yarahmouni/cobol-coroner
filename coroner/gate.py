@@ -13,7 +13,7 @@ from coroner.hooks import (
     compute_file_hash,
     get_repo_root,
 )
-from coroner.store import copybook_file_hashes
+from coroner.store import copybook_file_hashes, generator_script_info
 from coroner.certificate import replay_certificate
 
 
@@ -99,12 +99,20 @@ def certificate_matches_files(cert: dict, scope: dict, repo_root: Path) -> bool:
     java_hash = compute_file_hash(repo_root / scope["java"])
     schema_hash = compute_file_hash(repo_root / scope["schema"])
     copybook_hash = copybook_file_hashes(str(repo_root / scope["copybooks"]))
+    
+    # The generator script (if the schema declares one) is part of what was audited
+    try:
+        script_info = generator_script_info(str(repo_root / scope["schema"]))
+    except ValueError:  # includes GeneratorScriptError
+        return False
+    script_hash = script_info[1] if script_info else None
 
     return (
         cert["cobol_file_sha256"] == cobol_hash
         and cert["java_file_sha256"] == java_hash
         and cert["schema_file_sha256"] == schema_hash
         and cert["copybook_hashes"] == copybook_hash
+        and cert.get("generator_script_sha256") == script_hash
     )
 
 

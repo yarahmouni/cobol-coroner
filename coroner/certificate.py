@@ -215,6 +215,12 @@ def generate_certificate(
         "divergent_fields": divergent_fields
     }
     
+    # Schemas with a generator_script: the certificate records the script and its hash
+    # (other certificates stay byte for byte as before)
+    if "generator_script_sha256" in inputs:
+        cert["generator_script"] = inputs["generator_script"]
+        cert["generator_script_sha256"] = inputs["generator_script_sha256"]
+    
     # Compute certificate_sha256
     cert_hash = compute_certificate_sha256(cert)
     cert["certificate_sha256"] = cert_hash
@@ -383,6 +389,29 @@ def replay_certificate(certificate_path: str, base_dir: Optional[str] = None) ->
         
         # Step 3: Re-run engine
         schema_obj = load_schema(schema_file)
+        
+        # Generator script: the certificate and the schema must agree, and the
+        # script on disk must be the one that produced the cases
+        recorded_script_hash = cert.get("generator_script_sha256")
+        if schema_obj.generator_script_path is None and recorded_script_hash is None:
+            pass
+        elif schema_obj.generator_script_path is None or recorded_script_hash is None:
+            return ReplayResult(
+                valid=False, reason="generator script differs between certificate and schema",
+                verdict=None, cases_total=0, cases_divergent=0,
+                paragraph_coverage_reached=0, paragraph_coverage_total=0,
+                branch_coverage_reached=0, branch_coverage_total=0,
+                cases_file="", warnings=[]
+            )
+        elif _file_sha256(schema_obj.generator_script_path) != recorded_script_hash:
+            return ReplayResult(
+                valid=False, reason="generator script hash mismatch",
+                verdict=None, cases_total=0, cases_divergent=0,
+                paragraph_coverage_reached=0, paragraph_coverage_total=0,
+                branch_coverage_reached=0, branch_coverage_total=0,
+                cases_file="", warnings=[]
+            )
+        
         cobol_structure = parse_cobol_structure(cobol_file, copybook_dir)
         
         # Get cobc_flags from certificate (default empty list)

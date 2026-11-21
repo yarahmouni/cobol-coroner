@@ -4,6 +4,7 @@ import json
 import re
 from dataclasses import dataclass
 from decimal import Decimal
+from pathlib import Path
 
 
 @dataclass
@@ -43,6 +44,39 @@ class Schema:
     suspense_key: str | None = None  # "SUSP"
     cobc_flags: list[str] | None = None  # ["-fsign=EBCDIC"]
     tie_strategy: str | None = None  # "product_pairs" for T2 trap
+    generator_script: str | None = None  # path as declared, relative to the schema folder
+    generator_script_path: str | None = None  # resolved absolute path, checked to be inside the schema folder
+
+
+class GeneratorScriptError(ValueError):
+    """The generator script of a schema is not allowed (outside the schema folder, missing)."""
+
+
+def resolve_generator_script(schema_path: str, declared: str) -> Path:
+    """
+    Resolve a generator_script value and check it stays inside the schema folder.
+
+    A relative path is taken relative to the folder that contains schema.json.
+    Symlinks are resolved before the check, so a link pointing out of the
+    folder is refused. Nothing is imported or executed here.
+
+    Raises GeneratorScriptError when the script is outside that folder or is
+    not a regular file.
+    """
+    outside = f"generator script outside schema directory: {declared}"
+    try:
+        schema_dir = Path(schema_path).parent.resolve()
+        candidate = Path(declared)
+        if not candidate.is_absolute():
+            candidate = schema_dir / candidate
+        resolved = candidate.resolve()
+    except (OSError, RuntimeError, ValueError):
+        raise GeneratorScriptError(outside) from None
+    if not resolved.is_relative_to(schema_dir):
+        raise GeneratorScriptError(outside)
+    if not resolved.is_file():
+        raise GeneratorScriptError(f"generator script not found: {declared}")
+    return resolved
 
 
 def parse_pic(pic: str) -> tuple[bool, int, int]:
@@ -240,6 +274,13 @@ def load_schema(path: str) -> Schema:
     if tie_strategy is not None and not isinstance(tie_strategy, str):
         raise ValueError("tie_strategy must be a string")
     
+    generator_script = data.get('generator_script')
+    generator_script_path = None
+    if generator_script is not None:
+        if not isinstance(generator_script, str) or not generator_script:
+            raise ValueError("generator_script must be a non-empty string")
+        generator_script_path = str(resolve_generator_script(path, generator_script))
+    
     return Schema(
         program_name=data['program'],
         description=data['description'],
@@ -255,5 +296,7 @@ def load_schema(path: str) -> Schema:
         grand_total_key=grand_total_key,
         suspense_key=suspense_key,
         cobc_flags=cobc_flags,
-        tie_strategy=tie_strategy
+        tie_strategy=tie_strategy,
+        generator_script=generator_script,
+        generator_script_path=generator_script_path
     )
