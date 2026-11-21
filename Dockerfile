@@ -127,5 +127,15 @@ RUN python3 -m pip install --no-cache-dir -e ".[dev,test]"
 # Switch to non-root user
 USER coroner
 
+# Trap catalog for a container started with no volume (for example the Kiro power:
+# docker run --rm -i --init <image> python -m coroner.mcp, where get_detection_matrix reads
+# /app/runs/trap_catalog.json). The catalog files are derived from real runs made during the build
+# (CORONER_BASE_DIR is not set here, so they are written under /app/runs). The run folders are
+# removed in the same RUN step to keep the image small (about 113 MB each, so no layer keeps them).
+# A user who runs the same audit gets the same run id again: run ids are derived from content.
+# The build fails if the catalog build fails or a catalog file is missing. Docker Compose is not
+# affected: it sets CORONER_BASE_DIR=/data and reads the catalog from the data volume.
+RUN python3 -m coroner traps && bash scripts/keep_catalog_only.sh /app
+
 # Default command runs the smoke test
 CMD ["bash", "smoke/run_smoke.sh"]

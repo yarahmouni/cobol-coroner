@@ -213,7 +213,10 @@ def get_failure_report(run_id: str) -> dict:
         return json.load(f)
 
 
-@server.tool(description="Get the trap catalog detection matrix")
+@server.tool(description=(
+    "Get the trap catalog detection matrix. The catalog lists the run ids of the image build; "
+    "their run folders are not in the image until the same audit is run again."
+))
 def get_detection_matrix(trap_id: str = None) -> dict:
     """Get detection matrix for the trap catalog.
     
