@@ -115,10 +115,12 @@ Task 1 of the earlier version of this spec (POST /api/gate-check) is built and s
 |---|---|---|
 | T1 | 1 | The Missing Branch |
 | T2 | 2 | The Vanishing Cent |
-| T3 | 3 | The Negative That Wasn't |
+| T3 | 3 | The Phantom Minus |
 | T4 | 4 | The Sign of Zero |
 | T5 | 5 | The Silent Zero |
 | T6 | 6 | reserved |
+
+Entries may also carry the optional text fields `subtitle` and `detail` (each a non-empty string when present). Only T3 has them: "A positive amount read as negative" and "Packed-decimal sign nibble F interpreted as a minus sign by the Java port". Only the run page case card shows them (three lines: "Case 3: The Phantom Minus", the subtitle, the detail); navigation and lists show the short title only.
 
 The display form is "Case N Name" ("Case 6 reserved" for T6, with no numbers). The registry is read at request time. It **SHALL** be used by: the story, the fool page, the Detection Matrix page, the Run audit sample selector on the home page, the run page header, the entries of `runs/trap_catalog.json` (new fields `case_number`, `case_name`), and a test that compares the case names in the README trap table with the registry. The names sit beside the existing `business_name` of each trap.json (D-55), which is kept as the descriptor (for example "Branch subtotal mismatch").
 

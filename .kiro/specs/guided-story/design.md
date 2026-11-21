@@ -58,10 +58,12 @@ The story reuses `generate_zombie_sentence` (coroner/ui/sentences.py), the exist
 `samples/traps/cases.json`:
 ```json
 {"T1": {"case": 1, "name": "The Missing Branch"}, "T2": {"case": 2, "name": "The Vanishing Cent"},
- "T3": {"case": 3, "name": "The Negative That Wasn't"}, "T4": {"case": 4, "name": "The Sign of Zero"},
+ "T3": {"case": 3, "name": "The Phantom Minus", "subtitle": "A positive amount read as negative",
+        "detail": "Packed-decimal sign nibble F interpreted as a minus sign by the Java port"},
+ "T4": {"case": 4, "name": "The Sign of Zero"},
  "T5": {"case": 5, "name": "The Silent Zero"}, "T6": {"case": 6, "name": "reserved"}}
 ```
-One file also covers T6, which has no trap.json. `coroner/traps.py` adds `case_number` and `case_name` to each catalog entry (T6 included) from this registry; the Matrix page, the home page selector and the run page header read the names from the registry or from the catalog entry. Display form: "Case N Name".
+One file also covers T6, which has no trap.json. `subtitle` and `detail` are optional for every entry (only T3 has them); `coroner/cases.py` refuses a registry where one is present and is not a non-empty string. `case_label` ("Case N Name") is the short title used in navigation and lists; `case_card` returns the lines of the run page case card ("Case N: Name", then subtitle and detail when present). `coroner/traps.py` adds `case_number` and `case_name` to each catalog entry (T6 included) from this registry; the Matrix page, the home page selector and the run page header read the names from the registry or from the catalog entry. Display form: "Case N Name".
 
 ## Steps
 

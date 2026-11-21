@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field, conint, field_validator
 from starlette.concurrency import run_in_threadpool
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from coroner.cases import auditable_trap_ids, case_label, load_cases_registry
+from coroner.cases import auditable_trap_ids, case_card, case_label, load_cases_registry
 from coroner.certificate import replay_certificate, compute_certificate_sha256, ReplayResult
 from coroner.gate import certificate_matches_files, gate_decision
 from coroner.hooks import get_repo_root
@@ -227,6 +227,12 @@ def validate_run_id(run_id: str) -> str:
     if not RUN_ID_PATTERN.match(run_id):
         raise HTTPException(status_code=404, detail="Invalid run_id")
     return run_id
+
+
+def _case_card_lines(trap_id: str | None) -> list[str] | None:
+    """Case card lines for the run page header; None unless the case has a subtitle or a detail."""
+    lines = case_card(trap_id)
+    return lines if lines and len(lines) > 1 else None
 
 
 def get_recent_runs(limit: int = 10) -> list[dict]:
@@ -801,6 +807,7 @@ async def run_page(request: Request, run_id: str):
         context={
             "run_id": run_id,
             "case_label": case_label(trap_id),
+            "case_card": _case_card_lines(trap_id),
             "audit_datetime": audit_datetime,
             "coroner_version": coroner_version,
             "verdict_class": verdict_class,

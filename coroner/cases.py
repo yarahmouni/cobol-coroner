@@ -5,6 +5,7 @@ from typing import Optional
 
 TRAPS_ROOT = Path(__file__).resolve().parent.parent / "samples" / "traps"
 REGISTRY_PATH = TRAPS_ROOT / "cases.json"
+OPTIONAL_TEXT_KEYS = ("subtitle", "detail")
 
 
 class CasesRegistryError(ValueError):
@@ -27,6 +28,9 @@ def load_cases_registry(path: Optional[Path] = None) -> dict[str, dict]:
             or not isinstance(entry.get("name"), str)
         ):
             raise CasesRegistryError(f"{registry_path.name}: entry {trap_id} needs an integer case and a string name")
+        for key in OPTIONAL_TEXT_KEYS:
+            if key in entry and (not isinstance(entry[key], str) or not entry[key].strip()):
+                raise CasesRegistryError(f"{registry_path.name}: entry {trap_id} {key} must be a non-empty string")
     return registry
 
 
@@ -37,6 +41,17 @@ def case_label(trap_id: Optional[str], registry: Optional[dict] = None) -> Optio
     if entry is None:
         return None
     return f"Case {entry['case']} {entry['name']}"
+
+
+def case_card(trap_id: Optional[str], registry: Optional[dict] = None) -> Optional[list[str]]:
+    """Lines of the case card: "Case N: Name", then the subtitle and the detail when present."""
+    registry = load_cases_registry() if registry is None else registry
+    entry = registry.get(trap_id) if trap_id else None
+    if entry is None:
+        return None
+    lines = [f"Case {entry['case']}: {entry['name']}"]
+    lines.extend(entry[key] for key in OPTIONAL_TEXT_KEYS if key in entry)
+    return lines
 
 
 def auditable_trap_ids(registry: Optional[dict] = None, traps_root: Optional[Path] = None) -> list[str]:

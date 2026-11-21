@@ -1,7 +1,12 @@
 {
   "T1": {"case": 1, "name": "The Missing Branch"},
   "T2": {"case": 2, "name": "The Vanishing Cent"},
-  "T3": {"case": 3, "name": "The Negative That Wasn't"},
+  "T3": {
+    "case": 3,
+    "name": "The Phantom Minus",
+    "subtitle": "A positive amount read as negative",
+    "detail": "Packed-decimal sign nibble F interpreted as a minus sign by the Java port"
+  },
   "T4": {"case": 4, "name": "The Sign of Zero"},
   "T5": {"case": 5, "name": "The Silent Zero"},
   "T6": {"case": 6, "name": "reserved"}

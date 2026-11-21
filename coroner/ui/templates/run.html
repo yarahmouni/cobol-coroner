@@ -9,9 +9,21 @@
         <a href="/">← Back to Index</a>
     </div>
     
+    {% if case_card %}
+    <div class="case-card" style="margin-bottom: 1rem; overflow-wrap: anywhere;">
+        <p style="margin: 0;"><strong>{{ case_card[0] }}</strong></p>
+        {% for line in case_card[1:] %}
+        <p style="margin: 0; color: var(--secondary-text);">{{ line }}</p>
+        {% endfor %}
+    </div>
+    <div style="font-size: 0.875rem; color: var(--secondary-text); margin-bottom: 1rem; overflow-wrap: anywhere;">
+        Audit {{ audit_datetime }} · Coroner {{ coroner_version }} · Run {{ run_id }}
+    </div>
+    {% else %}
     <div style="font-size: 0.875rem; color: var(--secondary-text); margin-bottom: 1rem;">
         {% if case_label %}<strong>{{ case_label }}</strong> · {% endif %}Audit {{ audit_datetime }} · Coroner {{ coroner_version }} · Run {{ run_id }}
     </div>
+    {% endif %}
     
     <div class="banner" style="font-size: 0.75rem;">
         Bundled sample. No customer data is uploaded or stored.
