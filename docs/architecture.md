@@ -70,7 +70,7 @@ COBOL + copybooks + Java 17 + schema.json
 - `scripts/download_junit.py`
 - `scripts/gen_parity_cases.py`
 - `scripts/gen_rounding_ties.py`
-- `scripts/init_demo_runs.sh`: generates bundled demo runs for Docker Compose first start, checks each exit code against expected (0 ALIVE, 1 ZOMBIE)
+- `scripts/init_demo_runs.sh`: generates bundled demo runs for Docker Compose start only when their folder is missing, never touches an existing run folder, and always rebuilds the derived catalog files from the runs on disk (`python -m coroner traps --from-runs`); checks each exit code against expected (0 ALIVE, 1 ZOMBIE)
 - `scripts/make_screenshots.py`: make screenshots: README screenshots and demo GIF from real runs through the real UI (D-58)
 - `scripts/make_srt.py`: builds the video subtitles (.srt) from the timed script table in docs/video-plan.md
 - `scripts/precommit_guard.py`

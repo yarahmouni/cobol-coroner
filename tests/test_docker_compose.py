@@ -52,8 +52,15 @@ def test_init_demo_runs_script(tmp_path):
     """Test the full init_demo_runs.sh script creates all expected runs."""
     # Run the script with CORONER_BASE_DIR in tmp_path
     env = os.environ.copy()
-    env["CORONER_BASE_DIR"] = str(tmp_path)
+    env["CORONER_BASE_DIR"] = str(tmp_path / "data")
     env["PYTHON"] = sys.executable
+    # The variant the image build generates, in a folder of this test: the shared
+    # build/variants/CreditFees.java is never read or written here
+    from coroner.catalog.legacy_variant import generate_half_even_variant
+    variant = tmp_path / "variants" / "CreditFees.java"
+    generate_half_even_variant("samples/credit-fees/java/CreditFees.java", str(variant))
+    env["CORONER_VARIANT_JAVA"] = str(variant)
+    tmp_path = tmp_path / "data"
     
     result = subprocess.run(
         ["bash", "scripts/init_demo_runs.sh"],
@@ -82,7 +89,7 @@ def test_init_demo_runs_script(tmp_path):
     assert (runs_dir / "trap_catalog.json").exists()
     assert (runs_dir / "trap_catalog.txt").exists()
     
-    # Run again and check it skips generation
+    # Run again and check it keeps every run and still rebuilds the catalog
     result2 = subprocess.run(
         ["bash", "scripts/init_demo_runs.sh"],
         capture_output=True,
@@ -91,7 +98,9 @@ def test_init_demo_runs_script(tmp_path):
     )
     
     assert result2.returncode == 0
-    assert "already exist" in result2.stdout
+    assert "Bundled runs kept: " + " ".join(expected_run_ids) + "; generated: none" in result2.stdout
+    assert "Wrote " in result2.stdout
+    assert result2.stdout.rstrip().splitlines()[-1] == "Bundled demo runs generated."
 
 
 @pytest.mark.repo

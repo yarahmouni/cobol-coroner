@@ -300,7 +300,7 @@ Measured on the server, 2026-11-21 (owner's summary): Compose created the networ
 docker compose up -d  0.24s user 0.16s system 0% cpu 1:11.11 total
 ```
 
-First start took 1 minute 11 seconds there, because coroner-init generates the bundled demo runs before the API starts. A later restart skips the generation.
+First start took 1 minute 11 seconds there, because coroner-init generates the bundled demo runs before the API starts. A later restart or redeploy generates no run that already exists: coroner-init keeps every existing run folder and only rebuilds the two catalog files (see "Update to a new image").
 
 List the running services:
 
@@ -334,6 +334,8 @@ coroner-init-1  | Bundled demo runs generated.
 ```
 
 On the server the service name prefix differs. The last line must be `Bundled demo runs generated.` On the server, 2026-11-21, the logs end with `Bundled demo runs generated.`
+
+The excerpt above was measured before the redeploy rule below. The script now prints one more line before the catalog step, `Bundled runs kept: <run ids>; generated: <run ids>` (`none` when a list is empty), and the catalog step prints `Kept existing run <id> for <trap> <faulty or correct>` for each port that already has a run. The last line is unchanged.
 
 Check that cloudflared connected:
 
@@ -374,6 +376,8 @@ Update to a new image: a new digest is published by the `publish-image.yml` work
 docker compose -f docker-compose.yml -f docker-compose.server.yml pull
 docker compose -f docker-compose.yml -f docker-compose.server.yml up -d
 ```
+
+What a redeploy does to the data volume: `coroner-init` runs again on every `up -d`. It never reruns an audit for an existing run id and never changes a file inside a run folder, so Verify keeps working on runs made before the redeploy, including visitor runs. It always rebuilds the two derived files `runs/trap_catalog.json` and `runs/trap_catalog.txt` from the runs on disk (`python -m coroner traps --from-runs`), so the new image's card and case names appear without regenerating anything. A bundled run is generated only if its folder is missing, in a scratch folder under `build/` and moved into `runs/` only when no folder with that run id exists. If the catalog finds a run folder that exists but whose `inputs.json` does not match a trap port, it stops with exit code 2 and writes nothing. To rebuild the catalog by hand: `docker compose -f docker-compose.yml -f docker-compose.server.yml run --rm coroner-init`.
 
 ## Troubleshooting
 

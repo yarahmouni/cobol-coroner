@@ -1,25 +1,31 @@
 #!/usr/bin/env bash
-# Generate bundled demo runs for Docker Compose first start
-# Each verify must return its expected exit code (0 ALIVE, 1 ZOMBIE)
+# Prepare the bundled demo runs for Docker Compose start.
+#
+# Owner rule: a redeploy rebuilds only derived files. Every bundled run is generated only if its
+# run folder does not exist, an existing run folder is never touched, and runs/trap_catalog.json
+# and runs/trap_catalog.txt are always rebuilt from the runs on disk (python -m coroner traps
+# --from-runs). Each verify must return its expected exit code (0 ALIVE, 1 ZOMBIE).
+#
+# Environment: CORONER_BASE_DIR (default /data), PYTHON (default python3),
+# CORONER_VARIANT_JAVA (default build/variants/CreditFees.java, the HALF_EVEN variant).
 
 set -euo pipefail
 
 PY="${PYTHON:-python3}"
 BASE_DIR="${CORONER_BASE_DIR:-/data}"
+VARIANT_JAVA="${CORONER_VARIANT_JAVA:-build/variants/CreditFees.java}"
+export CORONER_BASE_DIR="$BASE_DIR"
 
-# Check if all expected runs already exist
-if [ -d "$BASE_DIR/runs/f584d5f35228" ] && \
-   [ -d "$BASE_DIR/runs/29c15f04407b" ] && \
-   [ -d "$BASE_DIR/runs/df4d7929ce44" ] && \
-   [ -d "$BASE_DIR/runs/08d14a07bcdb" ] && \
-   [ -f "$BASE_DIR/runs/trap_catalog.json" ]; then
-    echo "Bundled demo runs already exist, skipping generation."
-    exit 0
-fi
+mkdir -p "$BASE_DIR/runs" "$BASE_DIR/build"
 
-echo "Generating bundled demo runs..."
+# New runs are made in a scratch folder and moved into runs/ only when their run id is not there
+SCRATCH="$(mktemp -d "$BASE_DIR/build/.init-XXXXXX")"
+trap 'rm -rf "$SCRATCH"' EXIT
 
-# Helper: run a command and check its exit code for verify commands
+KEPT=""
+GENERATED=""
+
+# Helper: run a verify command and check its exit code (0 ALIVE, 1 ZOMBIE)
 run_expect() {
     expected=$1
     name=$2
@@ -39,8 +45,39 @@ run_expect() {
     }
 }
 
+# bundled_run <expected run id> <name> <expected exit> <verify arguments...>
+# The run is generated only if runs/<expected run id> does not exist. The run id printed by the
+# engine is checked again before the move, so an existing folder is never overwritten.
+bundled_run() {
+    expected_id=$1
+    name=$2
+    expected_rc=$3
+    shift 3
+    if [ -d "$BASE_DIR/runs/$expected_id" ]; then
+        KEPT="$KEPT $expected_id"
+        return 0
+    fi
+    work="$SCRATCH/$name"
+    mkdir -p "$work"
+    run_expect "$expected_rc" "$name" env CORONER_BASE_DIR="$work" "$PY" -m coroner verify "$@"
+    actual_id="$(grep -m1 '^Run: runs/' "/tmp/$name.log" | sed 's|^Run: runs/||')"
+    if [ -z "$actual_id" ] || [ ! -d "$work/runs/$actual_id" ]; then
+        echo "ERROR: $name produced no run folder"
+        exit 2
+    fi
+    if [ -e "$BASE_DIR/runs/$actual_id" ]; then
+        # Same content as an existing run: keep the existing folder, discard the new one
+        KEPT="$KEPT $actual_id"
+        return 0
+    fi
+    mv "$work/runs/$actual_id" "$BASE_DIR/runs/$actual_id"
+    GENERATED="$GENERATED $actual_id"
+}
+
+echo "Preparing bundled demo runs..."
+
 # T1 faulty (ZOMBIE, exit 1)
-run_expect 1 t1_faulty "$PY" -m coroner verify \
+bundled_run f584d5f35228 t1_faulty 1 \
     --cobol samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob \
     --copybooks samples/traps/T1-ebcdic-match-merge/copybooks \
     --java samples/traps/T1-ebcdic-match-merge/java/faulty/MatchMerge.java \
@@ -48,7 +85,7 @@ run_expect 1 t1_faulty "$PY" -m coroner verify \
     --cases 2000 --seed 42
 
 # T1 correct (ALIVE, exit 0)
-run_expect 0 t1_correct "$PY" -m coroner verify \
+bundled_run 29c15f04407b t1_correct 0 \
     --cobol samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob \
     --copybooks samples/traps/T1-ebcdic-match-merge/copybooks \
     --java samples/traps/T1-ebcdic-match-merge/java/correct/MatchMerge.java \
@@ -56,7 +93,7 @@ run_expect 0 t1_correct "$PY" -m coroner verify \
     --cases 2000 --seed 42
 
 # credit-fees correct (ALIVE, exit 0)
-run_expect 0 cf_correct "$PY" -m coroner verify \
+bundled_run df4d7929ce44 cf_correct 0 \
     --cobol samples/credit-fees/CREDIT-FEES.cob \
     --copybooks samples/credit-fees/copybooks \
     --java samples/credit-fees/java/CreditFees.java \
@@ -64,17 +101,20 @@ run_expect 0 cf_correct "$PY" -m coroner verify \
     --cases 2000 --seed 42
 
 # credit-fees HALF_EVEN variant (ZOMBIE, exit 1)
-# Use pre-generated variant from build/variants/ (generated at image build time)
-run_expect 1 cf_half_even "$PY" -m coroner verify \
+# Use the pre-generated variant (generated at image build time)
+bundled_run 08d14a07bcdb cf_half_even 1 \
     --cobol samples/credit-fees/CREDIT-FEES.cob \
     --copybooks samples/credit-fees/copybooks \
-    --java build/variants/CreditFees.java \
+    --java "$VARIANT_JAVA" \
     --schema samples/credit-fees/schema.json \
     --cases 2000 --seed 42
 
-# Detection matrix (exit 0, writes catalog files)
+echo "Bundled runs kept:${KEPT:- none}; generated:${GENERATED:- none}"
+
+# Detection matrix: always rebuilt from the runs on disk. A trap port with no run is generated
+# once (never over an existing folder); existing run folders are not touched.
 set +e
-"$PY" -m coroner traps > /tmp/trap_catalog.log 2>&1
+"$PY" -m coroner traps --from-runs > /tmp/trap_catalog.log 2>&1
 rc=$?
 set -e
 cat /tmp/trap_catalog.log

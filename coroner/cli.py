@@ -507,6 +507,11 @@ def main():
     traps_parser = subparsers.add_parser("traps", help="Run trap catalog")
     traps_parser.add_argument("--cases", type=int, default=2000, help="Number of test cases (default: 2000)")
     traps_parser.add_argument("--seed", type=int, default=42, help="Random seed (default: 42)")
+    traps_parser.add_argument(
+        "--from-runs", action="store_true",
+        help="Rebuild only the catalog files from the runs already in the base directory; "
+             "the engine runs only for a port that has no run, and no existing run folder is changed"
+    )
     
     # gate command
     gate_parser = subparsers.add_parser("gate", help="CI gate: check verdict and certificate")
@@ -613,15 +618,21 @@ def main():
     
     elif args.command == "traps":
         # Run trap catalog
-        from coroner.traps import run_catalog, write_catalog_files
+        from coroner.traps import CatalogError, catalog_from_runs, run_catalog, write_catalog_files
         
         try:
             # Honor CORONER_BASE_DIR environment variable
             base_dir = os.environ.get('CORONER_BASE_DIR', '.')
             
-            catalog = run_catalog(seed=args.seed, cases=args.cases, base_dir=base_dir)
+            if args.from_runs:
+                catalog = catalog_from_runs(seed=args.seed, cases=args.cases, base_dir=base_dir)
+            else:
+                catalog = run_catalog(seed=args.seed, cases=args.cases, base_dir=base_dir)
             write_catalog_files(catalog, base_dir=base_dir)
             return 0
+        except CatalogError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            return 2
         except Exception as e:
             print(f"Error: {e}", file=sys.stderr)
             import traceback
