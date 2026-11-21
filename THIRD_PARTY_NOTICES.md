@@ -163,7 +163,7 @@ COBOL Coroner uses the following third-party components.
 - License: EPL-2.0 (Eclipse Public License 2.0)
 - Location: build/junit/junit-platform-console-standalone-6.1.3.jar (downloaded by scripts/download_junit.py, not committed)
 - SHA-256: e62b96ac475dbcde8599ea905d088f65d90778f86e259b856a49fa5c4ea256ec
-- Used in: JUnit regression test execution (coroner/junit.py)
+- Used in: JUnit regression test execution (coroner/diag/junit.py)
 - Source: https://repo1.maven.org/maven2/org/junit/platform/junit-platform-console-standalone/6.1.3/
 
 ## cloudflared

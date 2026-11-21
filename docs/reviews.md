@@ -874,6 +874,13 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Results (agent, checked by the operator in the diff): `make clean all harness` exit 0; tests/test_carddemo_probe.py 3 passed in 12.25 s.
 - Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
 
+### R-130 2026-11-21: docs/PREEXISTING_CODE.md; THIRD_PARTY_NOTICES.md path fix
+- Calls p331 and p332 (sonnet-5.5), docs worktree. The file states, per D-63, what in the repository was not written for this project: the CardDemo upstream files (verbatim, R-119), the adapted CBACT04C.cob (one documented block), the vendored htmx 2.0.4 (hash checked by a test), the licence texts; generated GnuCOBOL trace fixtures; then the software installed at build time with the pins read from Dockerfile, scripts/download_junit.py and pyproject.toml; and where AI-written code is (KIRO_USAGE.md, samples/independence/, the CardDemo port, the trap ports).
+- Sent back once (p332): the first draft cited the operator's local reflog and clone URL (not visible to judges), listed the CardDemo driver as carrying AWS code (fixed in R-129 instead), and repeated a sentence from a steering file that this document does not need. THIRD_PARTY_NOTICES.md named coroner/junit.py; the real path is coroner/diag/junit.py.
+- The agent could not run git; the operator pasted the real output of `git log --reverse --format="%ad %s" --date=short | head -3` (first commits dated 2026-11-15) where the agent had left a marked placeholder.
+- Checks (operator): read in full; no local path, no em dash.
+- Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.
