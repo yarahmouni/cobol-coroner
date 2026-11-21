@@ -173,8 +173,10 @@ document.body.addEventListener('htmx:afterRequest', function(event) {
 </script>
 
 {% if runs %}
-<h2>Recent Runs</h2>
+<h2 id="recent-runs-heading">Recent Runs</h2>
+<div class="table-scroll" role="region" aria-labelledby="recent-runs-heading" tabindex="0">
 <table>
+    <caption class="table-scroll-note">Scroll sideways if the table is cut off.</caption>
     <thead>
         <tr>
             <th>Run ID</th>
@@ -192,6 +194,7 @@ document.body.addEventListener('htmx:afterRequest', function(event) {
         {% endfor %}
     </tbody>
 </table>
+</div>
 {% else %}
 <p style="color: #a0a0a0; margin-top: 2rem;">No runs found. Run <code>make demo</code> to generate a run.</p>
 {% endif %}

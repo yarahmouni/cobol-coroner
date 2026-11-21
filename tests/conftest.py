@@ -20,6 +20,36 @@ settings.load_profile("coroner")
 from noskip_plugin import pytest_runtest_makereport  # noqa: F401
 
 
+@pytest.fixture(autouse=True, scope="session")
+def isolated_variants_dir(tmp_path_factory):
+    """Point the engine worker's HALF_EVEN variant folder at a session temp directory.
+
+    <repo>/build/variants/CreditFees.java is shared with scripts/init_demo_runs.sh and make zombie.
+    No test may write it: the worker, when a test asks for the credit-fees faulty port, generates
+    the variant here instead. The folder ends in build/variants like the real one.
+    """
+    import os
+
+    folder = tmp_path_factory.mktemp("variants_root") / "build" / "variants"
+    shared = Path(__file__).resolve().parent.parent / "build" / "variants" / "CreditFees.java"
+
+    def state():
+        return (shared.stat().st_mtime_ns, shared.stat().st_size) if shared.exists() else None
+
+    shared_before = state()
+    previous = os.environ.get("CORONER_VARIANTS_DIR")
+    os.environ["CORONER_VARIANTS_DIR"] = str(folder)
+    yield folder
+    if previous is None:
+        os.environ.pop("CORONER_VARIANTS_DIR", None)
+    else:
+        os.environ["CORONER_VARIANTS_DIR"] = previous
+    assert state() == shared_before, (
+        "a test wrote <repo>/build/variants/CreditFees.java, which is shared with "
+        "scripts/init_demo_runs.sh and make zombie (or one of them ran during the tests)"
+    )
+
+
 @pytest.fixture(autouse=True, scope="function")
 def reset_ui_rate_limiter():
     """Reset UI rate limiter before each test."""

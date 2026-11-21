@@ -362,3 +362,51 @@ def test_the_gate_fragment_of_the_real_route_is_the_one_live_region(client):
     fragment = client.post("/story/gate-check", data={"run_id": "0123456789ab"}).text
     assert live_regions(fragment) == 1
     assert live_regions(into_container(page, "gate-result", fragment)) == 1
+
+
+# ------------------------------------------------------------------ home page: Recent Runs table at 375 px
+
+
+def _make_run_folders(base, count):
+    """Run folders with the files the home page lists (a status and a time). Layout test only: the
+    page shows these values but this test asserts none of them."""
+    import json
+
+    for index in range(count):
+        run_dir = base / "runs" / f"{index:012x}"
+        run_dir.mkdir(parents=True)
+        (run_dir / "verdict.json").write_text(json.dumps({"status": "ZOMBIE" if index % 2 else "ALIVE"}))
+        (run_dir / "inputs.json").write_text(json.dumps({"timestamp": f"2026-11-21T09:{index:02d}:00+00:00"}))
+
+
+def test_recent_runs_table_sits_in_a_scrollable_labelled_region(client, tmp_path):
+    """The table was 385 px wide at 375 px and scrolled the whole page sideways (R-141)."""
+    _make_run_folders(tmp_path, 3)
+    page = client.get("/").text
+    wrapper = re.search(r'<div class="table-scroll"([^>]*)>\s*<table', page)
+    assert wrapper, "the Recent Runs table is not directly inside a .table-scroll wrapper"
+    attrs = {name: value for name, value in re.findall(r'([a-z-]+)="([^"]*)"', wrapper.group(1))}
+    assert attrs["role"] == "region"
+    assert attrs["tabindex"] == "0"
+    heading_id = attrs["aria-labelledby"]
+    assert [a for t, a in tags(page, "h2") if a.get("id") == heading_id]
+    assert "Recent Runs" in visible_text(page)
+    # The table has a caption that tells a visitor it can scroll.
+    assert re.search(r"<caption[^>]*>[^<]*[Ss]croll[^<]*</caption>", page)
+
+
+def test_recent_runs_wrapper_scrolls_inside_its_box_and_shows_a_focus_outline(client, tmp_path):
+    _make_run_folders(tmp_path, 1)
+    css = _story_style(client.get("/").text)
+    rule = re.search(r"\.table-scroll\s*\{([^}]*)\}", css)
+    assert rule, ".table-scroll has no rule in the stylesheet of the home page"
+    assert "overflow-x: auto" in rule.group(1) and "max-width: 100%" in rule.group(1)
+    # The wrapper has tabindex 0, and the shared focus rule draws an outline for it.
+    focus = re.search(r'\[tabindex="0"\]:focus-visible\s*\{([^}]*)\}', css)
+    assert focus and "outline:" in focus.group(1)
+
+
+def test_without_runs_the_home_page_has_no_table_wrapper(client):
+    page = client.get("/").text
+    assert '<div class="table-scroll"' not in page
+    assert "No runs found" in visible_text(page)

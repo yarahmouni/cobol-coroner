@@ -26,6 +26,20 @@ def get_repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
+def get_variants_dir() -> Path:
+    """
+    Folder holding the HALF_EVEN variant of the credit-fees port.
+
+    Default: build/variants in the repository (the folder scripts/init_demo_runs.sh and
+    make zombie use). CORONER_VARIANTS_DIR replaces it, so that tests never write into
+    the shared folder.
+    """
+    override = os.environ.get("CORONER_VARIANTS_DIR")
+    if override:
+        return Path(override)
+    return get_repo_root() / "build" / "variants"
+
+
 def discover_trap_folders() -> Dict[str, Path]:
     """
     Discover trap folders by reading trap.json in samples/traps/*.
@@ -101,7 +115,7 @@ def resolve_sample_paths(sample: str, port: str, job_dir: Path) -> Tuple[str, st
             # Use pre-generated HALF_EVEN variant from build/variants/
             # If missing on host (developer machine without make zombie), generate it there
             # In the image it is prebuilt by init_demo_runs.sh
-            variant_path = repo_root / "build" / "variants" / "CreditFees.java"
+            variant_path = get_variants_dir() / "CreditFees.java"
             
             if not variant_path.exists():
                 # Generate the variant
@@ -111,11 +125,15 @@ def resolve_sample_paths(sample: str, port: str, job_dir: Path) -> Tuple[str, st
                 if not source_path.exists():
                     raise ValueError(f"Source Java file not found: {source_path}")
                 
-                # Create build/variants/ if needed
                 variant_path.parent.mkdir(parents=True, exist_ok=True)
                 
-                # Generate HALF_EVEN variant
-                generate_half_even_variant(str(source_path), str(variant_path))
+                # Write to a temporary name, then rename: a reader never sees a partial file
+                temp_path = variant_path.with_name(f".CreditFees.{os.getpid()}.tmp")
+                try:
+                    generate_half_even_variant(str(source_path), str(temp_path))
+                    os.replace(temp_path, variant_path)
+                finally:
+                    temp_path.unlink(missing_ok=True)
             
             java_path = variant_path
         else:

@@ -51,8 +51,23 @@ SEEDS = [42, 123, 456, 789, 1011, 1213, 1415, 1617, 1819, 2021]
 COBOL_PATH = "samples/credit-fees/CREDIT-FEES.cob"
 COPYBOOKS_PATH = "samples/credit-fees/copybooks"
 JAVA_CORRECT_PATH = "samples/credit-fees/java/CreditFees.java"
-JAVA_VARIANT_PATH = "build/variants/CreditFees.java"
 SCHEMA_PATH = "samples/credit-fees/schema.json"
+
+
+def make_variant(tmp_path) -> str:
+    """Generate the HALF_EVEN variant of the correct port into the test's own directory.
+
+    build/variants/CreditFees.java is shared with scripts/init_demo_runs.sh and make zombie,
+    so no test writes it.
+    """
+    variant_path = Path(tmp_path) / "variant" / "CreditFees.java"
+    variant_path.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        [sys.executable, "-m", "coroner.catalog.legacy_variant", JAVA_CORRECT_PATH, str(variant_path)],
+        check=True,
+        capture_output=True,
+    )
+    return str(variant_path)
 
 
 def run_verify(java_path: str, seed: int, cases: int = 2000, tmp_path=None) -> tuple[int, str, float]:
@@ -139,22 +154,9 @@ def test_acceptance_no_false_alive(seed, tmp_path):
     """
     check_tools()
     
-    # Ensure variant exists
-    variant_path = Path(JAVA_VARIANT_PATH)
-    if not variant_path.exists():
-        # Generate it
-        variant_path.parent.mkdir(parents=True, exist_ok=True)
-        subprocess.run(
-            [
-                sys.executable, "-m", "coroner.catalog.legacy_variant",
-                JAVA_CORRECT_PATH,
-                str(variant_path)
-            ],
-            check=True,
-            capture_output=True
-        )
+    variant_path = make_variant(tmp_path)
     
-    exit_code, stdout, elapsed = run_verify(JAVA_VARIANT_PATH, seed, tmp_path=tmp_path)
+    exit_code, stdout, elapsed = run_verify(variant_path, seed, tmp_path=tmp_path)
     
     # Print result for the table
     verdict = "ZOMBIE" if exit_code == 1 else "ALIVE"
@@ -177,21 +179,9 @@ def test_acceptance_half_even_calibration(tmp_path):
     """
     check_tools()
     
-    # Ensure variant exists
-    variant_path = Path(JAVA_VARIANT_PATH)
-    if not variant_path.exists():
-        variant_path.parent.mkdir(parents=True, exist_ok=True)
-        subprocess.run(
-            [
-                sys.executable, "-m", "coroner.catalog.legacy_variant",
-                JAVA_CORRECT_PATH,
-                str(variant_path)
-            ],
-            check=True,
-            capture_output=True
-        )
+    variant_path = make_variant(tmp_path)
     
-    exit_code, stdout, elapsed = run_verify(JAVA_VARIANT_PATH, 42, tmp_path=tmp_path)
+    exit_code, stdout, elapsed = run_verify(variant_path, 42, tmp_path=tmp_path)
     
     divergences = extract_divergent_count(stdout)
     print(f"\nSeed 42 calibration: {divergences} divergences (target: 80-120)")

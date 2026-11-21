@@ -57,13 +57,11 @@ def setup_test_repo():
         if entry.is_file():
             shutil.copy2(entry, copybooks_dir / entry.name)
     
-    # Copy the variant file
-    variant_src = current_dir / "build/variants/CreditFees.java"
-    if not variant_src.exists():
-        # Build it first
-        subprocess.run(["make", "zombie"], cwd=current_dir, capture_output=True, timeout=30)
+    # The HALF_EVEN variant is generated here from the correct port. It is not copied from
+    # build/variants/CreditFees.java, a file shared with scripts/init_demo_runs.sh and make zombie.
     variant_dest = repo_dir / "variant_CreditFees.java"
-    shutil.copy2(variant_src, variant_dest)
+    from coroner.catalog.legacy_variant import generate_half_even_variant
+    generate_half_even_variant(str(java_correct_src), str(variant_dest))
     
     # Copy coroner files
     coroner_src = current_dir / "coroner"

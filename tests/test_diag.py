@@ -905,29 +905,41 @@ def test_generate_card_deterministic():
     subprocess.run(["which", "javac"], capture_output=True).returncode != 0,
     reason="javac not available"
 )
-def test_card_from_real_zombie_run():
+def test_card_from_real_zombie_run(tmp_path):
     """
-    Test card generation from a real ZOMBIE run (make zombie).
+    Test card generation from a real ZOMBIE run (the legacy HALF_EVEN variant).
     
-    This test runs the legacy HALF_EVEN variant with 2,000 cases and seed 42,
-    verifies the card.txt file is created and contains values from the real
-    failure report.
+    This test runs the legacy HALF_EVEN variant with 2,000 cases and seed 42 (the defaults of
+    make zombie), verifies the card.txt file is created and contains values from the real
+    failure report. The variant and the run live in the test's own directory: make zombie is
+    not used because it writes the shared build/variants/CreditFees.java and the repository runs/.
     """
     from pathlib import Path
+    import os
+    import sys
     import subprocess
     import json
     import re
     
-    # Run make zombie (legacy variant, 2000 cases, seed 42)
+    from coroner.catalog.legacy_variant import generate_half_even_variant
+
+    variant = tmp_path / "variant" / "CreditFees.java"
+    generate_half_even_variant("samples/credit-fees/java/CreditFees.java", str(variant))
+    env = dict(os.environ, CORONER_BASE_DIR=str(tmp_path))
     result = subprocess.run(
-        ["make", "zombie"],
+        [sys.executable, "-m", "coroner", "verify",
+         "--cobol", "samples/credit-fees/CREDIT-FEES.cob",
+         "--copybooks", "samples/credit-fees/copybooks",
+         "--java", str(variant),
+         "--schema", "samples/credit-fees/schema.json"],
         capture_output=True,
         text=True,
-        timeout=120
+        timeout=120,
+        env=env,
     )
     
-    # Verify it exits 2 (ZOMBIE verdict means CLI exit 1, make reports 2)
-    assert result.returncode == 2, f"Expected exit 2, got {result.returncode}. Output: {result.stdout}\nStderr: {result.stderr}"
+    # ZOMBIE verdict is exit 1
+    assert result.returncode == 1, f"Expected exit 1, got {result.returncode}. Output: {result.stdout}\nStderr: {result.stderr}"
     
     # Parse run_id from output line "Run: runs/<id>"
     match = re.search(r'Run: runs/([a-f0-9]+)', result.stdout)
@@ -935,7 +947,7 @@ def test_card_from_real_zombie_run():
     run_id = match.group(1)
     
     # Use exactly that run directory
-    run_dir = Path("runs") / run_id
+    run_dir = tmp_path / "runs" / run_id
     assert run_dir.exists(), f"Run directory {run_dir} not found"
     
     # Verify card.txt exists
@@ -1020,16 +1032,18 @@ def test_card_from_real_zombie_run():
     subprocess.run(["which", "javac"], capture_output=True).returncode != 0,
     reason="javac not available"
 )
-def test_no_card_for_alive_run():
+def test_no_card_for_alive_run(tmp_path):
     """Test that an ALIVE run does not create card.txt."""
+    import os
     import re
     
-    # Run make demo (correct Java, should be ALIVE)
+    # Run make demo (correct Java, should be ALIVE), with the run written to the test's own directory
     result = subprocess.run(
         ["make", "demo"],
         capture_output=True,
         text=True,
-        timeout=120
+        timeout=120,
+        env=dict(os.environ, CORONER_BASE_DIR=str(tmp_path)),
     )
     
     # Verify it exits 0 (ALIVE)
@@ -1041,7 +1055,7 @@ def test_no_card_for_alive_run():
     run_id = match.group(1)
     
     # Use exactly that run directory
-    run_dir = Path("runs") / run_id
+    run_dir = tmp_path / "runs" / run_id
     assert run_dir.exists(), f"Run directory {run_dir} not found"
     
     # Verify card.txt does NOT exist for ALIVE

@@ -2,8 +2,10 @@
 import asyncio
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -113,10 +115,14 @@ def test_zombie_run_workflow(tmp_path):
     """Test ZOMBIE run workflow: run_differential_check, get_verdict, get_failure_report, export_junit_test."""
     import sys
     
-    # Generate the HALF_EVEN variant inside the repository (build/variants/)
-    variants_dir = Path(__file__).parent.parent / "build" / "variants"
-    variants_dir.mkdir(parents=True, exist_ok=True)
-    variant_java = variants_dir / "CreditFees.java"
+    # The MCP server refuses Java paths outside the repository, so the variant goes into a folder of
+    # its own inside build/ (unique name, removed at the end). Never build/variants/: that folder is
+    # shared with scripts/init_demo_runs.sh and make zombie.
+    repo_root = Path(__file__).parent.parent
+    (repo_root / "build").mkdir(exist_ok=True)
+    own_dir = Path(tempfile.mkdtemp(prefix="mcp-test-variant-", dir=repo_root / "build"))
+    variant_java = own_dir / "CreditFees.java"
+    java_arg = f"build/{own_dir.name}/CreditFees.java"
     result = subprocess.run(
         [sys.executable, "-m", "coroner.catalog.legacy_variant", 
          "samples/credit-fees/java/CreditFees.java", str(variant_java)],
@@ -132,7 +138,7 @@ def test_zombie_run_workflow(tmp_path):
         zombie_result = await session.call_tool("run_differential_check", arguments={
             "cobol": "samples/credit-fees/CREDIT-FEES.cob",
             "copybooks": "samples/credit-fees/copybooks",
-            "java": "build/variants/CreditFees.java",
+            "java": java_arg,
             "schema": "samples/credit-fees/schema.json",
             "cases": 30,
             "seed": 42
@@ -172,7 +178,10 @@ def test_zombie_run_workflow(tmp_path):
         assert verify_data["valid"] is True
         assert verify_data["status"] == "ZOMBIE"
     
-    asyncio.run(run_mcp_session(workflow, base_dir=tmp_path))
+    try:
+        asyncio.run(run_mcp_session(workflow, base_dir=tmp_path))
+    finally:
+        shutil.rmtree(own_dir, ignore_errors=True)
 
 
 def test_get_detection_matrix_not_available(tmp_path):
@@ -202,6 +211,21 @@ def test_path_validation():
         assert "Path outside repository" in error_text, f"Expected path error message, got: {error_text}"
     
     asyncio.run(run_mcp_session(check))
+
+
+def test_verify_certificate_refuses_a_path_that_leaves_the_base_directory(tmp_path):
+    """A relative certificate path is looked up in the base directory first; "../" cannot leave it."""
+    base = tmp_path / "base"
+    base.mkdir()
+    (tmp_path / "outside.json").write_text("{}")
+
+    async def check(session):
+        for path in ("../outside.json", "runs/../../outside.json", str(tmp_path / "outside.json")):
+            result = await session.call_tool("verify_certificate", arguments={"path": path})
+            assert result.is_error is True, path
+            assert "Path outside repository" in result.content[0].text, path
+
+    asyncio.run(run_mcp_session(check, base_dir=base))
 
 
 def test_invalid_run_id(tmp_path):

@@ -132,7 +132,8 @@ def test_resolve_sample_paths_credit_fees(tmp_path):
     assert Path(schema_path).exists()
     assert Path(copybooks_path).exists()
     
-    # Faulty port (uses or generates variant at build/variants/CreditFees.java)
+    # Faulty port: the worker generates the HALF_EVEN variant in CORONER_VARIANTS_DIR (the test
+    # session sets it to a temp folder, see tests/conftest.py; the default is build/variants)
     cobol_path2, java_path2, schema_path2, copybooks_path2 = resolve_sample_paths("credit-fees", "faulty", tmp_path)
     
     # COBOL, schema and copybooks should be the same
@@ -140,13 +141,13 @@ def test_resolve_sample_paths_credit_fees(tmp_path):
     assert schema_path2 == schema_path
     assert copybooks_path2 == copybooks_path
     
-    # Java should be at build/variants/CreditFees.java (repository-relative)
     from coroner.engine_worker import get_repo_root
-    repo_root = get_repo_root()
-    expected_variant = repo_root / "build" / "variants" / "CreditFees.java"
+    expected_variant = Path(os.environ["CORONER_VARIANTS_DIR"]) / "CreditFees.java"
+    assert expected_variant.parent != get_repo_root() / "build" / "variants"
     
     assert Path(java_path2) == expected_variant, f"Expected {expected_variant}, got {java_path2}"
     assert Path(java_path2).exists(), f"Variant not found at {java_path2}"
+    assert not list(expected_variant.parent.glob(".*tmp")), "temporary file left behind"
     
     # Verify it's the HALF_EVEN variant
     content = Path(java_path2).read_text()

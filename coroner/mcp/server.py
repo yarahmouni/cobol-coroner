@@ -72,6 +72,21 @@ def validate_path(path_str: str) -> Path:
     return path
 
 
+def resolve_certificate_path(path_str: str) -> Path:
+    """Resolve the path of a certificate: a relative path is first looked up in the base directory.
+
+    run_differential_check returns "runs/<run_id>/certificate.json" relative to the base directory,
+    so verify_certificate must accept it there. The base directory is the repository root unless
+    CORONER_BASE_DIR says otherwise. A path that leaves the base directory, or does not exist
+    there, goes through the normal repository check.
+    """
+    candidate = Path(path_str)
+    if not candidate.is_absolute():
+        in_base = (BASE_DIR / candidate).resolve()
+        if in_base.is_file() and in_base.is_relative_to(BASE_DIR):
+            return in_base
+    return validate_path(path_str)
+
 @server.tool(description="Run differential verification on COBOL and Java programs")
 def run_differential_check(
     cobol: str,
@@ -322,9 +337,9 @@ def verify_certificate(path: str) -> dict:
     """
     from coroner.certificate import replay_certificate
     
-    cert_path = str(validate_path(path))
+    cert_path = str(resolve_certificate_path(path))
     
-    result = replay_certificate(cert_path)
+    result = replay_certificate(cert_path, base_dir=str(BASE_DIR))
     
     return {
         "valid": result.valid,

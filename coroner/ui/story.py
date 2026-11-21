@@ -719,6 +719,7 @@ def build_step(base_dir, step: int, view: Optional[str], run_bounds: Optional[di
         "business_url": step_url(step, "business"),
         "engineer_url": step_url(step, "engineer"),
         "positioning": POSITIONING_SENTENCE,
+        "case_label": case_label(STORY_TRAP_ID),
     }
     builder = _STEP_BUILDERS.get(step)
     if builder is not None:

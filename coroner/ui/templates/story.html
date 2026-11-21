@@ -16,6 +16,7 @@
 <header>
     <h1>Try the bank failure</h1>
     <p class="story-positioning">{{ positioning }}</p>
+    {% if case_label %}<p class="story-case">{{ case_label }}</p>{% endif %}
 </header>
 <main id="story-main">
     <div id="story-content">

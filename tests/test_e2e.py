@@ -45,7 +45,8 @@ def test_e2e_alive(tools_available, tmp_path):
         ],
         capture_output=True,
         text=True,
-        timeout=120.0
+        timeout=120.0,
+        env=dict(os.environ, CORONER_BASE_DIR=str(tmp_path)),
     )
     
     # Assert exit code 0
@@ -63,7 +64,7 @@ def test_e2e_alive(tools_available, tmp_path):
     # Extract run_id from output
     run_line = [line for line in result.stdout.split('\n') if line.startswith('Run:')]
     assert len(run_line) == 1
-    run_dir = run_line[0].split('Run:')[1].strip()
+    run_dir = str(tmp_path / run_line[0].split('Run:')[1].strip())
     
     # Assert run directory exists
     assert os.path.isdir(run_dir)
@@ -90,8 +91,8 @@ def test_e2e_zombie(tools_available, tmp_path):
     """
     E2E test: runs engine on HALF_EVEN variant with 30 cases, asserts exit 1 and ZOMBIE.
     """
-    # Generate HALF_EVEN variant
-    variant_dir = 'build/test_variants'
+    # Generate HALF_EVEN variant in the test's own directory
+    variant_dir = str(tmp_path / "variant")
     os.makedirs(variant_dir, exist_ok=True)
     variant_path = f"{variant_dir}/CreditFees.java"
     
@@ -117,7 +118,8 @@ def test_e2e_zombie(tools_available, tmp_path):
         ],
         capture_output=True,
         text=True,
-        timeout=120.0
+        timeout=120.0,
+        env=dict(os.environ, CORONER_BASE_DIR=str(tmp_path)),
     )
     
     # Assert exit code 1 (ZOMBIE)
@@ -135,7 +137,7 @@ def test_e2e_zombie(tools_available, tmp_path):
     # Extract run_id from output
     run_line = [line for line in result.stdout.split('\n') if line.startswith('Run:')]
     assert len(run_line) == 1
-    run_dir = run_line[0].split('Run:')[1].strip()
+    run_dir = str(tmp_path / run_line[0].split('Run:')[1].strip())
     
     # Assert run directory exists
     assert os.path.isdir(run_dir)
@@ -200,7 +202,8 @@ def test_e2e_deterministic_run_id(tools_available, tmp_path):
             ],
             capture_output=True,
             text=True,
-            timeout=120.0
+            timeout=120.0,
+            env=dict(os.environ, CORONER_BASE_DIR=str(tmp_path)),
         )
         assert result.returncode == 0
         
@@ -213,7 +216,7 @@ def test_e2e_deterministic_run_id(tools_available, tmp_path):
     # Assert same run_id
     assert results[0] == results[1], f"Run IDs differ: {results[0]} vs {results[1]}"
     
-    run_dir = results[0]
+    run_dir = str(tmp_path / results[0])
     
     # Read generated_cases.csv from both runs (they should be byte-identical since we write to same dir)
     with open(f"{run_dir}/generated_cases.csv", 'rb') as f:

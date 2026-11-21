@@ -14,6 +14,7 @@ Exit codes:
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -22,6 +23,13 @@ import time
 from pathlib import Path
 
 import httpx
+
+# The sentence every story and fool page shows (spec guided-story, Req 16). A test compares it
+# with coroner.ui.story.POSITIONING_SENTENCE, so the two cannot drift apart unnoticed.
+POSITIONING_SENTENCE = (
+    "Coroner does not translate COBOL. AWS Transform, Kiro, an LLM or a human migrates COBOL "
+    "to Java. Coroner independently verifies the result."
+)
 
 
 def print_pass(message: str):
@@ -593,6 +601,78 @@ def check_body_limit(client: httpx.Client, base_url: str) -> bool:
         return False
 
 
+def check_story_step_5(client: httpx.Client, base_url: str) -> bool:
+    """
+    Check the guided story at step 5: it must show the autopsy heading, the positioning sentence
+    and at least one branch table row. The expected texts are headings and structure, never
+    numbers or run ids, because the bundled runs decide those.
+    """
+    try:
+        response = client.get(f"{base_url}/story/step/5", timeout=10.0)
+
+        if response.status_code != 200:
+            print_fail(f"Story step 5: GET /story/step/5 returned {response.status_code}, expected 200")
+            return False
+
+        html = response.text
+        missing = []
+        if "Cause of death" not in html:
+            missing.append("heading 'Cause of death'")
+        if POSITIONING_SENTENCE not in html:
+            missing.append("the positioning sentence")
+        if not re.search(r"<tbody>.*?<tr>.*?<td", html, re.S):
+            missing.append("a branch table row")
+
+        if missing:
+            print_fail(
+                "Story step 5: page is missing " + ", ".join(missing)
+                + " (are the bundled demo runs generated?)"
+            )
+            return False
+
+        print_pass("Story step 5: Cause of death, positioning sentence and a branch table row")
+        return True
+
+    except Exception as e:
+        print_fail(f"Story step 5 check failed: {e}")
+        return False
+
+
+def check_fool_page(client: httpx.Client, base_url: str) -> bool:
+    """
+    Check the fool page: a counter sentence ("Coroner certified" or "Coroner detected") and exactly
+    the three checkboxes case1, case2 and case4. No number is compared.
+    """
+    try:
+        response = client.get(f"{base_url}/fool", timeout=10.0)
+
+        if response.status_code != 200:
+            print_fail(f"Fool page: GET /fool returned {response.status_code}, expected 200")
+            return False
+
+        html = response.text
+        checkbox_names = re.findall(r'<input[^>]*type="checkbox"[^>]*name="([^"]+)"', html)
+        missing = []
+        if "Coroner certified" not in html and "Coroner detected" not in html:
+            missing.append("the counter ('Coroner certified' or 'Coroner detected')")
+        if sorted(checkbox_names) != ["case1", "case2", "case4"]:
+            missing.append(f"the three checkboxes case1, case2, case4 (found {sorted(checkbox_names)})")
+
+        if missing:
+            print_fail(
+                "Fool page: page is missing " + " and ".join(missing)
+                + " (are the bundled demo runs generated?)"
+            )
+            return False
+
+        print_pass("Fool page: counter and three checkboxes")
+        return True
+
+    except Exception as e:
+        print_fail(f"Fool page check failed: {e}")
+        return False
+
+
 def run_checks(base_url: str) -> bool:
     """
     Run all deployment checks against the given URL.
@@ -633,6 +713,10 @@ def run_checks(base_url: str) -> bool:
         
         # Body limit
         checks.append(check_body_limit(client, base_url))
+        
+        # Guided story and fool page (read the bundled demo runs, start no audit)
+        checks.append(check_story_step_5(client, base_url))
+        checks.append(check_fool_page(client, base_url))
         
         return all(checks)
 

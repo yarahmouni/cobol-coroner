@@ -303,26 +303,33 @@ def test_certificate_no_absolute_path_in_content(tmp_path):
 
 
 @pytest.mark.slow
-def test_half_even_variant_path():
+def test_half_even_variant_path(tmp_path, monkeypatch):
     """
-    Test that the HALF_EVEN variant is at the expected path.
-    
-    Verifies that build/variants/CreditFees.java exists and is readable.
-    This is the path the worker and init_demo_runs.sh reference.
+    The worker looks for the HALF_EVEN variant where scripts/init_demo_runs.sh puts it.
+
+    This test only reads the repository: it never creates build/variants/CreditFees.java, a file
+    shared with the init script and make zombie. The default location is checked as a path, the
+    worker's generation is checked in a folder of the test's own, and the generated file is read.
     """
-    # Get repository root
+    from coroner.engine_worker import get_repo_root, get_variants_dir, resolve_sample_paths
+
     repo_root = Path(__file__).parents[1]
-    variant_path = repo_root / "build" / "variants" / "CreditFees.java"
-    
-    # The variant should exist if generated, or we can generate it for the test
-    if not variant_path.exists():
-        # Generate it for the test
-        from coroner.catalog.legacy_variant import generate_half_even_variant
-        source_path = repo_root / "samples" / "credit-fees" / "java" / "CreditFees.java"
-        variant_path.parent.mkdir(parents=True, exist_ok=True)
-        generate_half_even_variant(str(source_path), str(variant_path))
-    
-    assert variant_path.exists(), "HALF_EVEN variant not found at build/variants/CreditFees.java"
+    assert get_repo_root() == repo_root
+
+    # Default location, the one the init script uses
+    monkeypatch.delenv("CORONER_VARIANTS_DIR", raising=False)
+    default_path = get_variants_dir() / "CreditFees.java"
+    assert default_path == repo_root / "build" / "variants" / "CreditFees.java"
+    init_script = (repo_root / "scripts" / "init_demo_runs.sh").read_text()
+    assert str(default_path.relative_to(repo_root)) in init_script
+
+    # The worker generates the variant into the folder named by CORONER_VARIANTS_DIR
+    own_dir = tmp_path / "build" / "variants"
+    monkeypatch.setenv("CORONER_VARIANTS_DIR", str(own_dir))
+    _, java_path, _, _ = resolve_sample_paths("credit-fees", "faulty", tmp_path)
+    variant_path = Path(java_path)
+    assert variant_path == own_dir / "CreditFees.java"
+    assert not list(own_dir.glob(".*tmp")), "temporary file left behind"
     
     # Verify it's a valid Java file
     content = variant_path.read_text()
