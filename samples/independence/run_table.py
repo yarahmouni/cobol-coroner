@@ -46,32 +46,35 @@ def compute_full_sha256(file_path: Path) -> str:
 
 def get_tracked_java_files(repo_root: Path) -> dict[str, str]:
     """
-    Get all tracked .java files under samples/, excluding samples/independence/.
+    Get all .java files under samples/, excluding samples/independence/, build/ and runs/.
     
     Returns dict: path relative to repo root -> full SHA-256 hex.
     """
-    result = subprocess.run(
-        ["git", "ls-files", "samples/**/*.java"],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-    )
+    java_files = {}
+    samples_dir = repo_root / "samples"
     
-    if result.returncode != 0:
+    if not samples_dir.exists():
         return {}
     
-    java_files = {}
-    for line in result.stdout.strip().split("\n"):
-        if not line:
+    # Walk the samples directory
+    for java_file in samples_dir.rglob("*.java"):
+        # Get path relative to repo root
+        try:
+            rel_path = java_file.relative_to(repo_root)
+        except ValueError:
             continue
         
-        # Exclude files under samples/independence/
-        if line.startswith("samples/independence/"):
+        rel_path_str = str(rel_path)
+        
+        # Exclude samples/independence/, build/ and runs/
+        if rel_path_str.startswith("samples/independence/"):
+            continue
+        if "/build/" in rel_path_str or rel_path_str.startswith("build/"):
+            continue
+        if "/runs/" in rel_path_str or rel_path_str.startswith("runs/"):
             continue
         
-        file_path = repo_root / line
-        if file_path.exists():
-            java_files[line] = compute_full_sha256(file_path)
+        java_files[rel_path_str] = compute_full_sha256(java_file)
     
     return java_files
 
