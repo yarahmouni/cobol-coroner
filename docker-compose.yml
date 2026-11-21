@@ -13,7 +13,7 @@
 # To build from the Dockerfile instead (developers):
 #   docker compose -f docker-compose.yml -f docker-compose.build.yml up --build
 
-x-coroner-image: &coroner-image ghcr.io/yarahmouni/cobol-coroner@sha256:e671f330fa7ebd78c5d5041bbccfbe9cddf7f3e12a33b4a94825ee1d0bf75d50
+x-coroner-image: &coroner-image ghcr.io/yarahmouni/cobol-coroner@sha256:837503172e4d54702edb6b87d48659e120cc1d3fda11bd6ebe2f5789b0ebe1e8
 
 services:
   # Init service: generates bundled demo runs at first start

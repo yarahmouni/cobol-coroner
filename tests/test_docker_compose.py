@@ -810,7 +810,7 @@ def test_workflows_use_docker_init():
 
 PINNED_IMAGE = (
     "ghcr.io/yarahmouni/cobol-coroner@sha256:"
-    "e671f330fa7ebd78c5d5041bbccfbe9cddf7f3e12a33b4a94825ee1d0bf75d50"
+    "837503172e4d54702edb6b87d48659e120cc1d3fda11bd6ebe2f5789b0ebe1e8"
 )
 LOCAL_IMAGE = "coroner-local:latest"
 COMPOSE_SERVICES = ["coroner-init", "coroner-api", "coroner-engine"]

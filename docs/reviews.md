@@ -960,6 +960,12 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Results: agent: 5 passed in 2.41 s; a real download from Maven Central passed the hash check. Operator: 5 passed.
 - Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
 
+### R-145 2026-11-21: compose files re-pinned to the image with the guided story; local deploy check 10 of 10
+- CI green on 3069b9a (Test and Security after a rerun of a transient Maven Central 404, R-144; Coroner Gate). publish-image.yml run 44894219790 built 3069b9a, ran the tests in the image (709 passed, 291 deselected in 377.23 s) and pushed ghcr.io/yarahmouni/cobol-coroner:sha-3069b9a4f424, digest sha256:837503172e4d54702edb6b87d48659e120cc1d3fda11bd6ebe2f5789b0ebe1e8.
+- Change (call p349, haiku-5.5): the digest replaced in the x-coroner-image anchor of docker-compose.yml and in tests/test_docker_compose.py.
+- Results (operator, Mac): `docker compose config` lists the new digest for the three services; tests/test_docker_compose.py with repo tests passed (last line below). Fresh run after `docker compose down -v`, the old image removed and `docker logout ghcr.io`: anonymous pull 48.9 s; `docker compose up -d` 1 min 11 s, coroner-init "Bundled demo runs generated."; `make deploy-check URL=http://127.0.0.1:8000`: all 10 checks PASS (clean-clone build, form, T1 faulty ZOMBIE f584d5f35228, T1 correct ALIVE 29c15f04407b, tamper INVALID, certificate VALID, no-store, 413 at 17 KB, story step 5, fool page) in 3 min 23 s. In that stack /fool with the three defects on reads "Coroner detected 3 of 3 injected defects" with 682, 86 and 87 of 2000 test cases diverging, and story step 4 reads "682 of 2000 batches diverge". Outputs kept for docs/deploy.md, which is updated next.
+- Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.
