@@ -881,6 +881,11 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Checks (operator): read in full; no local path, no em dash.
 - Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
 
+### R-131 2026-11-21: docs/judge-guide.md
+- Calls p335 (sonnet-5.5) and p336 (haiku-5.5, one sentence), docs worktree. Sections: positioning sentence; the live demo marked "coming soon" with an owner marker; fifteen minutes with Docker (compose up, what to click, make deploy-check with the measured PASS lines); five claims to check with command, expected line and the file that records it (T1 ZOMBIE and ALIVE, certificate replay and tamper, the pre-commit gate, the independence table, the CardDemo audit in the image); what the verdicts mean (no-formal-proof wording); further reading.
+- Checks (operator): read in full; in the CI image the 4.1 and 4.2 commands print what the guide quotes (T1 faulty "ZOMBIE: FAIL: business behavior diverged on 682 cases", the exposure line, run f584d5f35228; the replay "Certificate: VALID", cases 2000, divergences 682); coroner/catalog/legacy_variant.py exists for 4.3; run_table.py imports only the standard library. One sentence attributed a browser result to docs/deploy.md while R-106 records it: fixed in p336. No em dash.
+- Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.
