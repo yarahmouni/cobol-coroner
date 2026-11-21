@@ -855,6 +855,11 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Wording (D-62): no behavioral difference across the tested scenarios; not a certification for all inputs. The run is not bundled yet: the sample README, the catalog entry and a regression test are next.
 - Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
 
+### R-127 2026-11-21: docs/KIRO_USAGE.md for the judges
+- Call p330 (sonnet-5.5), docs worktree. Sections: how the work was split (Kiro writes code, specs and tests; the operator prompts, verifies on real runs, keeps this log, commits; three send-back examples R-51, R-31, R-121; the recorded operator exceptions R-06, R-23, and the invented Dockerfile hash of R-21), the 15 specs, the seven steering files and three skills, hooks and gate (read from coroner/hooks.py, with the three evidence files), the MCP server's seven tools and the coroner-auditor agent (run 1 recorded as a failure with an invented verdict, run 2 with real tool calls), Kiro as the migration tool under audit (the independence table rows quoted from TABLE.md; the CardDemo port ALIVE on 200 cases), models and credits (quoted from R-120 and R-126), and Kiro powers stated as not claimed (Q6) with an owner marker for the IDE test.
+- Checks (operator): read in full; every claim names its source file; verdict wording as required; no other tool is named for the operator; no em dash.
+- Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.
