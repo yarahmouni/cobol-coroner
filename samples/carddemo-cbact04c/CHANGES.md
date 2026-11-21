@@ -11,6 +11,7 @@ ASSIGN clauses unchanged (TCATBALF, XREFFILE, ACCTFILE, DISCGRP, TRANSACT map fr
 ## Additions (new files)
 
 1. RUN-CBACT04C.cob: Driver program that calls CBACT04C with PARM-DATE from environment variable
+   Header written for this project (an earlier version copied the CardDemo header by mistake).
 2. CEE3ABD.cob: Stub for z/OS Language Environment abend service, not replaced inside CBACT04C
 3. LOAD-FILES.cob: Loads text fixtures into indexed files; inserts ACCT-ADDR-ZIP (10 bytes) omitted in upstream acctdata.txt
 4. DUMP-ACCT.cob: Account record dump utility

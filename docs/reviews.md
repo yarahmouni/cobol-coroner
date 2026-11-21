@@ -868,6 +868,12 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Disk: free space fell to 2.8 GB during this verification (image builds); the operator removed unused images and 9.1 GB of build cache: 13 GB free.
 - Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
 
+### R-129 2026-11-21: CardDemo driver no longer carries the AWS copyright notice
+- Found while checking the draft of docs/PREEXISTING_CODE.md (call p331): samples/carddemo-cbact04c/adapted/RUN-CBACT04C.cob, a driver written for this project and listed in CHANGES.md as an added file, carried a copy of the AWS CardDemo header (copyright notice, licence paragraph, "AUTHOR. AWS."). A new file must not claim AWS authorship.
+- Fix (call p333, haiku-5.5): the header now says it is a driver added for the COBOL Coroner audit, Apache-2.0 like the repository; the AUTHOR line is removed; no code line changed; CHANGES.md notes the correction. The agent checked the other added programs (CEE3ABD, LOAD-FILES, DUMP-ACCT, HARNESS): no AWS notice; adapted/CBACT04C.cob keeps the upstream notice, being the upstream program with one documented change.
+- Results (agent, checked by the operator in the diff): `make clean all harness` exit 0; tests/test_carddemo_probe.py 3 passed in 12.25 s.
+- Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.
