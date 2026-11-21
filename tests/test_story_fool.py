@@ -9,6 +9,7 @@ themselves, never from a literal.
 import csv
 import itertools
 import json
+import re
 import shutil
 from collections import Counter
 from pathlib import Path
@@ -36,7 +37,10 @@ POSITIONING = (
     "to Java. Coroner independently verifies the result."
 )
 PARAMS = ("case1", "case2", "case4")
-TRAP_OF = {"case1": "T1", "case2": "T2", "case4": "T4"}
+TRAP_OF = {"case1": "T1", "case4": "T4"}
+# The credit-fees toggle is named by its run (owner decision, Q7): typed here on purpose, not read from the code.
+HALF_EVEN_LABEL = "HALF_EVEN rounding, credit-fees sample (HALF_EVEN variant run)"
+FORBIDDEN_FOR_HALF_EVEN = (re.compile(r"Case\s*2"), re.compile(r"Vanishing Cent"), re.compile(r"\bT2\b"))
 
 
 @pytest.fixture
@@ -50,8 +54,22 @@ def _registry():
 
 
 def _label(param):
+    if param == "case2":
+        return HALF_EVEN_LABEL
     entry = _registry()[TRAP_OF[param]]
     return f"Case {entry['case']} {entry['name']}"
+
+
+def _toggle_label_text(page: str, param: str) -> str:
+    """Visible text of the <label> of one checkbox."""
+    match = re.search(rf'<label for="toggle-{param}">(.*?)</label>', page, re.S)
+    assert match, param
+    return visible_text(match.group(1))
+
+
+def _assert_not_named_by_a_case(text: str, where: str):
+    for pattern in FORBIDDEN_FOR_HALF_EVEN:
+        assert not pattern.search(text), f"{where}: {pattern.pattern!r} in {text!r}"
 
 
 # ------------------------------------------------------------------ fast tests (no run)
@@ -66,11 +84,30 @@ def test_exactly_three_checkboxes_named_case1_case2_case4_with_labels(empty_clie
     assert all(a["value"] == "on" for a in boxes)
 
 
-def test_page_lists_the_case_names_from_the_registry(empty_client):
+def test_page_lists_the_case_names_from_the_registry_and_the_run_label_for_half_even(empty_client):
     text = visible_text(empty_client.get("/fool").text)
     for param in PARAMS:
         assert _label(param) in text
-    assert _label("case2") == "Case 2 The Vanishing Cent"
+    assert _label("case1") == "Case 1 The Missing Branch"
+    assert _label("case2") == HALF_EVEN_LABEL
+
+
+@pytest.mark.parametrize("view", ["business", "engineer"])
+def test_half_even_toggle_is_named_by_its_run_and_never_by_a_case(empty_client, view):
+    url = f"/fool?case1=on&case2=on&case4=on&view={view}"
+    page = empty_client.get(url).text
+    fragment = empty_client.get(url, headers={"HX-Request": "true"}).text
+    # Every place where the toggle is rendered without runs: the label of the checkbox and the page text.
+    assert _toggle_label_text(page, "case2").startswith(HALF_EVEN_LABEL)
+    assert _label("case1") in _toggle_label_text(page, "case1")
+    assert _label("case4") in _toggle_label_text(page, "case4")
+    # The result rows (page and htmx fragment, real runs) are checked by the slow test below.
+    _assert_not_named_by_a_case(_toggle_label_text(page, "case2"), "toggle label")
+    # Nothing on the page names this toggle by a case, also in attributes (aria labels, ids shown to a reader).
+    _assert_not_named_by_a_case(visible_text(page), "page text")
+    _assert_not_named_by_a_case(visible_text(fragment), "fragment text")
+    _assert_not_named_by_a_case(re.sub(r"toggle-case2", "", page), "page html")
+    _assert_not_named_by_a_case(re.sub(r"toggle-case2", "", fragment), "fragment html")
 
 
 def test_missing_runs_disable_every_toggle_and_show_no_number(empty_client):
@@ -232,6 +269,29 @@ def test_counter_and_rows_for_each_of_the_eight_toggle_combinations(fool_runs, f
         assert ("This defect is on" in row) == (param in selected)
         assert ("This defect is off" in row) == (param not in selected)
         assert f'href="/run/{shown[param]}"' in page
+@pytest.mark.slow
+@pytest.mark.parametrize("view", ["business", "engineer"])
+@pytest.mark.parametrize("kind", ["page", "fragment"])
+def test_real_half_even_row_shows_the_credit_fees_label_and_no_case_name(fool_runs, fool_client, view, kind):
+    """All three toggles on, real runs: the HALF_EVEN row is named by its run, Cases 1 and 4 keep their case names."""
+    headers = {"HX-Request": "true"} if kind == "fragment" else {}
+    html = fool_client.get(f"/fool?case1=on&case2=on&case4=on&view={view}", headers=headers).text
+    rows = _rows(html)
+    assert rows[1].startswith(HALF_EVEN_LABEL)
+    assert "This defect is on" in rows[1] and "ZOMBIE" in rows[1]
+    if view == "engineer":
+        assert f"Run id {fool_runs.half_even_run}" in rows[1]
+    _assert_not_named_by_a_case(rows[1], f"{kind} {view} HALF_EVEN row")
+    _assert_not_named_by_a_case(visible_text(html), f"{kind} {view} text")
+    assert rows[0].startswith("Case 1 The Missing Branch")
+    assert rows[2].startswith(_label("case4"))
+    assert _label("case4").startswith("Case 4 ")
+    if kind == "page":
+        _assert_not_named_by_a_case(_toggle_label_text(html, "case2"), "toggle label")
+        assert _toggle_label_text(html, "case1").startswith(_label("case1"))
+        assert _toggle_label_text(html, "case4").startswith(_label("case4"))
+
+
 
 
 @pytest.mark.slow

@@ -746,23 +746,33 @@ FOOL_MISSING = "Bundled run missing"
 
 @dataclass(frozen=True)
 class FoolToggle:
-    """One defect of the fool page: the form parameter, the case it is named after and its source of runs."""
+    """
+    One defect of the fool page: the form parameter, what names it and its source of runs.
+
+    A catalog toggle is named after its trap's case (cases.json). The credit-fees toggle has no trap:
+    it is named by its run (`label`), never by a case, because it is not the T2 port (Q7).
+    """
     param: str
-    trap_id: str
+    trap_id: Optional[str]
     caption: str
     # "catalog": the faulty and correct runs of the trap in runs/trap_catalog.json.
     # "credit-fees": the HALF_EVEN variant run and the correct run of the credit-fees sample (R-134).
     source: str
     sample_note: Optional[str] = None
+    label: Optional[str] = None
 
+
+# The form parameter "case2" is kept so that existing links work; it is never shown as text.
+HALF_EVEN_LABEL = "HALF_EVEN rounding, credit-fees sample (HALF_EVEN variant run)"
 
 FOOL_TOGGLES = (
     FoolToggle("case1", "T1", "Branch codes are compared in ASCII order instead of EBCDIC order.", "catalog"),
     FoolToggle(
-        "case2", "T2",
+        "case2", None,
         "Fees are rounded half to even (HALF_EVEN) instead of half away from zero (HALF_UP).",
         "credit-fees",
         "Shown on the credit-fees sample program: one real rounding defect.",
+        HALF_EVEN_LABEL,
     ),
     FoolToggle("case4", "T4", "The zero overpunch characters { and } are not decoded.", "catalog"),
 )
@@ -918,7 +928,7 @@ def _unavailable_row(toggle: FoolToggle, registry: dict) -> dict:
     return {
         "param": toggle.param,
         "input_id": f"toggle-{toggle.param}",
-        "case_label": case_label(toggle.trap_id, registry) or FOOL_NOT_RECORDED,
+        "case_label": toggle.label or case_label(toggle.trap_id, registry) or FOOL_NOT_RECORDED,
         "caption": toggle.caption,
         "sample_note": toggle.sample_note,
         "available": False,
