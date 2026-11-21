@@ -1089,6 +1089,19 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Results: agent: new tests 4 passed in 55.92 s; tests/test_mcp_server.py, test_docker_compose.py, test_catalog_from_runs.py (not slow) 57 passed. Operator: tests/test_image_catalog.py with slow 4 passed in 65.51 s.
 - Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 2521.63 of 4000 used (1478.37 left).
 
+### R-162 2026-11-21: track 1 follow-ups: --tie-share removed, tie_share recorded only where the generator reads it, "mainframe" removed from the fix sentences
+- Owner order (2026-11-21), task 4; follow-ups listed in the handoff from R-140 and R-141.
+- Call p376 (sonnet-5.5):
+  - --tie-share removed from `coroner verify` (R-140 measured it was ignored). Operator decision: remove rather than wire, because tie_share is not part of the run id, so wiring it would give one run id to different case sets. `coroner verify --tie-share 0.1 ...` now exits 2 with "unrecognized arguments".
+  - New coroner.gen.schema_uses_tie_share: false for generator scripts and case_rows (batch) schemas, true for the product_pairs tie strategy with two decimal inputs and for PRINCIPAL plus FEE-RATE schemas; checked against real generator output on the seven sample schemas. New certificates record tie_share null where the generator does not read it (T1, CardDemo), 0.06 where it does (credit-fees). Replay of a null tie_share uses the default; an old T1 certificate with 0.06 still replays VALID; editing tie_share on credit-fees (hash recomputed) is still INVALID. certificate_format unchanged.
+  - business_fix of T2 to T5 said "the mainframe"; now "the COBOL program" (the reference is a GnuCOBOL run). trap.json is not an input of the run id or of the certificate (coroner/store.py compute_run_id, coroner/certificate.py).
+  - docs/video-plan.md: the old line 90 sentence went with the R-160 rewrite; shots 9 and 10 quote business_cause and business_fix verbatim; no "mainframe".
+  - Home page at 375 px (R-141, 26 px overflow): the Recent Runs table was already in a .table-scroll box (R-142); new slow test tests/test_ui_home_375.py on a real uvicorn server with a real T1 run: scrollWidth <= 375. Agent: without the wrapper class the page was 381 px wide and the test failed; restored.
+  - Run ids measured in temporary bases (2000 cases, seed 42): T1 faulty f584d5f35228, T1 correct 29c15f04407b, credit-fees correct df4d7929ce44, credit-fees HALF_EVEN 08d14a07bcdb, unchanged. The CardDemo run (a5edaf1924a5, 200 cases) does not fit the 60 s timeout on the Mac (R-124); it is checked in the batched image.
+- Agent finding: older tests in tests/test_gen.py called generate_cases with no base_dir and wrote runs/temp/generated_cases.csv in the repository. Call p377 (sonnet-5.5): those 11 calls now use tmp_path; the file's mtime did not change during the test run.
+- Results: agent: certificate, gen and home tests with slow 45 passed; certificate, MCP, story pages and retired-name tests with slow 88 passed in 206.48 s; test_gen 35 passed. Operator: test_certificate_seed_check, test_gen and test_ui_home_375 with slow 54 passed in 105.50 s.
+- Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 2578.82 of 4000 used (1421.18 left).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.

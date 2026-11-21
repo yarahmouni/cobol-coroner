@@ -97,7 +97,7 @@ def generate_certificate(
     java_file: str,
     schema_file: str,
     base_dir: str = ".",
-    tie_share: float = DEFAULT_TIE_SHARE
+    tie_share: Optional[float] = DEFAULT_TIE_SHARE
 ) -> None:
     """
     Generate certificate.json after a run.
@@ -115,8 +115,10 @@ def generate_certificate(
         java_file: Path to Java source file
         schema_file: Path to schema.json
         base_dir: Base directory for runs/ (default current directory)
-        tie_share: Tie share the cases were generated with (recorded, with the
-            generator version, so that replay can regenerate the cases)
+        tie_share: Tie share the cases were generated with, recorded (with the
+            generator version) so that replay can regenerate the cases. None
+            (written as null) for a schema whose generator does not read it
+            (see coroner.gen.schema_uses_tie_share)
         
     Raises:
         FileNotFoundError: If required run files not found
@@ -436,9 +438,13 @@ def replay_certificate(certificate_path: str, base_dir: Optional[str] = None) ->
                     cases_file="", warnings=[]
                 )
             with tempfile.TemporaryDirectory(prefix="coroner_regen_") as regen_dir:
+                # null means the schema's generator never read it: the default gives the same cases
+                recorded_tie_share = cert.get("tie_share")
+                if recorded_tie_share is None:
+                    recorded_tie_share = DEFAULT_TIE_SHARE
                 regenerated = generate_cases(
                     schema_obj, cobol_structure, cert["random_seed"], cert["case_count"],
-                    cert["tie_share"], regen_dir, script
+                    recorded_tie_share, regen_dir, script
                 )
                 regenerated_bytes = Path(regenerated).read_bytes()
             if regenerated_bytes != Path(cases_file).read_bytes():

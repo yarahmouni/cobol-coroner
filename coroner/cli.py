@@ -8,7 +8,7 @@ from pathlib import Path
 
 from coroner.parse.schema import load_schema, GeneratorScriptError
 from coroner.parse.copybook import parse_cobol_structure
-from coroner.gen import DEFAULT_TIE_SHARE, GeneratorScript, generate_cases
+from coroner.gen import DEFAULT_TIE_SHARE, GeneratorScript, generate_cases, schema_uses_tie_share
 from coroner.run import compile_cobol, compile_java, run_cobol, run_java, run_cobol_instrumented
 from coroner.compare import compare_outputs
 from coroner.verdict import compute_verdict
@@ -418,7 +418,9 @@ def run_verify(
     
     # Generate certificate
     from coroner.certificate import generate_certificate
-    generate_certificate(run_id, cobol_path, copybooks_dir, java_path, schema_path, base_dir, tie_share)
+    # Record the tie share only when this schema's generator reads it
+    recorded_tie_share = tie_share if schema_uses_tie_share(schema_obj) else None
+    generate_certificate(run_id, cobol_path, copybooks_dir, java_path, schema_path, base_dir, recorded_tie_share)
     
     record_step("Store results", step_start)
     
@@ -426,8 +428,7 @@ def run_verify(
 
 
 def verify_command(cobol: str, copybooks: str, java: str, schema: str, 
-                   cases: int = 2000, seed: int = 42, tie_share: float = 0.06, 
-                   timings: bool = False) -> int:
+                   cases: int = 2000, seed: int = 42, timings: bool = False) -> int:
     """
     CLI wrapper for run_verify that formats output.
     
@@ -438,7 +439,6 @@ def verify_command(cobol: str, copybooks: str, java: str, schema: str,
         schema: Path to schema.json
         cases: Number of test cases to generate (default 2000)
         seed: Random seed (default 42)
-        tie_share: Unused, kept for compatibility
         timings: Print per-step timings (default False)
         
     Returns:
@@ -499,7 +499,6 @@ def main():
     verify_parser.add_argument("--schema", help="Path to schema.json")
     verify_parser.add_argument("--cases", type=int, default=2000, help="Number of test cases (default: 2000)")
     verify_parser.add_argument("--seed", type=int, default=42, help="Random seed (default: 42)")
-    verify_parser.add_argument("--tie-share", type=float, default=0.06, help="Fraction of cases that are rounding ties (default: 0.06)")
     verify_parser.add_argument("--timings", action="store_true", help="Print per-step timings")
     verify_parser.add_argument("--json", action="store_true", help="Output JSON for certificate replay (used by subprocess)")
     
@@ -611,8 +610,7 @@ def main():
         
         exit_code = verify_command(
             args.cobol, args.copybooks, args.java, args.schema,
-            cases=args.cases, seed=args.seed, tie_share=args.tie_share,
-            timings=args.timings
+            cases=args.cases, seed=args.seed, timings=args.timings
         )
         return exit_code
     

@@ -624,6 +624,25 @@ def generate_cases_from_script(
     return str(output_path)
 
 
+def schema_uses_tie_share(schema: Schema) -> bool:
+    """
+    Tell whether generate_cases reads tie_share for this schema.
+
+    It follows the branches of generate_cases and generate_ties: a generator
+    script and case_rows (batch) schemas never read it; otherwise it matters
+    only when generate_ties builds ties, which happens for the product_pairs
+    strategy (two decimal input columns) and for a schema with PRINCIPAL and
+    FEE-RATE columns. Every other schema produces the same cases whatever
+    tie_share is.
+    """
+    if schema.generator_script_path or schema.case_rows:
+        return False
+    if getattr(schema, 'tie_strategy', None) == 'product_pairs':
+        return sum(1 for col in schema.input_columns if col.type == 'decimal') >= 2
+    names = {col.name for col in schema.input_columns}
+    return 'PRINCIPAL' in names and 'FEE-RATE' in names
+
+
 def generate_cases(
     schema: Schema,
     cobol_structure: dict,

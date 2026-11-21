@@ -71,7 +71,7 @@ def test_generate_case_id_format():
     assert case_id == "GEN-999999"
 
 
-def test_generate_cases_deterministic():
+def test_generate_cases_deterministic(tmp_path):
     """Test that generate_cases produces byte-identical output with the same seed."""
     schema = load_schema('samples/credit-fees/schema.json')
     cobol_structure = {
@@ -81,17 +81,17 @@ def test_generate_cases_deterministic():
     }
     
     # Generate with seed 42 twice
-    path1 = generate_cases(schema, cobol_structure, seed=42, num_cases=100, tie_share=0.05)
+    path1 = generate_cases(schema, cobol_structure, seed=42, num_cases=100, tie_share=0.05, base_dir=str(tmp_path))
     content1 = Path(path1).read_bytes()
     
-    path2 = generate_cases(schema, cobol_structure, seed=42, num_cases=100, tie_share=0.05)
+    path2 = generate_cases(schema, cobol_structure, seed=42, num_cases=100, tie_share=0.05, base_dir=str(tmp_path))
     content2 = Path(path2).read_bytes()
     
     # Should be byte-identical
     assert content1 == content2
 
 
-def test_generate_cases_different_seeds():
+def test_generate_cases_different_seeds(tmp_path):
     """Test that different seeds produce different output."""
     schema = load_schema('samples/credit-fees/schema.json')
     cobol_structure = {
@@ -101,17 +101,17 @@ def test_generate_cases_different_seeds():
     }
     
     # Generate with different seeds
-    path1 = generate_cases(schema, cobol_structure, seed=42, num_cases=100, tie_share=0.05)
+    path1 = generate_cases(schema, cobol_structure, seed=42, num_cases=100, tie_share=0.05, base_dir=str(tmp_path))
     content1 = Path(path1).read_bytes()
     
-    path2 = generate_cases(schema, cobol_structure, seed=123, num_cases=100, tie_share=0.05)
+    path2 = generate_cases(schema, cobol_structure, seed=123, num_cases=100, tie_share=0.05, base_dir=str(tmp_path))
     content2 = Path(path2).read_bytes()
     
     # Should be different
     assert content1 != content2
 
 
-def test_generate_cases_row_count():
+def test_generate_cases_row_count(tmp_path):
     """Test that generate_cases produces the correct number of rows."""
     schema = load_schema('samples/credit-fees/schema.json')
     cobol_structure = {
@@ -120,7 +120,7 @@ def test_generate_cases_row_count():
         'branches': []
     }
     
-    path = generate_cases(schema, cobol_structure, seed=42, num_cases=200, tie_share=0.05)
+    path = generate_cases(schema, cobol_structure, seed=42, num_cases=200, tie_share=0.05, base_dir=str(tmp_path))
     
     with open(path, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
@@ -129,7 +129,7 @@ def test_generate_cases_row_count():
     assert len(rows) == 200
 
 
-def test_generate_cases_case_id_format():
+def test_generate_cases_case_id_format(tmp_path):
     """Test that CASE-ID values are correctly formatted and zero-padded."""
     schema = load_schema('samples/credit-fees/schema.json')
     cobol_structure = {
@@ -138,7 +138,7 @@ def test_generate_cases_case_id_format():
         'branches': []
     }
     
-    path = generate_cases(schema, cobol_structure, seed=42, num_cases=50, tie_share=0.05)
+    path = generate_cases(schema, cobol_structure, seed=42, num_cases=50, tie_share=0.05, base_dir=str(tmp_path))
     
     with open(path, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
@@ -153,7 +153,7 @@ def test_generate_cases_case_id_format():
         assert len(row['CASE-ID']) == 10
 
 
-def test_generate_cases_canonical_format():
+def test_generate_cases_canonical_format(tmp_path):
     """Test that numeric values use canonical format (no '+', no exponent, no spaces)."""
     schema = load_schema('samples/credit-fees/schema.json')
     cobol_structure = {
@@ -162,7 +162,7 @@ def test_generate_cases_canonical_format():
         'branches': []
     }
     
-    path = generate_cases(schema, cobol_structure, seed=42, num_cases=100, tie_share=0.05)
+    path = generate_cases(schema, cobol_structure, seed=42, num_cases=100, tie_share=0.05, base_dir=str(tmp_path))
     
     with open(path, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
@@ -184,7 +184,7 @@ def test_generate_cases_canonical_format():
         assert not row['INCOME'].startswith('+')
 
 
-def test_generate_cases_rounding_ties():
+def test_generate_cases_rounding_ties(tmp_path):
     """Test that rounding ties are generated correctly."""
     schema = load_schema('samples/credit-fees/schema.json')
     cobol_structure = {
@@ -194,7 +194,7 @@ def test_generate_cases_rounding_ties():
     }
     
     # Generate with 5% tie share from 2000 cases = 100 intentional ties
-    path = generate_cases(schema, cobol_structure, seed=42, num_cases=2000, tie_share=0.05)
+    path = generate_cases(schema, cobol_structure, seed=42, num_cases=2000, tie_share=0.05, base_dir=str(tmp_path))
     
     with open(path, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
@@ -242,7 +242,7 @@ def test_generate_cases_rounding_ties():
             f"Expected ~{expected_even} even-digit ties, got {even_digit_count}"
 
 
-def test_generate_cases_utf8_lf():
+def test_generate_cases_utf8_lf(tmp_path):
     """Test that generated CSV uses UTF-8 encoding and LF line endings."""
     schema = load_schema('samples/credit-fees/schema.json')
     cobol_structure = {
@@ -251,7 +251,7 @@ def test_generate_cases_utf8_lf():
         'branches': []
     }
     
-    path = generate_cases(schema, cobol_structure, seed=42, num_cases=50, tie_share=0.05)
+    path = generate_cases(schema, cobol_structure, seed=42, num_cases=50, tie_share=0.05, base_dir=str(tmp_path))
     
     # Read as bytes and check line endings
     content = Path(path).read_bytes()
@@ -267,7 +267,7 @@ def test_generate_cases_utf8_lf():
     assert text
 
 
-def test_generate_cases_header_matches_schema():
+def test_generate_cases_header_matches_schema(tmp_path):
     """Test that CSV header matches schema input column names."""
     schema = load_schema('samples/credit-fees/schema.json')
     cobol_structure = {
@@ -276,7 +276,7 @@ def test_generate_cases_header_matches_schema():
         'branches': []
     }
     
-    path = generate_cases(schema, cobol_structure, seed=42, num_cases=10, tie_share=0.05)
+    path = generate_cases(schema, cobol_structure, seed=42, num_cases=10, tie_share=0.05, base_dir=str(tmp_path))
     
     with open(path, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
@@ -316,7 +316,7 @@ def cobc_available():
 
 
 @pytest.mark.skipif(not cobc_available(), reason="cobc not available")
-def test_generate_cases_viable_on_real_cobol():
+def test_generate_cases_viable_on_real_cobol(tmp_path):
     """
     Test that generated cases produce viable output on the real COBOL program.
     
@@ -333,7 +333,7 @@ def test_generate_cases_viable_on_real_cobol():
     }
     
     # Generate 2,000 cases with seed 42
-    cases_path = generate_cases(schema, cobol_structure, seed=42, num_cases=2000, tie_share=0.05)
+    cases_path = generate_cases(schema, cobol_structure, seed=42, num_cases=2000, tie_share=0.05, base_dir=str(tmp_path))
     
     # Compile COBOL program
     build_dir = Path('build')
@@ -604,3 +604,31 @@ def test_collect_inputs_refuses_a_hash_the_disk_no_longer_has(tmp_path):
 
     with pytest.raises(GeneratorScriptError, match="generator script changed during the run: gen.py"):
         collect_inputs_for(tmp_path, tmp_path / "schema.json", script.sha256)
+
+
+TIE_SHARE_SCHEMAS = [
+    ("samples/credit-fees/schema.json", True),
+    ("samples/traps/T1-ebcdic-match-merge/schema.json", False),
+    ("samples/traps/T2-rounding/schema.json", True),
+    ("samples/traps/T3-comp3-sign/schema.json", False),
+    ("samples/traps/T4-zoned-overpunch/schema.json", False),
+    ("samples/traps/T5-redefines-invalid/schema.json", False),
+    ("samples/carddemo-cbact04c/schema.json", False),
+]
+
+
+@pytest.mark.parametrize("schema_path, uses", TIE_SHARE_SCHEMAS)
+def test_schema_uses_tie_share_matches_what_the_generator_does(schema_path, uses, tmp_path):
+    """The answer of schema_uses_tie_share is checked against the generated bytes."""
+    from coroner.gen import schema_uses_tie_share
+
+    schema = load_schema(schema_path)
+    cobol_structure = {'constants': [], 'paragraphs': {}, 'branches': []}
+
+    low = Path(generate_cases(schema, cobol_structure, seed=42, num_cases=100, tie_share=0.0,
+                              base_dir=str(tmp_path / "low"))).read_bytes()
+    high = Path(generate_cases(schema, cobol_structure, seed=42, num_cases=100, tie_share=0.3,
+                               base_dir=str(tmp_path / "high"))).read_bytes()
+
+    assert schema_uses_tie_share(schema) is uses
+    assert (low != high) is uses

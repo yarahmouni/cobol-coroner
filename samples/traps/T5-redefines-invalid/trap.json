@@ -5,6 +5,6 @@
   "business_cause": "Corrupted input amounts are processed as zero instead of following the same recovery rules as COBOL.",
   "probable_cause": "Faulty Java rejects invalid numeric data under REDEFINES.",
   "technical_cause": "Faulty Java rejects invalid numeric data under REDEFINES.",
-  "business_fix": "Apply the same recovery rule the mainframe uses for corrupted amounts: extract digits from invalid bytes instead of rejecting them.",
+  "business_fix": "Apply the same recovery rule the COBOL program uses for corrupted amounts: extract digits from invalid bytes instead of rejecting them.",
   "fix_sentence": "Use the low nibble of each byte as the digit value, as the GnuCOBOL reference does."
 }

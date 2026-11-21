@@ -5,6 +5,6 @@
   "business_cause": "Unsigned amounts are decoded with the wrong sign, reversing credits and debits.",
   "probable_cause": "Faulty Java treats sign nibble F as negative or rejects it.",
   "technical_cause": "Faulty Java treats sign nibble F as negative or rejects it.",
-  "business_fix": "Decode packed decimal sign nibbles the same way the mainframe does: C and F are positive, D is negative.",
+  "business_fix": "Decode packed decimal sign nibbles the same way the COBOL program does: C and F are positive, D is negative.",
   "fix_sentence": "Read sign nibble F as positive (C and F positive, D negative), as the GnuCOBOL reference does."
 }

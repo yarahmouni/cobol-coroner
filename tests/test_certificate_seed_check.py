@@ -4,6 +4,9 @@ Every run here is a real engine run in a temporary base directory.
 The repository runs/ folder is never read or written.
 """
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -18,6 +21,7 @@ CREDIT_FEES = Path("samples/credit-fees")
 CARDDEMO = Path("samples/carddemo-cbact04c")
 
 SEED_REASON = "replay mismatch (generated cases do not match random_seed)"
+NULL = object()
 
 
 def _t1_run(base, java, cases, seed=42):
@@ -34,12 +38,17 @@ def _t1_run(base, java, cases, seed=42):
 
 
 def _forge(cert_path: Path, target: Path, **edits) -> Path:
-    """Copy a certificate with edits (None removes a key) and a recomputed hash."""
+    """Copy a certificate with edits and a recomputed hash.
+
+    An edit of None removes the key, an edit of NULL writes a JSON null.
+    """
     cert = json.loads(cert_path.read_text())
     cert.pop("certificate_sha256")
     for key, value in edits.items():
         if value is None:
             del cert[key]
+        elif value is NULL:
+            cert[key] = None
         else:
             cert[key] = value
     cert["certificate_sha256"] = compute_certificate_sha256(cert)
@@ -73,8 +82,22 @@ def test_new_certificate_records_what_regeneration_needs(t1_faulty):
     _, cert_path = t1_faulty
     cert = json.loads(cert_path.read_text())
     assert cert["generator_version"] == GENERATOR_VERSION
-    assert cert["tie_share"] == DEFAULT_TIE_SHARE == 0.06
     assert cert["random_seed"] == 42 and cert["case_count"] == 50
+
+
+def test_t1_certificate_records_tie_share_null(t1_faulty):
+    """The T1 generator (case_rows) never reads tie_share, so nothing is recorded."""
+    _, cert_path = t1_faulty
+    cert = json.loads(cert_path.read_text())
+    assert "tie_share" in cert and cert["tie_share"] is None
+
+
+def test_credit_fees_certificate_records_tie_share(credit_fees_run):
+    """credit-fees builds rounding ties from tie_share, so the value is recorded."""
+    _, cert_path = credit_fees_run
+    cert = json.loads(cert_path.read_text())
+    assert cert["tie_share"] == DEFAULT_TIE_SHARE == 0.06
+    assert cert["certificate_format"] == 1
 
 
 @pytest.mark.slow
@@ -141,13 +164,81 @@ def test_tamper_route_with_only_the_seed_edited_is_invalid(t1_faulty, tmp_path, 
 
 
 @pytest.mark.slow
+@pytest.mark.parametrize("recorded", [0.06, 0.5])
+def test_old_style_t1_certificate_with_a_tie_share_replays_valid(t1_faulty, tmp_path, recorded):
+    """Certificates made before tie_share became null on T1 (0.06) still replay VALID.
+
+    T1 does not read the value, so any recorded number gives the same cases.
+    """
+    base, cert_path = t1_faulty
+    forged = _forge(cert_path, tmp_path / "old.json", tie_share=recorded)
+    result = replay_certificate(str(forged), base_dir=str(base))
+    assert result.valid, result.reason
+    assert not any("not regenerated" in w for w in result.warnings)
+
+
+def test_verify_refuses_the_removed_tie_share_option(tmp_path):
+    """--tie-share is gone: argparse refuses it before any run starts."""
+    env = {**os.environ, "CORONER_BASE_DIR": str(tmp_path)}
+    result = subprocess.run(
+        [sys.executable, "-m", "coroner", "verify",
+         "--cobol", str(T1 / "MATCH-MERGE.cob"),
+         "--copybooks", str(T1 / "copybooks"),
+         "--java", str(T1 / "java" / "correct" / "MatchMerge.java"),
+         "--schema", str(T1 / "schema.json"),
+         "--cases", "10", "--tie-share", "0.1"],
+        capture_output=True, text=True, timeout=60, env=env,
+    )
+    assert result.returncode == 2
+    assert "coroner: error: unrecognized arguments: --tie-share" in result.stderr
+    assert not (tmp_path / "runs").exists()
+
+
+def test_help_does_not_list_tie_share():
+    result = subprocess.run(
+        [sys.executable, "-m", "coroner", "verify", "--help"],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 0
+    assert "--seed" in result.stdout and "tie-share" not in result.stdout
+
+
+@pytest.mark.slow
 def test_run_ids_are_unchanged(tmp_path):
     faulty = _t1_run(tmp_path, "faulty", 2000)
     correct = _t1_run(tmp_path, "correct", 2000)
     assert faulty.name == "f584d5f35228"
     assert correct.name == "29c15f04407b"
     cert = json.loads((correct / "certificate.json").read_text())
-    assert cert["generator_version"] == GENERATOR_VERSION and cert["tie_share"] == 0.06
+    assert cert["generator_version"] == GENERATOR_VERSION and cert["tie_share"] is None
+
+
+@pytest.mark.slow
+def test_credit_fees_run_ids_are_unchanged(tmp_path):
+    """credit-fees correct and its HALF_EVEN variant keep the ids of the bundled runs."""
+    from coroner.catalog.legacy_variant import generate_half_even_variant
+
+    def audit(java_path):
+        _, run_dir = run_verify(
+            cobol_path=str((CREDIT_FEES / "CREDIT-FEES.cob").resolve()),
+            copybooks_dir=str((CREDIT_FEES / "copybooks").resolve()),
+            java_path=str(java_path),
+            schema_path=str((CREDIT_FEES / "schema.json").resolve()),
+            num_cases=2000,
+            seed=42,
+            base_dir=str(tmp_path),
+        )
+        return run_dir
+
+    correct = audit((CREDIT_FEES / "java" / "CreditFees.java").resolve())
+    variant = tmp_path / "variants" / "CreditFees.java"
+    generate_half_even_variant(str(CREDIT_FEES / "java" / "CreditFees.java"), str(variant))
+    half_even = audit(variant)
+
+    assert correct.name == "df4d7929ce44"
+    assert half_even.name == "08d14a07bcdb"
+    cert = json.loads((correct / "certificate.json").read_text())
+    assert cert["tie_share"] == 0.06
 
 
 @pytest.mark.slow
