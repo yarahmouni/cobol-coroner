@@ -110,9 +110,9 @@ def test_catalog_does_not_overwrite_real_file(tmp_path):
     import hashlib
     import os
     
-    repo_catalog_path = Path("runs/trap_catalog.json")
+    repo_catalog_path = Path(__file__).resolve().parent.parent / "runs" / "trap_catalog.json"
     
-    # Record mtime and SHA-256 if it exists
+    # Record mtime and SHA-256 if it exists (the file is absent in the Docker image)
     if repo_catalog_path.exists():
         original_mtime = os.path.getmtime(repo_catalog_path)
         with open(repo_catalog_path, "rb") as f:
@@ -123,6 +123,10 @@ def test_catalog_does_not_overwrite_real_file(tmp_path):
     
     # Run catalog in tmp_path
     run_catalog(seed=42, cases=30, base_dir=str(tmp_path))
+    
+    # A file that was absent must not have been created
+    if original_mtime is None:
+        assert not repo_catalog_path.exists(), "Catalog runner created the repository catalog"
     
     # Check the repository file was not touched
     if original_mtime is not None:

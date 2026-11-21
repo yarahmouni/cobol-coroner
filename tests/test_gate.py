@@ -10,6 +10,60 @@ from pathlib import Path
 
 import pytest
 
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+T1_FAULTY_ID = "f584d5f35228"
+CREDIT_FEES_CORRECT_ID = "df4d7929ce44"
+
+
+def _listing(folder: Path) -> list:
+    """Names and modification times of the entries of a folder (empty if it does not exist)."""
+    if not folder.exists():
+        return []
+    return sorted((p.name, p.stat().st_mtime_ns) for p in folder.iterdir())
+
+
+@pytest.fixture(scope="session")
+def gate_engine_runs(tmp_path_factory):
+    """
+    The two runs the certificate-matching tests rely on, made once per session by the real engine.
+
+    T1 faulty (ZOMBIE, exit 1, run f584d5f35228) and credit-fees correct (ALIVE, exit 0, run
+    df4d7929ce44), 2000 cases, seed 42, written into a temporary base directory. Paths are given
+    relative to the repository root, so the certificates record the same relative paths as the
+    bundled ones. The repository runs/ folder (git-ignored, absent from the Docker image) is never
+    read or written: its listing is checked before and after.
+    """
+    repo_runs = _REPO_ROOT / "runs"
+    before = _listing(repo_runs)
+    base = tmp_path_factory.mktemp("gate_engine_runs")
+    env = {**os.environ, "CORONER_BASE_DIR": str(base)}
+    env.pop("CORONER_REPLAY_TIMEOUT", None)
+
+    t1 = "samples/traps/T1-ebcdic-match-merge"
+    cf = "samples/credit-fees"
+    audits = (
+        (T1_FAULTY_ID, 1, f"{t1}/MATCH-MERGE.cob", f"{t1}/copybooks",
+         f"{t1}/java/faulty/MatchMerge.java", f"{t1}/schema.json"),
+        (CREDIT_FEES_CORRECT_ID, 0, f"{cf}/CREDIT-FEES.cob", f"{cf}/copybooks",
+         f"{cf}/java/CreditFees.java", f"{cf}/schema.json"),
+    )
+    for run_id, expected_exit, cobol, copybooks, java, schema in audits:
+        proc = subprocess.run(
+            [sys.executable, "-m", "coroner", "verify", "--cobol", cobol, "--copybooks", copybooks,
+             "--java", java, "--schema", schema, "--cases", "2000", "--seed", "42"],
+            cwd=_REPO_ROOT, env=env, capture_output=True, text=True, timeout=600,
+        )
+        assert proc.returncode == expected_exit, (
+            f"audit for run {run_id} exited {proc.returncode}, expected {expected_exit}\n"
+            f"{proc.stdout}\n{proc.stderr}"
+        )
+        assert (base / "runs" / run_id / "certificate.json").is_file(), (
+            f"audit did not produce run {run_id}\n{proc.stdout}"
+        )
+
+    assert _listing(repo_runs) == before, "the engine runs touched the repository runs/ folder"
+    return base / "runs"
+
 
 @pytest.fixture(scope="module")
 def real_cert_run(tmp_path_factory):
@@ -483,13 +537,13 @@ def test_gate_certificate_missing_keys(real_cert_run):
     assert result.stdout.strip() == "Gate: certificate invalid"
 
 
-def test_certificate_matches_bundled_t1_run():
-    """Test that bundled T1 certificate matches its files."""
+def test_certificate_matches_bundled_t1_run(gate_engine_runs):
+    """Test that the T1 faulty certificate made by the engine matches its files."""
     from coroner.gate import certificate_matches_files
     from coroner.hooks import get_repo_root
     
-    cert_path = Path("runs/f584d5f35228/certificate.json")
-    assert cert_path.exists(), f"Bundled T1 run not found at {cert_path}"
+    cert_path = gate_engine_runs / T1_FAULTY_ID / "certificate.json"
+    assert cert_path.exists(), f"T1 run not found at {cert_path}"
     
     with open(cert_path) as f:
         cert = json.load(f)
@@ -508,13 +562,13 @@ def test_certificate_matches_bundled_t1_run():
         "Bundled T1 certificate should match its files"
 
 
-def test_certificate_matches_bundled_credit_fees_run():
-    """Test that bundled credit-fees certificate matches its files."""
+def test_certificate_matches_bundled_credit_fees_run(gate_engine_runs):
+    """Test that the credit-fees certificate made by the engine matches its files."""
     from coroner.gate import certificate_matches_files
     from coroner.hooks import get_repo_root
     
-    cert_path = Path("runs/df4d7929ce44/certificate.json")
-    assert cert_path.exists(), f"Bundled credit-fees run not found at {cert_path}"
+    cert_path = gate_engine_runs / CREDIT_FEES_CORRECT_ID / "certificate.json"
+    assert cert_path.exists(), f"credit-fees run not found at {cert_path}"
     
     with open(cert_path) as f:
         cert = json.load(f)
@@ -533,14 +587,14 @@ def test_certificate_matches_bundled_credit_fees_run():
         "Bundled credit-fees certificate should match its files"
 
 
-def test_certificate_no_match_after_copybook_edit(tmp_path):
+def test_certificate_no_match_after_copybook_edit(tmp_path, gate_engine_runs):
     """Test that certificate does not match after a copybook is edited."""
     from coroner.gate import certificate_matches_files
     from coroner.hooks import get_repo_root
     import shutil
     
     # Use credit-fees which has real copybooks
-    cert_path = Path("runs/df4d7929ce44/certificate.json")
+    cert_path = gate_engine_runs / CREDIT_FEES_CORRECT_ID / "certificate.json"
     assert cert_path.exists()
     
     with open(cert_path) as f:
@@ -579,14 +633,14 @@ def test_certificate_no_match_after_copybook_edit(tmp_path):
         "Certificate should not match after copybook edit"
 
 
-def test_certificate_matches_with_stray_non_copybook_file(tmp_path):
+def test_certificate_matches_with_stray_non_copybook_file(tmp_path, gate_engine_runs):
     """Test that stray non-copybook files do not affect matching."""
     from coroner.gate import certificate_matches_files
     from coroner.hooks import get_repo_root
     import shutil
     
     # Use credit-fees which has real copybooks
-    cert_path = Path("runs/df4d7929ce44/certificate.json")
+    cert_path = gate_engine_runs / CREDIT_FEES_CORRECT_ID / "certificate.json"
     assert cert_path.exists()
     
     with open(cert_path) as f:

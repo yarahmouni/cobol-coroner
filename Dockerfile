@@ -90,6 +90,10 @@ ENV PATH="/opt/gnucobol/bin:${PATH}" \
     LD_LIBRARY_PATH="/opt/gnucobol/lib" \
     COB_LIBRARY_PATH="/opt/gnucobol/lib/gnucobol"
 
+# Register the GnuCOBOL libraries with the dynamic loader, so compiled COBOL programs find
+# libcob.so.4 even when a parent process starts them without LD_LIBRARY_PATH (MCP stdio clients)
+RUN echo "/opt/gnucobol/lib" > /etc/ld.so.conf.d/gnucobol.conf && ldconfig
+
 # Create non-root user coroner with UID 1000
 RUN groupadd -g 1000 coroner && \
     useradd -u 1000 -g coroner -m -s /bin/bash coroner
