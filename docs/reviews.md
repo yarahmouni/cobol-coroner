@@ -1142,6 +1142,14 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Results: agent: every cited test file with slow tests, SCREENSHOT_CHANNEL=chrome: 323 passed, 1 skipped in 146.21 s.
 - Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 2687.71 of 4000 used (1312.29 left).
 
+### R-168 2026-11-21: static fallback page built from real runs (D-48)
+- Owner order (2026-11-21), task 8, bonus G. D-48: a static page with no code execution showing a real certificate, the Detection Matrix and the replay command, built only from measured run outputs; hosting decided later (D-59), not set up.
+- Call p385 (sonnet-5.5): scripts/build_static_page.py (--base, --out, --commit) and make static-page BASE=<dir> COMMIT=<id>. It reads trap_catalog.json and the Case 1 run files and writes docs/static/: index.html (positioning line, live URL and repository link; Detection Matrix with case names, counts, rates and run ids, Case 6 reserved; Case 1 verdicts of both runs, the branch reconciliation table and the minimal-case card; the T1 correct certificate in full; the replay command with the image pinned in docker-compose.yml), both certificates and the generated cases file the replay needs (cases-a1ad67c683af.csv, 712744 bytes, synthetic). The build replays both certificates and refuses to finish unless they are VALID (exit 0 for ALIVE, 1 for ZOMBIE). No script, no external resource, inline CSS, every value HTML-escaped, local paths replaced. Base built from real runs (2000 cases, seed 42; f584d5f35228 and 29c15f04407b; full catalog).
+- Tests: tests/test_static_page.py: slow, built from real runs in a temporary base: no script tag, only the two links, figures equal to the run files, certificate equal to certificate.json, replay VALID, a "<script>" put in a card text is escaped; fast, on the committed page: no script, the matrix caption, the case names of cases.json. Agent: without the escaping the test failed; restored.
+- Operator: rebuilt with the commit id (footer "Built from commit 4feb030", the code the runs were made with); page viewed at 1280 px and at 375 px (scrollWidth 375); no local path in docs/static/.
+- Results: agent: tests/test_static_page.py with slow 8 passed in 106.27 s; operator: fast tests 2 passed.
+- Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 2719.16 of 4000 used (1280.84 left).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.

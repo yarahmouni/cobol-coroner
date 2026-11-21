@@ -1,0 +1,95 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>COBOL Coroner: static copy of real outputs</title><style>
+:root{--bg:#0f1115;--fg:#e6e6e6;--muted:#b4bac4;--panel:#181b22;--line:#3a404c;--link:#8ab4ff;--bad:#ff8a80;--good:#7bd88f}
+@media (prefers-color-scheme:light){:root{--bg:#fff;--fg:#111;--muted:#4b5563;--panel:#f3f4f6;--line:#c4c8d0;--link:#0b57d0;--bad:#b00020;--good:#1b6e3a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif}
+header,main,footer{max-width:62rem;margin:0 auto;padding:1rem}
+h1,h2,h3{font-family:Georgia,'Times New Roman',serif;line-height:1.25}
+a{color:var(--link)}
+a:focus-visible,.scroll:focus-visible{outline:3px solid var(--link);outline-offset:2px}
+p,li{overflow-wrap:anywhere}
+.muted{color:var(--muted)}
+.scroll{overflow-x:auto;border:1px solid var(--line);margin:1rem 0}
+table{border-collapse:collapse;width:100%}
+caption{text-align:left;padding:.5rem;font-weight:bold}
+th,td{border-top:1px solid var(--line);padding:.4rem .6rem;text-align:left;vertical-align:top}
+th{white-space:nowrap}
+pre{background:var(--panel);border:1px solid var(--line);padding:.75rem;margin:1rem 0;white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.45 ui-monospace,Menlo,Consolas,monospace}
+.zombie{color:var(--bad);font-weight:bold}
+.alive{color:var(--good);font-weight:bold}
+</style></head><body><header><h1>COBOL Coroner: static copy of real outputs</h1><p>COBOL Coroner does not convert code. It verifies a migration that already exists, whoever produced it (an AI tool such as Kiro, another LLM, or a human).</p><p>This page is a static copy of real run outputs, for when the live site is unavailable. It contains no script and loads nothing from another site. Live site: <a href="https://coroner.iqoba.com">https://coroner.iqoba.com</a>. Repository: <a href="https://github.com/yarahmouni/cobol-coroner">https://github.com/yarahmouni/cobol-coroner</a>.</p></header><main><section aria-labelledby="matrix"><h2 id="matrix">Detection Matrix</h2><p>Each measured case has a faulty Java port and a correct one. Detected is the number of generated cases on which the faulty port diverged from COBOL. Rates depend on the generator settings of each case and are not real-world statistics. There is no global rate.</p><div class="scroll" role="region" aria-label="Detection Matrix from trap_catalog.json" tabindex="0"><table><caption>Detection Matrix from trap_catalog.json</caption><thead><tr><th scope="col">Case</th><th scope="col">Trap</th><th scope="col">Title</th><th scope="col">Detected of generated</th><th scope="col">Rate</th><th scope="col">Correct port</th><th scope="col">Faulty run</th><th scope="col">Correct run</th></tr></thead><tbody><tr><td>Case 1: The Missing Branch</td><td>T1</td><td>EBCDIC vs ASCII collating order in sequential match-merge</td><td>682 of 2000</td><td>0.3410</td><td><span class="alive"><span aria-hidden="true">&#9679; </span>ALIVE</span></td><td>f584d5f35228</td><td>29c15f04407b</td></tr><tr><td>Case 2: The Vanishing Cent</td><td>T2</td><td>Truncation without ROUNDED and ROUNDED ported as HALF_EVEN</td><td>856 of 2000</td><td>0.4280</td><td><span class="alive"><span aria-hidden="true">&#9679; </span>ALIVE</span></td><td>26b427d5d678</td><td>aa44200e06b4</td></tr><tr><td>Case 3: The Phantom Minus</td><td>T3</td><td>COMP-3 sign nibble F treated as negative</td><td>429 of 2000</td><td>0.2145</td><td><span class="alive"><span aria-hidden="true">&#9679; </span>ALIVE</span></td><td>7e62df1e0f62</td><td>6fb5ba773bab</td></tr><tr><td>Case 4: The Sign of Zero</td><td>T4</td><td>Zoned decimal EBCDIC overpunch sign</td><td>87 of 2000</td><td>0.0435</td><td><span class="alive"><span aria-hidden="true">&#9679; </span>ALIVE</span></td><td>e00ac9d50c76</td><td>1c1b8639eb0c</td></tr><tr><td>Case 5: The Silent Zero</td><td>T5</td><td>Numeric field read through REDEFINES of invalid data</td><td>602 of 2000</td><td>0.3010</td><td><span class="alive"><span aria-hidden="true">&#9679; </span>ALIVE</span></td><td>5e61025dd742</td><td>677bd44c5bf5</td></tr><tr><td>Case 6: reserved</td><td>T6</td><td>Reserved for owner field trap</td><td>not measured</td><td>not measured</td><td>not measured</td><td>none</td><td>none</td></tr></tbody></table></div></section><section aria-labelledby="case1"><h2 id="case1">Case 1: The Missing Branch</h2><p>The COBOL program fills its branch table in EBCDIC order. The faulty Java port matches branch codes in ASCII order, so some amounts are posted to suspense. The grand total still balances, which is why a total-only check does not see it. Both runs used the generated cases of seed 42.</p><div class="scroll" role="region" aria-label="Case 1 verdicts from verdict.json" tabindex="0"><table><caption>Case 1 verdicts from verdict.json</caption><thead><tr><th scope="col"></th><th scope="col">Faulty port</th><th scope="col">Correct port</th></tr></thead><tbody><tr><td>Run</td><td>f584d5f35228</td><td>29c15f04407b</td></tr><tr><td>Status</td><td><span class="zombie"><span aria-hidden="true">&#9632; </span>ZOMBIE</span></td><td><span class="alive"><span aria-hidden="true">&#9679; </span>ALIVE</span></td></tr><tr><td>Sub-label</td><td>FAIL: business behavior diverged on 682 cases</td><td>PASS: business behavior preserved on 2000 cases</td></tr><tr><td>Cases</td><td>2000</td><td>2000</td></tr><tr><td>Divergent cases</td><td>682</td><td>0</td></tr><tr><td>Unreconciled branch exposure, sum</td><td>3995184.38</td><td>0</td></tr><tr><td>Unreconciled branch exposure, max</td><td>2025606.03</td><td>0</td></tr><tr><td>Branches affected</td><td>2</td><td>0</td></tr><tr><td>Suspense difference</td><td>3995184.38</td><td>0.00</td></tr><tr><td>Grand total matches</td><td>yes</td><td>yes</td></tr><tr><td>Notice</td><td>Validated under GnuCOBOL 3.x</td><td>Validated under GnuCOBOL 3.x</td></tr></tbody></table></div><div class="scroll" role="region" aria-label="Branch reconciliation of the faulty run from branch_reconciliation.json" tabindex="0"><table><caption>Branch reconciliation of the faulty run from branch_reconciliation.json</caption><thead><tr><th scope="col">Branch</th><th scope="col">COBOL subtotal</th><th scope="col">Java subtotal</th><th scope="col">Difference</th><th scope="col">Status</th></tr></thead><tbody><tr><td>001</td><td>2025606.03</td><td>0.00</td><td>2025606.03</td><td>MISMATCH</td></tr><tr><td>9ZZ</td><td>1969578.35</td><td>0.00</td><td>1969578.35</td><td>MISMATCH</td></tr><tr><td>A01</td><td>19271894.26</td><td>19271894.26</td><td>0.00</td><td>MATCH</td></tr><tr><td>B02</td><td>19153994.73</td><td>19153994.73</td><td>0.00</td><td>MATCH</td></tr><tr><td>C03</td><td>18875762.10</td><td>18875762.10</td><td>0.00</td><td>MATCH</td></tr><tr><td>D04</td><td>19694984.86</td><td>19694984.86</td><td>0.00</td><td>MATCH</td></tr><tr><td>E05</td><td>18831890.71</td><td>18831890.71</td><td>0.00</td><td>MATCH</td></tr><tr><td>F06</td><td>19482479.06</td><td>19482479.06</td><td>0.00</td><td>MATCH</td></tr><tr><td>Z99</td><td>18672973.48</td><td>18672973.48</td><td>0.00</td><td>MATCH</td></tr><tr><td>Suspense</td><td>1865002.53</td><td>5860186.91</td><td>3995184.38</td><td>separate line</td></tr><tr><td>Grand total</td><td>139844166.11</td><td>139844166.11</td><td>equal</td><td>balanced</td></tr></tbody></table></div><h3>Minimal failing case</h3><pre>Given the following input rows:
+  CASE-ID=GEN-001525, BRANCH=001, AMOUNT=6253.54
+When the COBOL reference and the Java port process this case
+Then COBOL writes row BRANCH=001 with SUBTOTAL=+0006253.54, Java does not
+Then Java writes row BRANCH=SUSP with SUBTOTAL=+0006253.54, COBOL does not
+COBOL lines involved: samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob:201 BALANCE-LINE.; samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob:202 MOVE 1 TO TABLE-INDEX; samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob:203 PERFORM UNTIL TABLE-INDEX &gt; 9; samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob:204 IF TABLE-CODE(TABLE-INDEX) &lt; TXN-BRANCH; samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob:205 ADD 1 TO TABLE-INDEX; samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob:207 IF TABLE-CODE(TABLE-INDEX) = TXN-BRANCH; samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob:208 ADD TXN-AMOUNT TO TABLE-SUBTOTAL(TABLE-INDEX); samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob:209 ADD TXN-AMOUNT TO CASE-TOTAL; samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob:210 MOVE 10 TO TABLE-INDEX; samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob:218 IF TABLE-INDEX = 10; samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob:219 CONTINUE
+</pre></section><section aria-labelledby="replay"><h2 id="replay">Replay a certificate</h2><p>A certificate is a reproducible run record. Replaying it offline recomputes every file hash, regenerates the cases from the seed and runs COBOL and Java again. It is not a formal proof of equivalence.</p><h3>Downloads</h3><ul><li><a href="certificate-29c15f04407b.json" download>certificate-29c15f04407b.json</a> (T1 correct port)</li><li><a href="certificate-f584d5f35228.json" download>certificate-f584d5f35228.json</a> (T1 faulty port)</li><li><a href="cases-a1ad67c683af.csv" download>cases-a1ad67c683af.csv</a> (generated cases the certificates refer to)</li></ul><h3>Command, with the published image</h3><p>The image is pinned by digest. The command needs Docker and the downloaded files in the current folder. It was not run during this build.</p><pre>mkdir -p replay/runs/29c15f04407b
+cp certificate-29c15f04407b.json replay/
+cp cases-a1ad67c683af.csv replay/runs/29c15f04407b/generated_cases.csv
+docker run --rm --init -v &quot;$PWD/replay:/replay:ro&quot; -e CORONER_BASE_DIR=/replay \
+  ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4 \
+  python3 -m coroner verify /replay/certificate-29c15f04407b.json
+mkdir -p replay/runs/f584d5f35228
+cp certificate-f584d5f35228.json replay/
+cp cases-a1ad67c683af.csv replay/runs/f584d5f35228/generated_cases.csv
+docker run --rm --init -v &quot;$PWD/replay:/replay:ro&quot; -e CORONER_BASE_DIR=/replay \
+  ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4 \
+  python3 -m coroner verify /replay/certificate-f584d5f35228.json</pre><p>Expected first line of the output: <code>Certificate: VALID</code>. The exit code is 0 for an ALIVE certificate and 1 for a ZOMBIE certificate.</p><h3>T1 correct port: replay run during the build</h3><pre>Certificate: VALID
+ALIVE: PASS: business behavior preserved on 2000 cases
+Cases: 2000
+Divergences: 0
+Paragraph coverage 6/8
+Branch coverage (Coroner definition) 22/30
+Replayed offline from &lt;local folder&gt;/runs/29c15f04407b/generated_cases.csv
+exit code: 0</pre><h3>T1 faulty port: replay run during the build</h3><pre>Certificate: VALID
+ZOMBIE: FAIL: business behavior diverged on 682 cases
+Cases: 2000
+Divergences: 682
+Paragraph coverage 6/8
+Branch coverage (Coroner definition) 22/30
+Replayed offline from &lt;local folder&gt;/runs/f584d5f35228/generated_cases.csv
+exit code: 1</pre><p class="muted">The replays above were run during the build with the local command <code>python -m coroner verify &lt;certificate&gt;</code>, not through the image.</p><h3>First certificate in full: T1 correct port</h3><pre id="certificate">{
+  &quot;branch_coverage_reached&quot;: 22,
+  &quot;branch_coverage_total&quot;: 30,
+  &quot;case_count&quot;: 2000,
+  &quot;cases_divergent&quot;: 0,
+  &quot;cases_file&quot;: &quot;runs/29c15f04407b/generated_cases.csv&quot;,
+  &quot;cases_file_encoding&quot;: &quot;utf-8&quot;,
+  &quot;cases_file_line_ending&quot;: &quot;LF&quot;,
+  &quot;cases_file_sha256&quot;: &quot;a1ad67c683af957cc08cafda20e6f58f79115d82dab211bb572bb65364d43e84&quot;,
+  &quot;cases_total&quot;: 2000,
+  &quot;certificate_format&quot;: 1,
+  &quot;certificate_sha256&quot;: &quot;3b25523c1d3fa4b9c62dcfd8bbc3560f8cfc8c16e7c95e58b9a1b85214689cdc&quot;,
+  &quot;cobc_flags&quot;: [],
+  &quot;cobc_version&quot;: &quot;cobc (GnuCOBOL) 3.2.0&quot;,
+  &quot;cobol_file&quot;: &quot;samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob&quot;,
+  &quot;cobol_file_sha256&quot;: &quot;da2c1e690fca239a55bcc06df1860ac769904b7d3363b0fa64170fc16d142e17&quot;,
+  &quot;comparison_engine_sha256&quot;: &quot;3b41ac06264e0d42dae054be53b69b31f0eb7be3e5b0f9d1be6d855f6eab1237&quot;,
+  &quot;copybook_dir&quot;: &quot;samples/traps/T1-ebcdic-match-merge/copybooks&quot;,
+  &quot;copybook_hashes&quot;: {},
+  &quot;coroner_version&quot;: &quot;0.1.0&quot;,
+  &quot;divergent_fields&quot;: null,
+  &quot;generator_version&quot;: 1,
+  &quot;java_file&quot;: &quot;samples/traps/T1-ebcdic-match-merge/java/correct/MatchMerge.java&quot;,
+  &quot;java_file_sha256&quot;: &quot;1f70014b3019fff637fbcf87c3b3b7e2a1bcdf2f5f581ef0edd7bb19b31ff566&quot;,
+  &quot;java_locale&quot;: &quot;en_US&quot;,
+  &quot;java_version&quot;: &quot;openjdk version \&quot;17.0.21\&quot; 2026-10-20&quot;,
+  &quot;javac_version&quot;: &quot;javac 17.0.21&quot;,
+  &quot;minimal_case_id&quot;: null,
+  &quot;paragraph_coverage_reached&quot;: 6,
+  &quot;paragraph_coverage_total&quot;: 8,
+  &quot;python_version&quot;: &quot;3.12.16&quot;,
+  &quot;random_seed&quot;: 42,
+  &quot;run_return_codes&quot;: {
+    &quot;cobol&quot;: 0,
+    &quot;java&quot;: 0
+  },
+  &quot;schema_file&quot;: &quot;samples/traps/T1-ebcdic-match-merge/schema.json&quot;,
+  &quot;schema_file_sha256&quot;: &quot;881f96549e78dd45cb180ec23ee650699deac8fef53eb12dbec7e99e36522731&quot;,
+  &quot;statement&quot;: &quot;Reproducible run record: PASS: business behavior preserved on 2000 cases. Validated under GnuCOBOL 3.x. This is not a formal proof of equivalence.&quot;,
+  &quot;status&quot;: &quot;ALIVE&quot;,
+  &quot;sub_label&quot;: &quot;PASS: business behavior preserved on 2000 cases&quot;,
+  &quot;tie_share&quot;: null,
+  &quot;timestamp&quot;: &quot;2026-11-21T20:54:21Z&quot;,
+  &quot;title&quot;: &quot;Coroner Certificate&quot;
+}</pre></section></main><footer><p class="muted">Built from commit 4feb030 on 2026-11-21.</p></footer></body></html>

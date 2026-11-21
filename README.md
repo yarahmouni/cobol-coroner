@@ -32,6 +32,7 @@ Coroner runs both programs on the same generated test cases, compares the output
 - [docs/architecture.md](docs/architecture.md): modules and repository layout.
 - [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md): accessibility checks the tests run, the manual browser checks, and their limits.
 - [docs/deploy.md](docs/deploy.md): the deployment guide, with measured outputs.
+- [docs/static/index.html](docs/static/index.html): static copy of real outputs, readable without the live site.
 - [samples/independence/TABLE.md](samples/independence/TABLE.md): the same audit on ports from different sources.
 - [samples/carddemo-cbact04c/README.md](samples/carddemo-cbact04c/README.md): the audit of one path of AWS's CardDemo sample.
 - [powers/coroner-audit/](powers/coroner-audit/): the Kiro power that exposes Coroner tools to a Kiro agent.

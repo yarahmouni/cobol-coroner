@@ -2,7 +2,7 @@ PYTHON ?= .venv/bin/python
 SCREENSHOT_CHANNEL ?=
 URL ?= http://127.0.0.1:8000
 
-.PHONY: test test-all smoke smoke-ui demo zombie serve java-sample hooks junit-jars pbt acceptance precommit traps demo-ebcdic coroner-gate screenshots deploy-check
+.PHONY: test test-all smoke smoke-ui demo zombie serve java-sample hooks junit-jars pbt acceptance precommit traps demo-ebcdic coroner-gate screenshots deploy-check static-page
 
 test:
 	$(PYTHON) -m pytest -q
@@ -77,3 +77,8 @@ screenshots:
 
 deploy-check:
 	$(PYTHON) scripts/deploy_check.py --url $(URL)
+
+static-page:
+	@test -n "$(BASE)" || { echo "BASE=<dir with runs/ and runs/trap_catalog.json> is required"; exit 2; }
+	@test -n "$(COMMIT)" || { echo "COMMIT=<commit id> is required"; exit 2; }
+	$(PYTHON) scripts/build_static_page.py --base "$(BASE)" --out docs/static --commit "$(COMMIT)"

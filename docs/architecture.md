@@ -63,6 +63,7 @@ COBOL + copybooks + Java 17 + schema.json
 
 ### Scripts
 - `scripts/check_cobol_rules.py`
+- `scripts/build_static_page.py`: builds the static fallback page (D-48) in docs/static/ from the run files of a base directory (runs/trap_catalog.json and the T1 runs), replaying the shown certificate once; `make static-page BASE=<dir> COMMIT=<id>`
 - `scripts/clean_context.sh`: exports tracked and untracked-not-ignored files to a temporary build context (used by make smoke-ui, so no ignored local file reaches the image)
 - `scripts/check_cobol_rules.py`
 - `scripts/clean_context.sh`: exports tracked and untracked-not-ignored files to a temporary build context (used by make smoke-ui, so no ignored local file reaches the image)
