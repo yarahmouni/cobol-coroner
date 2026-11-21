@@ -841,6 +841,13 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Next: the Java port by a fresh, isolated Kiro session that may read only adapted/CBACT04C.cob, the copybooks and schema.json (not the spec, PROBE.md or generator.py, which describe the findings), its prompt and transcript kept in docs/evidence/, then the audit at 200 cases, seed 42, in the image.
 - Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used.
 
+### R-125 2026-11-21: SECURITY.md covers the gate check endpoint and generator scripts
+- Call p328 (sonnet-5.5), docs worktree. SECURITY.md gains a "Gate Check" section with the order of checks and the numbers read from coroner/ui/app.py (global 100 per minute, per-IP 20 per minute, run id format, 1 MB certificate, cache by the SHA-256 of the certificate bytes for 600 s, a hit served without consuming the gate-check bucket, 1 replay per 10 s per IP via CORONER_GATE_CHECK_RATE_WINDOW, replay off the event loop with CORONER_REPLAY_TIMEOUT 90 s and process-group kill), and a "Schema Generator Scripts" section (the R-124 confinement).
+- The agent checked the operator's draft against the code and corrected two overstatements: the schema file is read before the refusal (the script is not), and the script is read once to run it while its hash comes from a separate read.
+- It also reported two code issues, both confirmed by the operator in the code and sent to track 1: gate_check caches every answer for 600 s, including a replay that timed out or failed to run (a visitor would get "invalid" for ten minutes); and the generator script's hash and the executed bytes come from two reads.
+- Checks (operator): the diff read in full; no em dash.
+- Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.

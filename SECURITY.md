@@ -49,6 +49,7 @@ The live demo at https://coroner.iqoba.com implements the following security con
 - /api/run: 5 requests per minute per IP
 - /api/verify: 1 request per 10 seconds per IP
 - /api/tamper: 1 request per 10 seconds per IP
+- /api/gate-check: 1 request per 10 seconds per IP, charged only to requests that start a replay (see "Gate Check" below)
 - All rate-limited responses include Retry-After header
 
 ### Network and Headers
@@ -64,6 +65,24 @@ The live demo at https://coroner.iqoba.com implements the following security con
 - Tamper works server-side on a logged copy (deleted after replay)
 - Replay timeout: 90 seconds (kills process group)
 - Replay recomputes every recorded file hash before running
+
+### Gate Check (POST /api/gate-check)
+
+The guided story asks the real gate whether a run may be committed. The endpoint takes one form field, `run_id`, and applies these checks in this order:
+
+1. Global limit: 100 requests per minute.
+2. Per-IP limit: 20 requests per minute.
+3. `run_id` validation: exactly 12 lowercase hexadecimal characters, otherwise 404. The certificate is read only from the server-side run folder of that id; a missing certificate gives 404.
+4. Certificate size limit: 1 MB, otherwise 413.
+5. Cache lookup by the SHA-256 of the raw certificate file bytes (not a field inside the certificate), so an edited certificate never gets the cached answer of the original. Entries live 600 seconds. A cache hit is answered at once and does not consume the gate-check limit. It still counts toward the global and per-IP limits above.
+6. Gate-check limit, only for a request that will start a replay: 1 request per 10 seconds per IP (window set by `CORONER_GATE_CHECK_RATE_WINDOW`, default 10).
+7. Replay of the certificate in a child process group, off the event loop, with a timeout of 90 seconds (`CORONER_REPLAY_TIMEOUT`, default 90). On timeout the whole process group is killed.
+
+The decision comes from the same function as the command-line gate (`gate_decision`): the file hashes must match the certificate, the replay must be VALID, and the status must be ZOMBIE for the answer "This ZOMBIE migration cannot be committed". Any other failed case answers that the certificate is invalid or does not match the audited files.
+
+### Schema Generator Scripts
+
+A schema.json may name a Python `generator_script` that produces the test cases. It is the only place where the engine runs code that comes with a sample, so it is restricted. The path is read relative to the schema's folder, symlinks are resolved, and the script must be a regular file inside that folder. Otherwise the run stops with "ERROR: generator script outside schema directory", exit status 2, before the script is read or executed, and no run, verdict or certificate is written. The engine reads the script once to run it and compiles exactly those bytes; it does not import it. The script's SHA-256 is part of the run id and of the certificate. Certificate replay refuses a certificate whose script changed ("generator script hash mismatch"), and so do the CI gate, the Git pre-commit hook and the gate check above, because the script is one of the files they compare. The public demo runs only the bundled samples and accepts no user schema or script.
 
 ### Cloudflare Protection
 
