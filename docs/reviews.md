@@ -924,6 +924,11 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Results: agent, Mac: test_story_pages.py and test_story_download.py with slow tests 85 passed in 53.37 s; other story and UI files with slow tests 165 passed; default suite 616 passed, 173 deselected in 714.80 s. Operator: the two files 85 passed in 55.31 s; in a browser on 127.0.0.1:8765 (2000-case base): step 4 shows ZOMBIE, "682 of 2000 batches diverge", exposure 3995184.38, 2 branches, grand total balances yes; the gate button ran the real replay in 16.1 s and the aria-live region announced "This ZOMBIE migration cannot be committed" and "Exit code 1"; step 5 (Engineer) shows the two branches that do not reconcile (001 and 9ZZ), suspense 3995184.38, cause of death, the COBOL rule with MATCH-MERGE.cob lines 10 to 13 and 201 to 223, time of death GEN-000002 (case 2 of 2000), and the four exhibits. Found by the operator: the gate result is announced by two aria-live regions at once (sent to task 14).
 - Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
 
+### R-139 2026-11-21: docs/deploy-aws.md
+- Call p344 (sonnet-5.5), docs worktree. Running the same compose files on one EC2 instance, covering only what differs from docs/deploy.md: x86_64 required (platform linux/amd64 pinned in the compose files), memory from the limits quoted in deploy.md (2688 MB steady, 4736 MB during the first start), disk checked with `docker system df` instead of a number, the Cloudflare Tunnel option with a security group allowing only SSH from the operator's address, the option without Cloudflare stated as not provided by this repository (with the consequence that per-IP limits would apply to the proxy address, marked as an inference from SECURITY.md), Docker installation by link, cleanup without prices. Every output is labelled "Not measured on AWS".
+- Checks (operator): read in full; CORONER_JOB_TIMEOUT=60 and the 10.5.0.3 proxy address match the compose files; no AWS endorsement wording; no em dash.
+- Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.
