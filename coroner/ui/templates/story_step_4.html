@@ -1,0 +1,25 @@
+{% from "story_macros.html" import verdict_block, figures, gate_section, run_section %}
+<p>Coroner ran both programs on the same {{ audit.cases_total if audit.cases_total is not none else "not recorded" }} test batches.</p>
+{{ verdict_block(audit) }}
+{{ figures([("Exposure", audit.exposure_sum), ("Branches affected", audit.affected_branches), ("Grand total balances", audit.grand_total_balances)]) }}
+{{ gate_section(audit.run_id, view, "The gate stops a rejected migration before it is committed.") }}
+{{ run_section(run_form, view, "Start your own audit of the rejected Java migration. Your run is separate from the figures above.") }}
+{% if view == 'engineer' %}
+<section class="panel" aria-labelledby="technical-details">
+    <h3 id="technical-details">Technical details</h3>
+    <dl>
+        <dt>Run id</dt>
+        <dd>{{ engineer.run_id }}</dd>
+        <dt>Seed</dt>
+        <dd>{{ engineer.seed }}</dd>
+        <dt>Duration</dt>
+        <dd>{{ engineer.duration if engineer.duration is not none else "not recorded" }}</dd>
+        <dt>Exposure maximum</dt>
+        <dd>{{ engineer.exposure_max if engineer.exposure_max is not none else "not recorded" }}</dd>
+        <dt>Suspense difference</dt>
+        <dd>{{ engineer.suspense_difference if engineer.suspense_difference is not none else "not recorded" }}</dd>
+        <dt>Return codes</dt>
+        <dd>{% if engineer.return_codes %}COBOL {{ engineer.return_codes[0] }}, Java {{ engineer.return_codes[1] }}{% else %}not recorded{% endif %}</dd>
+    </dl>
+</section>
+{% endif %}

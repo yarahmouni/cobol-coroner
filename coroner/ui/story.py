@@ -17,6 +17,7 @@ from markupsafe import Markup
 
 from coroner.cases import TRAPS_ROOT, load_cases_registry  # noqa: F401  (registry reader used by the story)
 from coroner.ui.pages import RUN_ID_PATTERN, parse_card
+from coroner.ui.sentences import generate_zombie_sentence
 
 MISSING_RUNS_MESSAGE = "Bundled demo runs missing. Run docker compose up to generate them."
 
@@ -428,7 +429,7 @@ def audit_result(base_dir, run_id: str) -> dict:
     }
 
 
-def _step_1(base_dir, view: str) -> dict:
+def _step_1(base_dir, view: str, bounds=None) -> dict:
     folder = trap_folder(STORY_TRAP_ID)
     cobol = trap_cobol_path(STORY_TRAP_ID)
     blocks = listing(folder, cobol, ["table"])
@@ -447,7 +448,7 @@ def _step_1(base_dir, view: str) -> dict:
     }
 
 
-def _step_2(base_dir, view: str) -> dict:
+def _step_2(base_dir, view: str, bounds=None) -> dict:
     run = story_run(base_dir)
     verdict = _need(run.verdict)
     reconciliation = _need(run.reconciliation)
@@ -475,7 +476,7 @@ def _step_2(base_dir, view: str) -> dict:
     }
 
 
-def _step_3(base_dir, view: str) -> dict:
+def _step_3(base_dir, view: str, bounds=None) -> dict:
     run = story_run(base_dir)
     totals = _need(run.reconciliation)["grand_total"]
     certificate = run.certificate
@@ -489,16 +490,218 @@ def _step_3(base_dir, view: str) -> dict:
     }
 
 
-# Steps 4 to 8 are added by later tasks of the spec; until then they show their heading only.
-_STEP_BUILDERS = {1: _step_1, 2: _step_2, 3: _step_3}
+# ---------------------------------------------------------------- steps 4 to 8
+
+# Default of the "Number of test batches" field of Run it yourself. It is a form default, not a
+# measurement; the bounds of both fields come from the model of POST /api/run (run_form_bounds).
+RUN_FORM_DEFAULT_CASES = 200
+
+BADGE_LINES = {"ZOMBIE": "MIGRATION REJECTED", "ALIVE": "MIGRATION CERTIFIED"}
+TAMPER_STATUS_CHOICES = ("ALIVE", "ZOMBIE")
+# Keys of a real certificate.json that the Tamper endpoint edits (all four exist in every certificate).
+TAMPER_FIELDS = ("status", "cases_total", "cases_divergent", "random_seed")
+CERTIFICATE_FILE = "certificate.json"
 
 
-def build_step(base_dir, step: int, view: Optional[str]) -> dict:
+def run_form_bounds(model) -> dict:
+    """Minimum and maximum of seed and cases, read from the pydantic model of POST /api/run."""
+    bounds = {}
+    for name in ("seed", "cases"):
+        low = high = None
+        for item in model.model_fields[name].metadata:
+            low = getattr(item, "ge", low)
+            high = getattr(item, "le", high)
+        bounds[name] = {"min": low, "max": high}
+    return bounds
+
+
+def _run_form(port: str, inputs: dict, bounds: Optional[dict]) -> dict:
+    """Values of the Run it yourself form: the seed of the bundled run, a default case count."""
+    cases = RUN_FORM_DEFAULT_CASES
+    if bounds:
+        cases = min(max(cases, bounds["cases"]["min"]), bounds["cases"]["max"])
+    return {"port": port, "seed": inputs["random_seed"], "cases": cases, "bounds": bounds}
+
+
+def format_duration(timing: Optional[dict]) -> Optional[str]:
+    """The duration of timing.json written as the run page writes it, or None when not recorded."""
+    seconds = (timing or {}).get("duration_seconds")
+    return f"{seconds} s" if seconds not in (None, "") else None
+
+
+def _yes_no(value) -> Optional[str]:
+    return None if value is None else ("yes" if value else "no")
+
+
+def _abs_amount(value: str) -> str:
+    """An amount written as text, without its sign, with two decimals (as the run page shows the suspense line)."""
+    return f"{abs(Decimal(value)):.2f}"
+
+
+def _money(value) -> Optional[str]:
+    """An amount of verdict.json written with two decimals, as the run page writes it; None stays None."""
+    return None if value is None else f"{Decimal(str(value)):.2f}"
+
+
+def audit_block(run: Run) -> dict:
+    """The verdict of a run and the figures of steps 4 and 7, each read from verdict.json (absent is None)."""
+    verdict = _need(run.verdict)
+    status = verdict.get("status")
+    return {
+        "run_id": run.run_id,
+        "status": status,
+        "kind": {"ALIVE": "alive", "ZOMBIE": "zombie"}.get(status, "error"),
+        "badge_line": BADGE_LINES.get(status),
+        "sentence": generate_zombie_sentence(STORY_TRAP_ID, run.run_dir) if status == "ZOMBIE" else None,
+        "cases_total": verdict.get("cases_total"),
+        "cases_divergent": verdict.get("cases_divergent"),
+        "exposure_sum": _money(verdict.get("exposure_sum")),
+        "exposure_max": _money(verdict.get("exposure_max")),
+        "affected_branches": verdict.get("affected_branches"),
+        "grand_total_balances": _yes_no(verdict.get("grand_total_matches")),
+        "suspense_difference": _money(verdict.get("suspense_difference")),
+        "return_codes": verdict.get("run_return_codes"),
+    }
+
+
+def divergence_summary(entry: dict) -> dict:
+    """Kind, output key and field names of one entry of failure_report.json divergent_fields."""
+    if entry.get("field_name") is not None:
+        names = [entry["field_name"]]
+    else:
+        names = list(dict.fromkeys([*entry.get("cobol_values", {}), *entry.get("java_values", {})]))
+    key = entry.get("output_key") or {}
+    return {
+        "kind": entry.get("kind"),
+        "output_key": ", ".join(f"{name}={str(value).strip()}" for name, value in key.items()),
+        "fields": ", ".join(names),
+    }
+
+
+def card_example(card_text: Optional[str]) -> Optional[str]:
+    """The Given and Then lines of card.txt as one text block, or None when the run has no card."""
+    card = parse_card(card_text) if card_text else None
+    if not card:
+        return None
+    return "\n".join(part for part in (card["given"], card["then"]) if part)
+
+
+def _certificate_exhibits(run: Run) -> list[Exhibit]:
+    return [e for e in exhibits(run) if e.file_name == CERTIFICATE_FILE]
+
+
+def _certificate_prefix(run: Run) -> Optional[str]:
+    """First 12 characters of certificate_sha256 (Engineer view)."""
+    digest = (run.certificate or {}).get("certificate_sha256")
+    return digest[:12] if isinstance(digest, str) else None
+
+
+def _step_4(base_dir, view: str, bounds=None) -> dict:
+    run = story_run(base_dir)
+    inputs = _need(run.inputs)
+    block = audit_block(run)
+    return {
+        "content": "story_step_4.html",
+        "audit": block,
+        "run_form": _run_form("faulty", inputs, bounds),
+        "engineer": {
+            "run_id": run.run_id,
+            "seed": inputs["random_seed"],
+            "duration": format_duration(run.timing),
+            "exposure_max": block["exposure_max"],
+            "suspense_difference": block["suspense_difference"],
+            "return_codes": block["return_codes"],
+        },
+    }
+
+
+def _step_5(base_dir, view: str, bounds=None) -> dict:
+    run = story_run(base_dir)
+    reconciliation = _need(run.reconciliation)
+    inputs = _need(run.inputs)
+    trap = load_trap(STORY_TRAP_ID)
+    cobol = resolve_cobol_path(inputs)
+    branches = reconciliation["branches"]
+    mismatches = sorted(
+        (b for b in branches if b["status"] == "MISMATCH"),
+        key=lambda b: Decimal(b["absolute_difference"]),
+        reverse=True,
+    )
+    executed = executed_lines_from_card(run.card_text, cobol.name)
+    blocks = {b.anchor_id: b for b in listing(trap_folder(STORY_TRAP_ID), cobol, ["collation", "match"], executed)}
+    divergent_fields = (run.failure_report or {}).get("divergent_fields")
+    return {
+        "content": "story_step_5.html",
+        "run_id": run.run_id,
+        "mismatches": mismatches,
+        "match_count": len(branches) - len(mismatches),
+        "suspense_difference": _abs_amount(reconciliation["suspense"]["difference"]),
+        "business_cause": trap["business_cause"],
+        "first_case": first_divergent_case(run),
+        "example": card_example(run.card_text),
+        "exhibit_list": exhibits(run),
+        "listing_html": render_listing([blocks["match"]], view),
+        "engineer": {
+            "divergences": [divergence_summary(e) for e in divergent_fields[:2]] if divergent_fields else None,
+            "technical_cause": trap["technical_cause"],
+            "cobol_rule": trap["cobol_rule"],
+            "cobol_file": cobol.name,
+            "anchors": [blocks["collation"], blocks["match"]],
+        },
+    }
+
+
+def _step_6(base_dir, view: str, bounds=None) -> dict:
+    trap = load_trap(STORY_TRAP_ID)
+    cobol = trap_cobol_path(STORY_TRAP_ID)
+    blocks = listing(trap_folder(STORY_TRAP_ID), cobol, ["match"])
+    return {
+        "content": "story_step_6.html",
+        "fix": trap["fix_sentence"] if view == "engineer" else trap["business_fix"],
+        "listing_html": render_listing(blocks, view),
+    }
+
+
+def _step_7(base_dir, view: str, bounds=None) -> dict:
+    run = story_run(base_dir, correct=True)
+    inputs = _need(run.inputs)
+    return {
+        "content": "story_step_7.html",
+        "audit": audit_block(run),
+        "run_form": _run_form("correct", inputs, bounds),
+        "exhibit_list": _certificate_exhibits(run),
+        "engineer": {
+            "run_id": run.run_id,
+            "seed": inputs["random_seed"],
+            "certificate_prefix": _certificate_prefix(run),
+        },
+    }
+
+
+def _step_8(base_dir, view: str, bounds=None) -> dict:
+    run = story_run(base_dir)
+    certificate = _need(run.certificate)
+    fields = {name: certificate[name] for name in TAMPER_FIELDS}
+    choices = list(TAMPER_STATUS_CHOICES)
+    if fields["status"] not in choices:
+        choices.append(fields["status"])
+    return {
+        "content": "story_step_8.html",
+        "tamper": {"run_id": run.run_id, "fields": fields, "status_choices": choices},
+        "engineer": {"run_id": run.run_id, "certificate_prefix": _certificate_prefix(run)},
+    }
+
+
+_STEP_BUILDERS = {1: _step_1, 2: _step_2, 3: _step_3, 4: _step_4, 5: _step_5, 6: _step_6, 7: _step_7, 8: _step_8}
+
+
+def build_step(base_dir, step: int, view: Optional[str], run_bounds: Optional[dict] = None) -> dict:
     """
     Everything the story page template needs for one step.
 
-    A missing or unreadable file gives `error` (the typed message) and no step content, so no
-    default number is ever shown.
+    run_bounds are the limits of the Run it yourself fields (see run_form_bounds). A missing or
+    unreadable file gives `error` (the typed message) and no step content, so no default number
+    is ever shown.
     """
     view = normalize_view(view)
     context = {
@@ -519,9 +722,9 @@ def build_step(base_dir, step: int, view: Optional[str]) -> dict:
     builder = _STEP_BUILDERS.get(step)
     if builder is not None:
         try:
-            context.update(builder(base_dir, view))
+            context.update(builder(base_dir, view, run_bounds))
         except StoryDataError as e:
             context["error"] = str(e)
-        except (KeyError, TypeError) as e:
+        except (KeyError, TypeError, InvalidOperation) as e:
             context["error"] = f"A bundled run file does not have the expected content ({e})."
     return context

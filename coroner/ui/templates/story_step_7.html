@@ -1,0 +1,20 @@
+{% from "story_macros.html" import verdict_block, figures, gate_section, run_section, exhibits_section %}
+<p>Coroner audited the corrected version on the same test batches.</p>
+{{ verdict_block(audit) }}
+{{ figures([("Exposure", audit.exposure_sum)]) }}
+{{ gate_section(audit.run_id, view, "Ask the gate again, now with the corrected migration.") }}
+{{ run_section(run_form, view, "Start your own audit of the corrected Java migration. Your run is separate from the figures above.") }}
+{{ exhibits_section(audit.run_id, exhibit_list) }}
+{% if view == 'engineer' %}
+<section class="panel" aria-labelledby="technical-details">
+    <h3 id="technical-details">Technical details</h3>
+    <dl>
+        <dt>Run id</dt>
+        <dd>{{ engineer.run_id }}</dd>
+        <dt>Seed</dt>
+        <dd>{{ engineer.seed }}</dd>
+        <dt>Certificate hash (first 12 characters)</dt>
+        <dd>{{ engineer.certificate_prefix if engineer.certificate_prefix is not none else "not recorded" }}</dd>
+    </dl>
+</section>
+{% endif %}

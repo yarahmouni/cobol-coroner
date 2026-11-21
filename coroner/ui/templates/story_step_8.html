@@ -1,0 +1,18 @@
+{% from "story_macros.html" import tamper_form, noscript_note %}
+<p>Try to make the rejected migration look clean by editing its certificate.</p>
+<p>Change the status to ALIVE and the divergent count to 0, then check the edited certificate.</p>
+{{ tamper_form(tamper, view) }}
+<div id="tamper-result" role="status" aria-live="polite"></div>
+{{ noscript_note("Checking an edited certificate") }}
+<p>Editing a certificate makes it INVALID. The audit result cannot be faked.</p>
+{% if view == 'engineer' %}
+<section class="panel" aria-labelledby="technical-details">
+    <h3 id="technical-details">Technical details</h3>
+    <dl>
+        <dt>Run id</dt>
+        <dd>{{ engineer.run_id }}</dd>
+        <dt>Certificate hash (first 12 characters)</dt>
+        <dd>{{ engineer.certificate_prefix if engineer.certificate_prefix is not none else "not recorded" }}</dd>
+    </dl>
+</section>
+{% endif %}

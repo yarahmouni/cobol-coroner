@@ -31,3 +31,131 @@
     <button type="submit">Try again</button>
 </form>
 {% endmacro %}
+
+{# Retry of Tamper: the same values the visitor sent. #}
+{% macro tamper_retry_form(run_id, fields, view) %}
+<form class="story-action" hx-post="/story/tamper" hx-target="#tamper-result" hx-swap="innerHTML" hx-disabled-elt="find button">
+    <input type="hidden" name="run_id" value="{{ run_id }}">
+    {% for name, value in fields.items() %}
+    <input type="hidden" name="{{ name }}" value="{{ value }}">
+    {% endfor %}
+    <input type="hidden" name="view" value="{{ view }}">
+    <button type="submit">Try again</button>
+</form>
+{% endmacro %}
+
+{# The note shown next to an action that needs JavaScript (Req 17). #}
+{% macro noscript_note(what) %}
+<noscript><p class="story-noscript">{{ what }} needs JavaScript. Without it, open the run page, or run <code>python3 -m coroner verify &lt;certificate.json&gt;</code> from the command line.</p></noscript>
+{% endmacro %}
+
+{# The verdict of an audit: badge with its text and shape, the sentence, and the batch counts (steps 4 and 7). #}
+{% macro verdict_block(audit) %}
+<div class="verdict-badge {{ audit.kind }}" style="padding: 1rem; margin: 1rem 0;">
+    {{ status_badge(audit.kind) }}
+    <div class="verdict-status" style="font-size: 1.25rem;">{{ audit.status if audit.status else "no verdict recorded" }}</div>
+    {% if audit.badge_line %}
+    <div>{{ audit.badge_line }}</div>
+    {% endif %}
+</div>
+{% if audit.sentence %}
+<p>{{ audit.sentence }}</p>
+{% endif %}
+{% if audit.cases_divergent is not none and audit.cases_total is not none %}
+<p>{{ audit.cases_divergent }} of {{ audit.cases_total }} batches diverge</p>
+{% else %}
+<p>The batch counts are not recorded for this run.</p>
+{% endif %}
+{% endmacro %}
+
+{# Headline figures: a list of (label, value) pairs. An absent value reads "not recorded", never a number. #}
+{% macro figures(items) %}
+<dl class="story-figures">
+    {% for label, value in items %}
+    <div>
+        <dt>{{ label }}</dt>
+        <dd>{{ value if value is not none else "not recorded" }}</dd>
+    </div>
+    {% endfor %}
+</dl>
+{% endmacro %}
+
+{# The gate: the button posts to /story/gate-check and the answer lands in the live region. #}
+{% macro gate_section(run_id, view, intro) %}
+<section aria-labelledby="gate-heading">
+    <h3 id="gate-heading">The gate</h3>
+    <p>{{ intro }}</p>
+    {{ gate_form(run_id, view, "Check the gate") }}
+    <div id="gate-result" role="status" aria-live="polite"></div>
+    {{ noscript_note("The gate check") }}
+</section>
+{% endmacro %}
+
+{# Run it yourself: a new audit of the story trap with a seed and a number of test batches. #}
+{% macro run_section(run_form, view, intro) %}
+<section aria-labelledby="run-heading">
+    <h3 id="run-heading">Run it yourself</h3>
+    <p>{{ intro }}</p>
+    <form class="story-action" hx-post="/story/run" hx-target="#run-result" hx-swap="innerHTML" hx-disabled-elt="find button">
+        <input type="hidden" name="port" value="{{ run_form.port }}">
+        <input type="hidden" name="view" value="{{ view }}">
+        <p>
+            <label for="run-seed">Random seed</label>
+            <input id="run-seed" name="seed" type="number" required value="{{ run_form.seed }}"{% if run_form.bounds %} min="{{ run_form.bounds.seed.min }}" max="{{ run_form.bounds.seed.max }}"{% endif %}>
+        </p>
+        <p>
+            <label for="run-cases">Number of test batches</label>
+            <input id="run-cases" name="cases" type="number" required value="{{ run_form.cases }}"{% if run_form.bounds %} min="{{ run_form.bounds.cases.min }}" max="{{ run_form.bounds.cases.max }}"{% endif %}>
+        </p>
+        <button type="submit">Run the audit</button>
+    </form>
+    <div id="run-result" role="status" aria-live="polite"></div>
+    {{ noscript_note("Run it yourself") }}
+</section>
+{% endmacro %}
+
+{# The Exhibits list: the evidence files that exist, each with a download link of the run. #}
+{% macro exhibits_section(run_id, exhibit_list) %}
+<section aria-labelledby="exhibits-heading">
+    <h3 id="exhibits-heading">Exhibits</h3>
+    {% if exhibit_list %}
+    <ol class="story-exhibits">
+        {% for exhibit in exhibit_list %}
+        <li>{{ exhibit.label }}: <a href="/run/{{ run_id }}/download/{{ exhibit.file_name }}">{{ exhibit.file_name }}</a></li>
+        {% endfor %}
+    </ol>
+    {% else %}
+    <p>No evidence file is recorded for this run.</p>
+    {% endif %}
+    {{ caller() if caller else "" }}
+</section>
+{% endmacro %}
+
+{# The Tamper form of step 8, prefilled from the certificate of the rejected run. #}
+{% macro tamper_form(tamper, view) %}
+<form class="story-action" hx-post="/story/tamper" hx-target="#tamper-result" hx-swap="innerHTML" hx-disabled-elt="find button">
+    <input type="hidden" name="run_id" value="{{ tamper.run_id }}">
+    <input type="hidden" name="view" value="{{ view }}">
+    <p>
+        <label for="tamper-status">Status</label>
+        <select id="tamper-status" name="status">
+            {% for choice in tamper.status_choices %}
+            <option value="{{ choice }}"{% if choice == tamper.fields.status %} selected{% endif %}>{{ choice }}</option>
+            {% endfor %}
+        </select>
+    </p>
+    <p>
+        <label for="tamper-cases-total">Test batches</label>
+        <input id="tamper-cases-total" name="cases_total" type="number" required value="{{ tamper.fields.cases_total }}">
+    </p>
+    <p>
+        <label for="tamper-cases-divergent">Divergent batches</label>
+        <input id="tamper-cases-divergent" name="cases_divergent" type="number" required value="{{ tamper.fields.cases_divergent }}">
+    </p>
+    <p>
+        <label for="tamper-random-seed">Random seed</label>
+        <input id="tamper-random-seed" name="random_seed" type="number" required value="{{ tamper.fields.random_seed }}">
+    </p>
+    <button type="submit">Check the edited certificate</button>
+</form>
+{% endmacro %}

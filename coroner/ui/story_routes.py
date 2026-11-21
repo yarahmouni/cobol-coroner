@@ -1,8 +1,10 @@
-"""Routes of the guided story: the step pages and the HTML fragments of its three actions.
+"""Routes of the guided story: the step pages and the HTML fragments of its four actions.
 
-The fragment routes (gate check, Run it yourself, job polling) call the route functions of
+The fragment routes (gate check, Run it yourself, job polling, Tamper) call the route functions of
 coroner/ui/app.py and render their answer as HTML. They validate nothing, limit nothing, cache
 nothing and replay nothing themselves, so every limit of the API routes applies unchanged.
+The only conversion they do is the one a direct call needs: the Tamper numbers arrive as text and
+are turned into integers before the route function is called.
 
 Fragment answers always use status 200: htmx does not swap a 4xx or 5xx response into the page,
 and the visitor must see the message in the live region. The real status is shown in the text.
@@ -13,6 +15,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from markupsafe import Markup
 
 from coroner.ui import story
 
@@ -24,6 +27,7 @@ RUN_NOT_ACCEPTED_MESSAGE = (
     "The audit was not started. Check that the seed and the number of batches are whole numbers "
     "within the limits of the form."
 )
+WHOLE_NUMBERS_MESSAGE = "The certificate was not checked. The batch counts and the seed must be whole numbers."
 
 
 def _ui():
@@ -42,7 +46,7 @@ def _is_fragment_request(request: Request) -> bool:
 def _render_step(request: Request, step: int, view: Optional[str]):
     ui = _ui()
     fragment = _is_fragment_request(request)
-    context = story.build_step(ui.get_base_dir(), step, view)
+    context = story.build_step(ui.get_base_dir(), step, view, story.run_form_bounds(ui.RunAuditRequest))
     context["is_fragment"] = fragment
     return ui.templates.TemplateResponse(
         request=request,
@@ -164,3 +168,51 @@ async def story_job(request: Request, job_id: str, view: Optional[str] = None):
             return _alert(request, str(e))
         return _render(request, "story_run_result.html", result=result, cached=False)
     return _alert(request, f"The job has an unknown status: {status}")
+
+
+@router.post("/story/tamper", response_class=HTMLResponse)
+async def story_tamper(
+    request: Request,
+    run_id: str = Form(""),
+    status: str = Form(""),
+    cases_total: str = Form(""),
+    cases_divergent: str = Form(""),
+    random_seed: str = Form(""),
+    view: Optional[str] = Form(None),
+):
+    """Fragment for Tamper: the answer of POST /api/tamper (an edited copy is replayed) as HTML."""
+    ui = _ui()
+    view = story.normalize_view(view)
+    retry = {
+        "retry_action": "tamper", "run_id": run_id, "view": view,
+        "fields": {
+            "status": status, "cases_total": cases_total,
+            "cases_divergent": cases_divergent, "random_seed": random_seed,
+        },
+    }
+    try:
+        numbers = [int(value) for value in (cases_total, cases_divergent, random_seed)]
+    except ValueError:
+        return _alert(request, WHOLE_NUMBERS_MESSAGE)
+    try:
+        response = await ui.tamper_certificate(
+            request, run_id=run_id, status=status,
+            cases_total=numbers[0], cases_divergent=numbers[1], random_seed=numbers[2],
+        )
+    except HTTPException as e:
+        return _alert(request, str(e.detail))
+    if response.status_code == 200:
+        text = response.body.decode("utf-8")
+        # The endpoint escapes every value it inserts; the shape is chosen from its result line.
+        if "Certificate: INVALID" in text:
+            kind = "invalid"
+        elif "Certificate: VALID" in text:
+            kind = "alive"
+        else:
+            kind = "error"
+        return _render(request, "story_tamper_result.html", kind=kind, result_html=Markup(text))
+    body = _json_of(response)
+    message = body.get("detail") or f"The certificate was not checked (status {response.status_code})"
+    if response.status_code == 429:
+        return _alert(request, str(message), retry_after=response.headers.get("Retry-After"), **retry)
+    return _alert(request, str(message))

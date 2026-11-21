@@ -86,3 +86,58 @@ def listing_lines(html):
     )
     import html as html_module
     return [(int(n), html_module.unescape(text)) for n, text in pattern.findall(html)]
+
+
+def executed_listing_numbers(html):
+    """Line numbers of the listing lines that carry the word "executed"."""
+    pattern = re.compile(
+        r'<span class="listing-line"><span class="listing-number">(\d+)</span> [^\n]*? '
+        r'<span class="listing-executed">executed</span></span>\n',
+    )
+    return [int(n) for n in pattern.findall(html)]
+
+
+def example_block(html):
+    """The text of the <pre class="story-example"> block, or None."""
+    import html as html_module
+    match = re.search(r'<pre class="story-example">(.*?)</pre>', html, re.S)
+    return html_module.unescape(match.group(1)) if match else None
+
+
+def headings(html, level="h3"):
+    """The text of every heading of one level."""
+    return [h.strip() for h in re.findall(rf"<{level}[^>]*>(.*?)</{level}>", html, re.S)]
+
+
+class _FormReader(HTMLParser):
+    def __init__(self, hx_post):
+        super().__init__(convert_charrefs=True)
+        self.hx_post = hx_post
+        self.fields = {}
+        self._inside = False
+        self._select = None
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag == "form":
+            self._inside = attrs.get("hx-post") == self.hx_post
+        elif self._inside and tag == "input" and "name" in attrs:
+            self.fields[attrs["name"]] = attrs.get("value", "")
+        elif self._inside and tag == "select":
+            self._select = attrs.get("name")
+        elif self._inside and tag == "option" and self._select and "selected" in attrs:
+            self.fields[self._select] = attrs.get("value", "")
+
+    def handle_endtag(self, tag):
+        if tag == "form":
+            self._inside = False
+        elif tag == "select":
+            self._select = None
+
+
+def form_fields(html, hx_post):
+    """name -> value of the inputs (and the selected option) of the form whose hx-post is `hx_post`."""
+    reader = _FormReader(hx_post)
+    reader.feed(html)
+    reader.close()
+    return reader.fields

@@ -1,0 +1,81 @@
+{% from "story_macros.html" import exhibits_section %}
+<p>Coroner found where the migration broke and why.</p>
+<section aria-labelledby="branches-heading">
+    <h3 id="branches-heading">Branches that do not reconcile</h3>
+    {% if mismatches %}
+    <div style="overflow-x: auto;">
+        <table>
+            <caption class="story-progress">Subtotals that differ between COBOL and Java</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Branch</th>
+                    <th scope="col" class="story-amount">COBOL subtotal</th>
+                    <th scope="col" class="story-amount">Java subtotal</th>
+                    <th scope="col" class="story-amount">Difference</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for branch in mismatches %}
+                <tr>
+                    <th scope="row">{{ branch.branch }}</th>
+                    <td class="story-amount">{{ branch.cobol_subtotal }}</td>
+                    <td class="story-amount">{{ branch.java_subtotal }}</td>
+                    <td class="story-amount">{{ branch.difference }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+    {% if match_count > 0 %}
+    <p>
+        {% if mismatches %}
+        {{ match_count }} other {{ "branch matches" if match_count == 1 else "branches match" }}
+        {% else %}
+        All {{ match_count }} {{ "branch matches" if match_count == 1 else "branches match" }}
+        {% endif %}
+    </p>
+    {% endif %}
+    <p>Posted to suspense instead of a branch: {{ suspense_difference }}</p>
+</section>
+<section aria-labelledby="cause-heading">
+    <h3 id="cause-heading">Cause of death</h3>
+    <p>{{ business_cause }}</p>
+    {% if view == 'engineer' %}
+    <dl>
+        {% if engineer.divergences is none %}
+        <dt>Divergent output</dt>
+        <dd>not recorded</dd>
+        {% else %}
+        {% for divergence in engineer.divergences %}
+        <dt>Divergent output {{ loop.index }}</dt>
+        <dd>{{ divergence.kind }}; key {{ divergence.output_key }}; fields {{ divergence.fields }}</dd>
+        {% endfor %}
+        {% endif %}
+        <dt>Technical cause</dt>
+        <dd>{{ engineer.technical_cause }}</dd>
+        <dt>COBOL rule</dt>
+        <dd>{{ engineer.cobol_rule }}</dd>
+        {% for anchor in engineer.anchors %}
+        <dt>{{ anchor.label }}</dt>
+        <dd>{% if anchor.error %}{{ anchor.error }}{% else %}{{ engineer.cobol_file }} lines {{ anchor.first_line }} to {{ anchor.last_line }}{% endif %}</dd>
+        {% endfor %}
+    </dl>
+    {% endif %}
+</section>
+<section aria-labelledby="time-heading">
+    <h3 id="time-heading">Time of death</h3>
+    {% if first_case %}
+    <p>The first divergent case is {{ first_case.case_id }} (case {{ first_case.position }} of {{ first_case.cases_total if first_case.cases_total is not none else "not recorded" }}).</p>
+    <p>It is the first one the test run met. The smallest case that shows the failure is the example under Exhibits.</p>
+    {% else %}
+    <p>No divergent case is recorded for this run.</p>
+    {% endif %}
+</section>
+{% call exhibits_section(run_id, exhibit_list) %}
+{% if example %}
+<p>Example, the smallest case that shows the failure:</p>
+<pre class="story-example">{{ example }}</pre>
+{% endif %}
+{% endcall %}
+{{ listing_html }}

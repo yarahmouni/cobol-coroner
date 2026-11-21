@@ -167,6 +167,15 @@ app.add_middleware(BodySizeLimitMiddleware)
 STATIC_DIR = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
+# Files a visitor may download from a run: fixed names, so no path ever comes from the request.
+DOWNLOAD_FILE_NAMES = (
+    "ZombieRegressionTest.java",
+    "certificate.json",
+    "failure_report.json",
+    "minimal_case_input.csv",
+)
+
+
 
 def get_base_dir() -> Path:
     """
@@ -301,13 +310,13 @@ async def download_file(run_id: str, file_name: str):
     """
     Download a file from a run.
     
-    Allowed files: ZombieRegressionTest.java, certificate.json
+    Allowed files (fixed names, never a path from the request): ZombieRegressionTest.java,
+    certificate.json, failure_report.json, minimal_case_input.csv
     """
     validate_run_id(run_id)
     
     # Validate file_name against allowed list
-    allowed_files = ["ZombieRegressionTest.java", "certificate.json"]
-    if file_name not in allowed_files:
+    if file_name not in DOWNLOAD_FILE_NAMES:
         raise HTTPException(status_code=404, detail="File not found")
     
     # Check if run directory exists
