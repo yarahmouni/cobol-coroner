@@ -137,23 +137,24 @@ Order matters: each task builds on the previous ones. Every task ends with `pyte
 **Done when:** `pytest tests/test_story_pages.py -k step8` passes; the finding about the case-count key is written in docs/reviews.md by the operator with its test result.
 
 ## Task 12: "Can you fool Coroner?" page
-- [ ] `fool_state` in story.py and GET /fool with the GET form, three toggles, counter, clean-ports line, per-toggle sentence from `generate_zombie_sentence`, Engineer details (run id, divergent count, `cobol_lines` from the catalog entry, T2 FEE1 and FEE2 counts, the count of divergent T4 values ending in "}"), positioning sentence, one sentence stating that no code is uploaded and no audit starts
-- [ ] Fragment update with htmx on `change`, live region; plain form without JavaScript
-- [ ] Disabled toggle with "Bundled run missing" when a run is missing
-- [ ] Tests (slow): for each of the 8 toggle combinations the counter equals counts computed by the test from the verdict.json files of the catalog runs; with none on, the page shows "No defect injected" and C and M from the correct runs; editing the verdict.json of one faulty run in a temporary copy to ALIVE lowers D and leaves N (the counter is computed); deleting a run folder disables its toggle and lowers N; each shown ZOMBIE sentence equals the sentence on the run page
-- [ ] Test (fast): exactly three checkboxes named case1, case2, case4; labels present; the page lists the case names from the registry
+- [x] `fool_state` in story.py and GET /fool with the GET form, three toggles, counter, clean-ports line, per-toggle sentence from `generate_zombie_sentence`, Engineer details (run id, divergent count, `cobol_lines` from the catalog entry, T2 FEE1 and FEE2 counts, the count of divergent T4 values ending in "}"), positioning sentence, one sentence stating that no code is uploaded and no audit starts. Decisions (R-134): the Case 2 toggle reads the credit-fees HALF_EVEN variant run and its correct run, found by scanning the inputs.json files (cobol_file credit-fees, java_file ending in build/variants/CreditFees.java or samples/credit-fees/java/CreditFees.java, same case count and seed as the first catalog run), never by a typed id; its sentence is the `sub_label` of verdict.json, as on its run page, because `generate_zombie_sentence` has no credit-fees rule; its Engineer details use the card.txt COBOL lines and the per-column divergent counts of that run. The T4 detail shows the divergent cases and how many inputs end in "}" and in "{". Proof: tests/test_story_fool.py.
+- [x] Fragment update with htmx on `change`, live region; plain form without JavaScript. The out-of-band `fool-views` nav is replaced with each answer so its links keep the switched-on toggles. `/fool` answers carry no-store and Vary like the story.
+- [x] Disabled toggle with "Bundled run missing" when a run is missing (all three, with the alert and no number, when the catalog is missing)
+- [x] Tests (slow): for each of the 8 toggle combinations the counter equals counts computed by the test from the verdict.json files of the catalog runs; with none on, the page shows "No defect injected" and C and M from the correct runs; editing the verdict.json of one faulty run in a temporary copy to ALIVE lowers D and leaves N (the counter is computed); deleting a run folder disables its toggle and lowers N; each shown ZOMBIE sentence equals the sentence on the run page. The session fixture `fool_runs` (tests/conftest.py) uses 20 cases: the credit-fees HALF_EVEN variant is ALIVE at 9, 10, 12 and 15 cases and ZOMBIE from 20 (seed 42).
+- [x] Test (fast): exactly three checkboxes named case1, case2, case4; labels present; the page lists the case names from the registry
 
 **Requirements:** 2, 3, 13, 15, 16, 17
-**Done when:** `pytest tests/test_story_fool.py` passes; the operator toggles each defect in Chrome and the counter text matches the three verdict files (recorded in the review entry).
+**Done when:** `pytest tests/test_story_fool.py` passes; the operator toggles each defect in Chrome and the counter text matches the three verdict files (recorded in the review entry). The first part is met; the Chrome check is the operator's and is not done.
 
 ## Task 13: Home page link, navigation and responsive layout
-- [ ] index.html: large "Try the bank failure" link to /story and a link "Can you fool Coroner?" to /fool; story and fool pages link to each other and to the home page and Detection Matrix
-- [ ] CSS in the existing variable system for the story, listing panel, toggles, and 375 px rules (stacked layout, 16 px text, 44 px targets, contained scrolling)
-- [ ] Test (fast): home page contains the two links; stylesheet contains the 375 px rules; the new colors keep the contrast ratios of tests/test_ui_pages.py in both modes
-- [ ] Operator check with Playwright and the installed Chrome at 375 px for the story steps 1 to 8 and /fool: no horizontal page scroll, targets at least 44 px, keyboard shortcuts and focus move work; screenshots kept out of the repository; result in the review entry
+- [x] index.html: large "Try the bank failure" link to /story and a link "Can you fool Coroner?" to /fool; story and fool pages link to each other and to the home page and Detection Matrix
+- [x] CSS in the existing variable system for the story, listing panel, toggles, and 375 px rules (stacked layout, 16 px text, 44 px targets, contained scrolling). The story styles moved from story.html to the shared template story_styles.html, included by the story, fool and home pages.
+- [x] Test (fast): home page contains the two links; stylesheet contains the 375 px rules; the new colors keep the contrast ratios of tests/test_ui_pages.py in both modes
+- [ ] Operator check with Playwright and the installed Chrome at 375 px for the story steps 1 to 8 and /fool: no horizontal page scroll, targets at least 44 px, keyboard shortcuts and focus move work; screenshots kept out of the repository; result in the review entry (not done: the operator's check)
+- [x] R-138 finding, one live region per async result: the containers `gate-result`, `run-result` and `tamper-result` are plain divs and the fragment swapped into each is the only live region; on the fool page the container `fool-result` is the only one and its fragment has none. Tests: tests/test_story_shell.py (live region tests), tests/test_story_fragments.py (real step 4 and 7 pages), tests/test_story_fool.py.
 
 **Requirements:** 1, 2, 7
-**Done when:** `pytest tests/test_story_shell.py -k home` passes and the operator's 375 px check is recorded.
+**Done when:** `pytest tests/test_story_shell.py -k home` passes and the operator's 375 px check is recorded. The first part is met; the 375 px check is the operator's and is not done.
 
 ## Task 14: Accessibility and no-JavaScript tests
 - [ ] tests/test_story_a11y.py: positioning sentence present on every page type; Next and Back are `<a href>`; every async target has a live-region role; the listing region has tabindex and aria-label; form controls have labels; badges carry text and shape

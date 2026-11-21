@@ -48,7 +48,7 @@ class CacheControlMiddleware:
     Pure ASGI middleware that sets Cache-Control headers on all responses.
     
     - /api/* responses: no-store, no-cache, must-revalidate (any status)
-    - /story and /story/* responses: no-store (any status)
+    - /story and /story/* and /fool responses: no-store (any status)
     - /static/* responses: public, max-age=86400
     - Other paths: no Cache-Control header
     """
@@ -67,7 +67,7 @@ class CacheControlMiddleware:
         cache_header = None
         if path.startswith("/api/"):
             cache_header = b"no-store, no-cache, must-revalidate"
-        elif path == "/story" or path.startswith("/story/"):
+        elif path == "/story" or path.startswith("/story/") or path == "/fool":
             cache_header = b"no-store"
         elif path.startswith("/static/"):
             cache_header = b"public, max-age=86400"

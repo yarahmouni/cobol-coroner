@@ -1,4 +1,5 @@
 """Pytest configuration for Coroner tests."""
+import json
 from pathlib import Path
 
 import pytest
@@ -149,3 +150,78 @@ def story_client(story_runs, monkeypatch):
     clear_gate_check_cache()
     yield TestClient(app)
     clear_gate_check_cache()
+
+
+FOOL_CASES = 20
+
+
+@pytest.fixture(scope="session")
+def fool_runs(tmp_path_factory):
+    """
+    The real runs of the fool page tests, produced once per session in a temporary base directory.
+
+    The trap catalog (faulty and correct port of T1 to T5), the credit-fees correct run and the
+    credit-fees HALF_EVEN variant run are all made with the real engine at the same case count and
+    seed 42, because the page finds the credit-fees runs by the case count and seed of the catalog.
+
+    Case count: 20. Measured with `run_verify` on the credit-fees HALF_EVEN variant, seed 42: 9, 10,
+    12 and 15 cases are ALIVE (no divergent case), 20 cases and more are ZOMBIE. T1, T2 and T4
+    faulty ports are already ZOMBIE at 9 cases (see `story_runs`). The fixture asserts the verdicts.
+    The repository runs/ folder is never read or written: its listing is checked before and after.
+
+    Returns a namedtuple (base, cases, catalog, half_even_run, correct_run): the base directory, the
+    case count, the dict returned by run_catalog and the two credit-fees run ids returned by run_verify.
+    """
+    from collections import namedtuple
+
+    from coroner.catalog.legacy_variant import generate_half_even_variant
+    from coroner.cli import run_verify
+    from coroner.traps import run_catalog, write_catalog_files
+
+    repo = Path(__file__).resolve().parent.parent
+    before = _folder_listing(repo / "runs")
+
+    base = tmp_path_factory.mktemp("fool_runs")
+    catalog = run_catalog(seed=42, cases=FOOL_CASES, base_dir=str(base))
+    write_catalog_files(catalog, base_dir=str(base))
+
+    variant = base / "build" / "variants" / "CreditFees.java"
+    variant.parent.mkdir(parents=True)
+    generate_half_even_variant(str(repo / "samples/credit-fees/java/CreditFees.java"), str(variant))
+
+    def credit_fees_run(java_file):
+        _, run_dir = run_verify(
+            cobol_path=str(repo / "samples/credit-fees/CREDIT-FEES.cob"),
+            copybooks_dir=str(repo / "samples/credit-fees/copybooks"),
+            java_path=str(java_file),
+            schema_path=str(repo / "samples/credit-fees/schema.json"),
+            num_cases=FOOL_CASES,
+            seed=42,
+            timings=False,
+            base_dir=str(base),
+        )
+        return run_dir.name, json.loads((run_dir / "verdict.json").read_text())["status"]
+
+    half_even_id, half_even_status = credit_fees_run(variant)
+    correct_id, correct_status = credit_fees_run(repo / "samples/credit-fees/java/CreditFees.java")
+    assert half_even_status == "ZOMBIE", f"HALF_EVEN variant is not ZOMBIE at {FOOL_CASES} cases"
+    assert correct_status == "ALIVE"
+    by_id = {trap["id"]: trap for trap in catalog["traps"]}
+    for trap_id in ("T1", "T4"):
+        assert by_id[trap_id]["cases_detected"] >= 1, f"{trap_id} faulty port is not ZOMBIE at {FOOL_CASES} cases"
+    assert _folder_listing(repo / "runs") == before, "the fool runs touched the repository runs/ folder"
+
+    return namedtuple("FoolRuns", "base cases catalog half_even_run correct_run")(
+        base, FOOL_CASES, catalog, half_even_id, correct_id,
+    )
+
+
+@pytest.fixture
+def fool_client(fool_runs, monkeypatch):
+    """A test client whose base directory is the real runs of `fool_runs`."""
+    from fastapi.testclient import TestClient
+
+    from coroner.ui.app import app
+
+    monkeypatch.setenv("CORONER_BASE_DIR", str(fool_runs.base))
+    return TestClient(app)

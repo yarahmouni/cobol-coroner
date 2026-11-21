@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Can you fool Coroner? - COBOL Coroner{% endblock %}
+
+{% block head_extra %}
+<script src="/static/story.js" defer></script>
+{% include "story_styles.html" %}
+{% endblock %}
+
+{% block content %}
+<nav aria-label="Site" class="story-site-nav">
+    <a href="/">← Back to Index</a>
+    <a href="{{ story_url }}">Try the bank failure</a>
+    <a href="/matrix">Detection Matrix</a>
+</nav>
+<header>
+    <h1>Can you fool Coroner?</h1>
+    <p class="story-positioning">{{ positioning }}</p>
+</header>
+<main id="fool-main">
+    <p>Switch a defect on to replace a correct Java port by a faulty one. The ports are fixed files of this repository that Coroner audited ahead of time. No code is uploaded and no audit starts when you switch a defect on.</p>
+    {% include "fool_views.html" %}
+    {% if rows %}
+    <form class="fool-form story-action" method="get" action="/fool" hx-get="/fool" hx-trigger="change" hx-target="#fool-result" hx-swap="innerHTML" hx-push-url="true">
+        <input type="hidden" name="view" value="{{ view }}">
+        <fieldset>
+            <legend>Inject a defect</legend>
+            {% for row in rows %}
+            <div class="fool-toggle">
+                <input id="{{ row.input_id }}" type="checkbox" name="{{ row.param }}" value="on"{% if row.selected %} checked{% endif %}{% if not row.available %} disabled{% endif %}>
+                <label for="{{ row.input_id }}">
+                    {{ row.case_label }}: {{ row.caption }}
+                    {% if not row.available %}<span class="fool-toggle-missing"> ({{ row.missing_message }})</span>{% endif %}
+                </label>
+            </div>
+            {% endfor %}
+        </fieldset>
+        <noscript><button type="submit">Update</button></noscript>
+    </form>
+    {% endif %}
+    <div id="fool-result" role="status" aria-live="polite">
+        {% include "fool_fragment.html" %}
+    </div>
+</main>
+{% endblock %}

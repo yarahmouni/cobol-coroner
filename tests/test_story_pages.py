@@ -461,7 +461,8 @@ def test_step4_forms_target_the_real_routes_with_the_faulty_run(story_runs, stor
     regions = {a["id"]: a for t, a in tags(page, "div") if a.get("id") in ("gate-result", "run-result")}
     assert set(regions) == {"gate-result", "run-result"}
     for region in regions.values():
-        assert region["role"] == "status" and region["aria-live"] == "polite"
+        # The result region is a plain container: the fragment swapped into it is the live region.
+        assert "role" not in region and "aria-live" not in region
     notes = visible_text(page)
     assert len(tags(page, "noscript")) == 2
     assert notes.count("python3 -m coroner verify <certificate.json>") == 2
@@ -773,7 +774,7 @@ def test_step8_form_values_equal_the_certificate_of_the_faulty_run(story_runs, s
     assert "Change the status to ALIVE and the divergent count to 0" in text
     assert "Editing a certificate makes it INVALID. The audit result cannot be faked." in text
     result = {a["id"]: a for t, a in tags(page, "div") if a.get("id") == "tamper-result"}["tamper-result"]
-    assert result["role"] == "status" and result["aria-live"] == "polite"
+    assert "role" not in result and "aria-live" not in result
     assert len(tags(page, "noscript")) == 1
     finish = [a for a in anchors(page) if a.get("class") == "story-next"]
     assert [a["href"] for a in finish] == ["/"] and "Finish" in text

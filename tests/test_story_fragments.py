@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 
 from coroner.ui.app import app, clear_gate_check_cache, reset_rate_limiter
 
-from story_html import anchors, has_live_region_root, tags, visible_text
+from story_html import anchors, has_live_region_root, into_container, live_regions, tags, visible_text
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ui_app = importlib.import_module("coroner.ui.app")
@@ -93,6 +93,21 @@ def test_gate_fragment_blocks_the_t1_faulty_run_with_the_endpoint_message(story_
     assert f"Exit code {api['exit_code']}" in text
     assert any("zombie" in a.get("class", "").split() for t, a in tags(fragment.text, "div"))
     assert "<svg" in fragment.text and "<rect" in fragment.text
+
+
+@pytest.mark.slow
+def test_gate_result_is_announced_by_exactly_one_live_region_on_the_real_step_page(story_runs, story_client):
+    """R-138 finding: the gate result used to sit in two live regions (the container and the fragment)."""
+    faulty, correct = _t1_run_ids(story_runs.base)
+    step4 = story_client.get("/story/step/4").text
+    step7 = story_client.get("/story/step/7").text
+    assert live_regions(step4) == 0 and live_regions(step7) == 0
+    for page, run_id in ((step4, faulty), (step7, correct)):
+        reset_rate_limiter()  # the second replay must not meet the 1 per 10 seconds bucket
+        fragment = story_client.post("/story/gate-check", data={"run_id": run_id}).text
+        assert "Exit code" in visible_text(fragment)
+        assert live_regions(fragment) == 1
+        assert live_regions(into_container(page, "gate-result", fragment)) == 1
 
 
 @pytest.mark.slow

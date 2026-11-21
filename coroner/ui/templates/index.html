@@ -2,14 +2,20 @@
 
 {% block title %}COBOL Coroner{% endblock %}
 
+{% block head_extra %}
+{% include "story_styles.html" %}
+{% endblock %}
+
 {% block content %}
 <h1>COBOL Coroner</h1>
 <p style="font-size: 1.25rem; color: #a0a0a0; margin-bottom: 2rem;">
     The independent regression auditor for COBOL-to-Java migrations.
 </p>
 
-<nav style="margin-bottom: 2rem;">
-    <a href="/matrix" style="font-size: 1.1rem;">Detection Matrix</a>
+<nav aria-label="Guided tour" class="story-cta-links">
+    <a class="story-cta" href="/story">Try the bank failure</a>
+    <a href="/fool">Can you fool Coroner?</a>
+    <a href="/matrix">Detection Matrix</a>
 </nav>
 
 <section style="margin-bottom: 3rem; padding: 1.5rem; background: #1a1a1a; border-radius: 8px;">

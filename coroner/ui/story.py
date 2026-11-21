@@ -12,10 +12,11 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Iterable, Optional
+from urllib.parse import urlencode
 
 from markupsafe import Markup
 
-from coroner.cases import TRAPS_ROOT, load_cases_registry  # noqa: F401  (registry reader used by the story)
+from coroner.cases import TRAPS_ROOT, case_label, load_cases_registry  # noqa: F401  (registry reader used by the story)
 from coroner.ui.pages import RUN_ID_PATTERN, parse_card
 from coroner.ui.sentences import generate_zombie_sentence
 
@@ -727,4 +728,300 @@ def build_step(base_dir, step: int, view: Optional[str], run_bounds: Optional[di
             context["error"] = str(e)
         except (KeyError, TypeError, InvalidOperation) as e:
             context["error"] = f"A bundled run file does not have the expected content ({e})."
+    return context
+
+
+# ---------------------------------------------------------------- "Can you fool Coroner?"
+
+FOOL_PATH = "/fool"
+CREDIT_FEES_COBOL_TAIL = ("samples", "credit-fees", "CREDIT-FEES.cob")
+CREDIT_FEES_CORRECT_JAVA_TAIL = ("samples", "credit-fees", "java", "CreditFees.java")
+# Where scripts/init_demo_runs.sh and the engine worker put the HALF_EVEN variant of the credit-fees port.
+HALF_EVEN_VARIANT_JAVA_TAIL = ("build", "variants", "CreditFees.java")
+T4_INPUT_COLUMN = "ZONED-VALUE"
+FOOL_NOT_RECORDED = "not recorded"
+FOOL_MISSING = "Bundled run missing"
+
+
+@dataclass(frozen=True)
+class FoolToggle:
+    """One defect of the fool page: the form parameter, the case it is named after and its source of runs."""
+    param: str
+    trap_id: str
+    caption: str
+    # "catalog": the faulty and correct runs of the trap in runs/trap_catalog.json.
+    # "credit-fees": the HALF_EVEN variant run and the correct run of the credit-fees sample (R-134).
+    source: str
+    sample_note: Optional[str] = None
+
+
+FOOL_TOGGLES = (
+    FoolToggle("case1", "T1", "Branch codes are compared in ASCII order instead of EBCDIC order.", "catalog"),
+    FoolToggle(
+        "case2", "T2",
+        "Fees are rounded half to even (HALF_EVEN) instead of half away from zero (HALF_UP).",
+        "credit-fees",
+        "Shown on the credit-fees sample program: one real rounding defect.",
+    ),
+    FoolToggle("case4", "T4", "The zero overpunch characters { and } are not decoded.", "catalog"),
+)
+FOOL_PARAMS = tuple(toggle.param for toggle in FOOL_TOGGLES)
+
+
+def fool_url(selected: Iterable[str], view: Optional[str]) -> str:
+    """URL of the fool page for a set of switched-on toggles. The view is always written."""
+    chosen = set(selected)
+    pairs = [(param, "on") for param in FOOL_PARAMS if param in chosen]
+    pairs.append(("view", normalize_view(view)))
+    return f"{FOOL_PATH}?{urlencode(pairs)}"
+
+
+def _has_tail(path, tail: tuple) -> bool:
+    parts = Path(path or "").parts
+    return len(parts) >= len(tail) and tuple(parts[-len(tail):]) == tail
+
+
+def _run_dirs(base_dir) -> list[Path]:
+    runs = Path(base_dir) / "runs"
+    if not runs.is_dir():
+        return []
+    return sorted(p for p in runs.iterdir() if p.is_dir() and RUN_ID_PATTERN.match(p.name))
+
+
+def reference_parameters(base_dir, catalog: dict[str, CatalogEntry]) -> tuple[Optional[int], Optional[int]]:
+    """
+    Case count and seed of the bundled runs, read from the inputs.json of the first catalog run.
+
+    The credit-fees runs are looked up with these two values, so a visitor's own audit of the
+    credit-fees sample with another seed or case count is never mistaken for the bundled run.
+    """
+    for trap_id in sorted(catalog):
+        run_id = catalog[trap_id].faulty_run_id
+        if not run_id:
+            continue
+        run_dir = Path(base_dir) / "runs" / run_id
+        inputs = _read_json(run_dir / "inputs.json") if run_dir.is_dir() else None
+        if isinstance(inputs, dict):
+            return inputs.get("case_count"), inputs.get("random_seed")
+    return None, None
+
+
+def credit_fees_run_ids(base_dir, case_count: Optional[int], seed: Optional[int]) -> tuple[Optional[str], Optional[str]]:
+    """
+    (HALF_EVEN variant run, correct run) of the credit-fees sample, found from the inputs.json files.
+
+    A run is the variant run when its inputs.json names the credit-fees COBOL program and a Java file
+    ending in build/variants/CreditFees.java (the file scripts/init_demo_runs.sh audits); it is the
+    correct run when the Java file is samples/credit-fees/java/CreditFees.java. Both must have the
+    given case count and seed. No run id is typed anywhere.
+    """
+    if case_count is None or seed is None:
+        return None, None
+    faulty = correct = None
+    for run_dir in _run_dirs(base_dir):
+        try:
+            inputs = _read_json(run_dir / "inputs.json")
+        except StoryDataError:
+            continue  # an unreadable run of another sample is not a problem of this page
+        if not isinstance(inputs, dict) or not _has_tail(inputs.get("cobol_file"), CREDIT_FEES_COBOL_TAIL):
+            continue
+        if inputs.get("case_count") != case_count or inputs.get("random_seed") != seed:
+            continue
+        if _has_tail(inputs.get("java_file"), HALF_EVEN_VARIANT_JAVA_TAIL):
+            faulty = run_dir.name
+        elif _has_tail(inputs.get("java_file"), CREDIT_FEES_CORRECT_JAVA_TAIL):
+            correct = run_dir.name
+    return faulty, correct
+
+
+def _found_run(base_dir, run_id: Optional[str]) -> Optional[Run]:
+    """The run when its folder and its verdict.json exist, else None (a deleted run is a missing run)."""
+    if not run_id or not (Path(base_dir) / "runs" / run_id).is_dir():
+        return None
+    run = load_run(base_dir, run_id)
+    return run if run.verdict else None
+
+
+def overpunch_counts(run: Run) -> Optional[dict[str, int]]:
+    """
+    Divergent cases of a T4 run, and how many of their inputs end in "}" and in "{".
+
+    Read from comparison_results.json and generated_cases.csv. Only the count of "}" is
+    claimed by the page when the count of "{" is shown next to it.
+    """
+    comparison = _read_json(run.run_dir / "comparison_results.json")
+    cases_file = run.run_dir / "generated_cases.csv"
+    if comparison is None or not cases_file.is_file():
+        return None
+    with cases_file.open(newline="", encoding="utf-8") as f:
+        values = {row["CASE-ID"]: row[T4_INPUT_COLUMN] for row in csv.DictReader(f)}
+    counts = {"divergent": 0, "closing": 0, "opening": 0}
+    for case in comparison.get("cases", []):
+        if not case.get("divergent"):
+            continue
+        counts["divergent"] += 1
+        value = values[case["case_id"]]
+        counts["closing"] += value.endswith("}")
+        counts["opening"] += value.endswith("{")
+    return counts
+
+
+def _short_line_ref(reference: str) -> str:
+    """"dir/FILE.cob:201 text" written as "FILE.cob:201 text" (the card already does this)."""
+    path_part, separator, rest = reference.partition(":")
+    return f"{Path(path_part).name}{separator}{rest}" if separator else reference
+
+
+def _fool_sentence(toggle: FoolToggle, run: Run) -> Optional[str]:
+    """
+    The sentence of a run, the one its run page shows: the trap sentence of a catalog ZOMBIE run,
+    and for every other run the sub_label of verdict.json (the run page falls back to it too).
+    """
+    verdict = run.verdict
+    if verdict.get("status") == "ZOMBIE" and toggle.source == "catalog":
+        try:
+            return generate_zombie_sentence(toggle.trap_id, run.run_dir)
+        except (KeyError, ValueError, OSError, TypeError, InvalidOperation):
+            pass
+    return verdict.get("sub_label")
+
+
+def _fool_engineer(toggle: FoolToggle, entry: Optional[CatalogEntry], run: Run, faulty_shown: bool) -> dict:
+    """Engineer details of one toggle row, each read from the files of the shown run or the catalog entry."""
+    inputs = run.inputs or {}
+    details = {
+        "run_id": run.run_id,
+        "cases_divergent": run.verdict.get("cases_divergent"),
+        "cases_total": run.verdict.get("cases_total"),
+        "seed": inputs.get("random_seed"),
+        "cobol_lines": None,
+        "column_counts": None,
+        "overpunch": None,
+    }
+    if not faulty_shown:
+        return details
+    if toggle.source == "catalog":
+        lines = entry.entry.get("cobol_lines") if entry else None
+        details["cobol_lines"] = [_short_line_ref(line) for line in lines] if lines else None
+    else:
+        card = parse_card(run.card_text) if run.card_text else None
+        details["cobol_lines"] = (card or {}).get("cobol_lines") or None
+        details["column_counts"] = t2_column_counts(run)
+    if toggle.trap_id == "T4":
+        details["overpunch"] = overpunch_counts(run)
+    return details
+
+
+def _unavailable_row(toggle: FoolToggle, registry: dict) -> dict:
+    """A toggle row without any run: disabled, with the missing message and no number."""
+    return {
+        "param": toggle.param,
+        "input_id": f"toggle-{toggle.param}",
+        "case_label": case_label(toggle.trap_id, registry) or FOOL_NOT_RECORDED,
+        "caption": toggle.caption,
+        "sample_note": toggle.sample_note,
+        "available": False,
+        "selected": False,
+        "shown": None,
+        "missing_message": FOOL_MISSING,
+        "correct_status": None,
+        "faulty_status": None,
+        "run_id": None,
+        "status": None,
+        "kind": "error",
+        "badge_line": None,
+        "cases_total": None,
+        "cases_divergent": None,
+        "sentence": None,
+        "engineer": None,
+    }
+
+
+def _fool_row(base_dir, toggle: FoolToggle, catalog: dict, registry: dict, reference: tuple, selected: set) -> dict:
+    """One row of the fool page: the shown run, its verdict and the figures read from its files."""
+    entry = catalog.get(toggle.trap_id)
+    if toggle.source == "catalog":
+        faulty_id = entry.faulty_run_id if entry else None
+        correct_id = entry.correct_run_id if entry else None
+    else:
+        faulty_id, correct_id = credit_fees_run_ids(base_dir, *reference)
+    faulty = _found_run(base_dir, faulty_id)
+    correct = _found_run(base_dir, correct_id)
+    available = faulty is not None
+    on = available and toggle.param in selected
+    shown = faulty if on else correct
+    status = shown.verdict.get("status") if shown else None
+    row = _unavailable_row(toggle, registry)
+    row.update({
+        "available": available,
+        "selected": on,
+        "shown": ("faulty" if on else "correct") if shown else None,
+        "missing_message": FOOL_MISSING if (not available or shown is None) else None,
+        "correct_status": correct.verdict.get("status") if correct else None,
+        "faulty_status": faulty.verdict.get("status") if faulty else None,
+        "run_id": shown.run_id if shown else None,
+        "status": status,
+        "kind": {"ALIVE": "alive", "ZOMBIE": "zombie"}.get(status, "error"),
+        "badge_line": BADGE_LINES.get(status),
+        "cases_total": shown.verdict.get("cases_total") if shown else None,
+        "cases_divergent": shown.verdict.get("cases_divergent") if shown else None,
+        "sentence": _fool_sentence(toggle, shown) if shown else None,
+        "engineer": _fool_engineer(toggle, entry, shown, on) if shown else None,
+    })
+    return row
+
+
+def fool_state(base_dir, selected: Iterable[str]) -> dict:
+    """
+    The three toggle rows, the counter and the clean-ports line of the fool page.
+
+    N is the number of switched-on toggles whose faulty run exists and D the number of those whose
+    verdict.json status is ZOMBIE; M is the number of correct runs found and C the number of those
+    whose status is ALIVE. Nothing is typed: a deleted or edited run changes the numbers.
+    """
+    catalog = load_catalog(base_dir)
+    registry = load_cases_registry()
+    reference = reference_parameters(base_dir, catalog)
+    chosen = set(selected)
+    rows = [_fool_row(base_dir, toggle, catalog, registry, reference, chosen) for toggle in FOOL_TOGGLES]
+    on_rows = [row for row in rows if row["selected"]]
+    clean_rows = [row for row in rows if row["correct_status"] is not None]
+    n = len(on_rows)
+    d = sum(1 for row in on_rows if row["status"] == "ZOMBIE")
+    m = len(clean_rows)
+    c = sum(1 for row in clean_rows if row["correct_status"] == "ALIVE")
+    if n:
+        counter, clean_line = f"Coroner detected {d} of {n} injected defects", None
+    else:
+        counter = "No defect injected"
+        clean_line = f"Coroner certified {c} of {m} clean ports" if m else "No clean port run is found."
+    return {"rows": rows, "counter": counter, "clean_line": clean_line, "n": n, "d": d, "m": m, "c": c}
+
+
+def build_fool(base_dir, selected: Iterable[str], view: Optional[str]) -> dict:
+    """Everything the fool page template needs. A missing or unreadable file gives `error` and no numbers."""
+    view = normalize_view(view)
+    chosen = [param for param in FOOL_PARAMS if param in set(selected)]
+    context = {
+        "view": view,
+        "error": None,
+        "rows": [],
+        "counter": None,
+        "clean_line": None,
+        "selected": chosen,
+        "business_url": fool_url(chosen, "business"),
+        "engineer_url": fool_url(chosen, "engineer"),
+        "story_url": step_url(1, view),
+        "positioning": POSITIONING_SENTENCE,
+    }
+    try:
+        context.update(fool_state(base_dir, chosen))
+    except StoryDataError as e:
+        context["error"] = str(e)
+    except (KeyError, TypeError, InvalidOperation) as e:
+        context["error"] = f"A bundled run file does not have the expected content ({e})."
+    if context["error"]:
+        # The toggles are still listed, all disabled and without a number, next to the alert.
+        registry = load_cases_registry()
+        context["rows"] = [_unavailable_row(toggle, registry) for toggle in FOOL_TOGGLES]
     return context

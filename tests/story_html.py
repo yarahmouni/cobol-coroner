@@ -141,3 +141,64 @@ def form_fields(html, hx_post):
     reader.feed(html)
     reader.close()
     return reader.fields
+
+
+_VOID = {"input", "br", "hr", "img", "meta", "link", "source", "col", "area", "base", "wbr"}
+
+
+def _is_live(attrs):
+    """True for an element that is a live region: aria-live other than off, or role status or alert."""
+    return (
+        attrs.get("aria-live") not in (None, "off")
+        or attrs.get("role") in ("status", "alert", "log")
+    )
+
+
+class _LiveCounter(HTMLParser):
+    def __init__(self, element_id):
+        super().__init__(convert_charrefs=True)
+        self.element_id = element_id
+        self.count = 0
+        self.found = False
+        self._open = 0
+        self._inside = False
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if not self._inside and attrs.get("id") == self.element_id:
+            self._inside = True
+            self.found = True
+            self._open = 0
+        if self._inside:
+            if _is_live(attrs):
+                self.count += 1
+            if tag not in _VOID:
+                self._open += 1
+
+    def handle_endtag(self, tag):
+        if self._inside and tag not in _VOID:
+            self._open -= 1
+            if self._open == 0:
+                self._inside = False
+
+
+def live_regions_within(html, element_id):
+    """Number of live regions in the element with this id, the element itself included."""
+    counter = _LiveCounter(element_id)
+    counter.feed(html)
+    counter.close()
+    assert counter.found, f"no element with id {element_id}"
+    return counter.count
+
+
+def live_regions(html):
+    """Number of live regions in a whole page or fragment."""
+    reader = _read(html)
+    return sum(1 for _, attrs in reader.tags if _is_live(attrs))
+
+
+def into_container(page, element_id, fragment):
+    """The page with `fragment` placed inside its empty container <div id="element_id"></div>."""
+    empty = f'<div id="{element_id}"></div>'
+    assert page.count(empty) == 1, f"{empty} is not in the page exactly once"
+    return page.replace(empty, f'<div id="{element_id}">{fragment}</div>')

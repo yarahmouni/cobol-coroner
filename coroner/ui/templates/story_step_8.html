@@ -2,7 +2,8 @@
 <p>Try to make the rejected migration look clean by editing its certificate.</p>
 <p>Change the status to ALIVE and the divergent count to 0, then check the edited certificate.</p>
 {{ tamper_form(tamper, view) }}
-<div id="tamper-result" role="status" aria-live="polite"></div>
+{# Not a live region itself: the fragment swapped in is (one live region per result, never two). #}
+<div id="tamper-result"></div>
 {{ noscript_note("Checking an edited certificate") }}
 <p>Editing a certificate makes it INVALID. The audit result cannot be faked.</p>
 {% if view == 'engineer' %}

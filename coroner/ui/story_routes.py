@@ -71,6 +71,34 @@ async def story_step(request: Request, step: str, view: Optional[str] = None):
     return _render_step(request, number, view)
 
 
+@router.get("/fool", response_class=HTMLResponse)
+async def fool_page(
+    request: Request,
+    case1: Optional[str] = None,
+    case2: Optional[str] = None,
+    case4: Optional[str] = None,
+    view: Optional[str] = None,
+):
+    """
+    "Can you fool Coroner?": three toggles, each reading the bundled runs of one injected defect.
+
+    No audit starts and no code is read from the request. A toggle is on only when its parameter
+    is exactly "on". htmx gets the result region only; a visitor or a history restore gets the page.
+    """
+    ui = _ui()
+    given = {"case1": case1, "case2": case2, "case4": case4}
+    selected = [param for param, value in given.items() if value == "on"]
+    fragment = _is_fragment_request(request)
+    context = story.build_fool(ui.get_base_dir(), selected, view)
+    context["is_fragment"] = fragment
+    return ui.templates.TemplateResponse(
+        request=request,
+        name="fool_fragment.html" if fragment else "fool.html",
+        context=context,
+        headers=VARY,
+    )
+
+
 def _json_of(response) -> dict:
     """The JSON body of a JSONResponse returned by a route function."""
     body = json.loads(response.body)

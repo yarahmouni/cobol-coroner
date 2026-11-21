@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from coroner.ui.app import app
 
-from story_html import anchors, tags, visible_text
+from story_html import anchors, into_container, live_regions, live_regions_within, tags, visible_text
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 UI_DIR = REPO_ROOT / "coroner" / "ui"
@@ -208,3 +208,157 @@ def test_new_story_files_have_no_em_dash():
     assert len(files) >= 10
     for path in files:
         assert "\u2014" not in path.read_text(), path.name
+
+
+# ------------------------------------------------------------------ home page, navigation, 375 px, contrast
+
+
+def _story_style(page: str) -> str:
+    """The text of the story stylesheet block (the one that holds the 375 px rules)."""
+    blocks = re.findall(r"<style>(.*?)</style>", page, re.S)
+    found = [b for b in blocks if "@media (max-width: 480px)" in b]
+    assert len(found) == 1
+    return found[0]
+
+
+def test_home_page_has_the_two_story_links_and_the_matrix_link(client):
+    page = client.get("/").text
+    by_href = {a["href"]: a for a in anchors(page) if a["href"] in ("/story", "/fool", "/matrix")}
+    assert set(by_href) == {"/story", "/fool", "/matrix"}
+    assert "story-cta" in by_href["/story"]["class"].split()
+    text = visible_text(page)
+    assert "Try the bank failure" in text and "Can you fool Coroner?" in text
+    assert client.get("/story").status_code == 200 and client.get("/fool").status_code == 200
+
+
+def test_story_and_fool_pages_link_to_each_other_to_the_home_page_and_the_matrix(client):
+    story = {a["href"] for a in anchors(client.get("/story/step/1").text)}
+    fool = {a["href"] for a in anchors(client.get("/fool").text)}
+    assert {"/", "/fool", "/matrix"} <= story
+    assert {"/", "/story/step/1?view=business", "/matrix"} <= fool
+    # The story and fool pages keep their link to the other one in the Engineer view.
+    assert "/story/step/1?view=engineer" in {a["href"] for a in anchors(client.get("/fool?view=engineer").text)}
+
+
+@pytest.mark.parametrize("path", ["/", "/story/step/1", "/fool"])
+def test_home_story_and_fool_pages_carry_the_375_px_rules(client, path):
+    css = _story_style(client.get(path).text)
+    query = re.search(r"@media \(max-width: (\d+)px\)", css)
+    assert int(query.group(1)) >= 375
+    phone = css[css.index("@media (max-width: 480px)"):]
+    for rule in (
+        "min-height: 44px",           # tap targets
+        "font-size: 1rem",            # 16 px text
+        "flex-direction: column",     # one column
+        "overflow-x: auto",           # tables and listings scroll inside their box
+        "grid-template-columns: 1fr",
+        "width: 100%",
+    ):
+        assert rule in phone, rule
+
+
+def test_home_story_stylesheet_uses_only_the_variables_of_the_page_theme(client):
+    page = client.get("/fool").text
+    css = _story_style(page)
+    assert not re.search(r"#[0-9a-fA-F]{3,8}\b", css)
+    assert "rgb(" not in css and "hsl(" not in css
+    root = re.search(r":root\s*\{([^}]+)\}", page, re.S).group(1)
+    light = re.search(r":root\.light\s*\{([^}]+)\}", page, re.S).group(1)
+    for name in set(re.findall(r"var\(--([a-z-]+)\)", css)):
+        assert f"--{name}:" in root and f"--{name}:" in light, name
+
+
+def _colors(block: str) -> dict:
+    return {name: value.strip() for name, value in re.findall(r"--([a-z-]+):\s*([^;]+);", block)}
+
+
+@pytest.mark.parametrize("mode", ["dark", "light"])
+def test_home_story_colors_keep_the_contrast_ratios_of_the_ui_tests(client, mode):
+    from test_ui_pages import compute_contrast_ratio, compute_relative_luminance, parse_hex_color
+
+    page = client.get("/story/step/1").text
+    root = re.search(r":root\s*\{([^}]+)\}", page, re.S).group(1)
+    light = re.search(r":root\.light\s*\{([^}]+)\}", page, re.S).group(1)
+    colors = _colors(root if mode == "dark" else light)
+
+    def ratio(foreground: str, background: str) -> float:
+        return compute_contrast_ratio(
+            compute_relative_luminance(*parse_hex_color(colors[foreground])),
+            compute_relative_luminance(*parse_hex_color(colors[background])),
+        )
+
+    css = _story_style(page)
+    used = set(re.findall(r"var\(--([a-z-]+)\)", css))
+    # Text colors of the new rules on the two backgrounds they are drawn on.
+    assert {"text-color", "secondary-text", "panel-bg"} <= used
+    for foreground in ("text-color", "secondary-text"):
+        for background in ("bg-color", "panel-bg"):
+            assert ratio(foreground, background) >= 4.5, (mode, foreground, background)
+    # The "Try the bank failure" link: white 20 px bold text (large text, 3:1) on the accent color.
+    white = compute_relative_luminance(255, 255, 255)
+    accent = compute_relative_luminance(*parse_hex_color(colors["orange-accent"]))
+    assert compute_contrast_ratio(white, accent) >= 3.0
+
+
+# ------------------------------------------------------------------ one live region per async result
+
+
+def _render(name, **context):
+    from coroner.ui.app import templates
+    return templates.env.get_template(name).render(**context)
+
+
+def _containers():
+    """(container id, page text holding the empty container) for the three story actions."""
+    from coroner.ui.app import templates
+
+    macros = templates.env.get_template("story_macros.html").module
+    run_form = {"port": "faulty", "seed": 42, "cases": 200, "bounds": None}
+    tamper = {
+        "run_id": "0123456789ab", "status_choices": ["ALIVE", "ZOMBIE"],
+        "fields": {"status": "ZOMBIE", "cases_total": 1, "cases_divergent": 1, "random_seed": 1},
+    }
+    return {
+        "gate-result": str(macros.gate_section("0123456789ab", "business", "intro")),
+        "run-result": str(macros.run_section(run_form, "business", "intro")),
+        "tamper-result": _render("story_step_8.html", tamper=tamper, view="business", engineer={}),
+    }
+
+
+def _fragments():
+    """Every fragment template that is swapped into a container, with the container it goes to."""
+    result = {"id": "0123456789ab", "status": "ZOMBIE", "cases_divergent": 3, "cases_total": 9}
+    return [
+        ("gate-result", _render("story_gate_result.html", kind="zombie", heading="h", exit_code=1)),
+        ("gate-result", _render("story_gate_result.html", kind="alive", heading="h", exit_code=0)),
+        ("gate-result", _render("story_alert.html", message="m", retry_action="gate", run_id="0123456789ab", view="business", retry_after="5")),
+        ("run-result", _render("story_job.html", job_id="0123456789ab", job_status="queued", view="business")),
+        ("run-result", _render("story_run_result.html", result={**result, "run_id": result["id"]}, cached=False)),
+        ("run-result", _render("story_alert.html", message="m", retry_action="run", port="faulty", seed="1", cases="10", view="business")),
+        ("tamper-result", _render("story_tamper_result.html", kind="invalid", result_html="<p>Certificate: INVALID</p>")),
+        ("tamper-result", _render("story_alert.html", message="m", retry_action="tamper", run_id="0123456789ab", fields={"status": "ALIVE"}, view="business")),
+    ]
+
+
+def test_every_story_result_container_is_empty_and_not_a_live_region_itself():
+    for element_id, page in _containers().items():
+        assert live_regions_within(page, element_id) == 0, element_id
+
+
+def test_every_story_result_has_exactly_one_live_region_once_swapped_in():
+    containers = _containers()
+    fragments = _fragments()
+    assert {element_id for element_id, _ in fragments} == set(containers)
+    for element_id, fragment in fragments:
+        assert live_regions(fragment) == 1, (element_id, fragment[:80])
+        swapped = into_container(containers[element_id], element_id, fragment)
+        assert live_regions_within(swapped, element_id) == 1, element_id
+        assert live_regions(swapped) == 1, element_id
+
+
+def test_the_gate_fragment_of_the_real_route_is_the_one_live_region(client):
+    """A failing gate check (unknown run) goes through the real route and its alert is the only live region."""
+    page = _containers()["gate-result"]
+    fragment = client.post("/story/gate-check", data={"run_id": "0123456789ab"}).text
+    assert live_regions(fragment) == 1
+    assert live_regions(into_container(page, "gate-result", fragment)) == 1

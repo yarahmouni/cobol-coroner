@@ -1,0 +1,6 @@
+{# Business and Engineer links of the fool page. They carry the switched-on toggles. In an htmx answer this nav
+   replaces the one of the page (out of band), so its links never keep an old toggle state. It is not a live region. #}
+<nav id="fool-views" aria-label="View" class="story-views"{% if is_fragment %} hx-swap-oob="true"{% endif %}>
+    <a href="{{ business_url }}"{% if view == 'business' %} aria-current="true"{% endif %}>Business view</a>
+    <a href="{{ engineer_url }}"{% if view == 'engineer' %} aria-current="true"{% endif %}>Engineer view</a>
+</nav>

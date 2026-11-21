@@ -86,7 +86,8 @@
     <h3 id="gate-heading">The gate</h3>
     <p>{{ intro }}</p>
     {{ gate_form(run_id, view, "Check the gate") }}
-    <div id="gate-result" role="status" aria-live="polite"></div>
+    {# Not a live region itself: the fragment swapped in is (one live region per result, never two). #}
+    <div id="gate-result"></div>
     {{ noscript_note("The gate check") }}
 </section>
 {% endmacro %}
@@ -109,7 +110,8 @@
         </p>
         <button type="submit">Run the audit</button>
     </form>
-    <div id="run-result" role="status" aria-live="polite"></div>
+    {# Not a live region itself: the fragment swapped in is (one live region per result, never two). #}
+    <div id="run-result"></div>
     {{ noscript_note("Run it yourself") }}
 </section>
 {% endmacro %}
