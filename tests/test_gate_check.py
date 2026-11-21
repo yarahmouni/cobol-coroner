@@ -334,6 +334,11 @@ def test_gate_check_cache_invalidated_on_change(client, temp_base_dir):
     data1 = response1.json()
     assert data1["status"] == "allowed"
     
+    # The changed certificate is a cache miss and starts a second replay. The first
+    # replay consumed the 1-per-10-s gate-check bucket; on a fast machine the window
+    # has not elapsed yet, so reset it to keep the test independent of replay speed.
+    reset_rate_limiter()
+    
     # Edit the certificate (change status field)
     cert_path = temp_base_dir / "runs" / "29c15f04407b" / "certificate.json"
     cert_data = json.loads(cert_path.read_text())
@@ -395,6 +400,11 @@ def test_gate_check_cache_bypass_with_status_edit_no_hash_update(client, temp_ba
     data1 = response1.json()
     assert data1["status"] == "blocked"
     assert len(replay_calls) == 1
+    
+    # The edited certificate is a cache miss and starts a second replay. The first
+    # replay consumed the 1-per-10-s gate-check bucket; on a fast machine the window
+    # has not elapsed yet, so reset it to keep the test independent of replay speed.
+    reset_rate_limiter()
     
     # Edit the certificate: change status to ALIVE WITHOUT updating certificate_sha256
     cert_path = temp_base_dir / "runs" / "f584d5f35228" / "certificate.json"
@@ -478,3 +488,85 @@ def test_gate_check_missing_java_file(client, temp_base_dir):
     data = response.json()
     assert data["status"] == "blocked"
     assert "Certificate invalid" in data["message"]
+
+
+
+def test_gate_check_two_different_certificates_within_window(client, temp_base_dir, monkeypatch):
+    """
+    Test that two POSTs for two different certificates within the window: the second (a miss) gets 429.
+    
+    Uses a long window to avoid timing dependency on replay duration.
+    """
+    # Set a long window so the test does not depend on replay speed
+    monkeypatch.setenv("CORONER_GATE_CHECK_RATE_WINDOW", "3600")
+    
+    # First call on T1 correct
+    response1 = client.post(
+        "/api/gate-check",
+        data={"run_id": "29c15f04407b"}
+    )
+    
+    assert response1.status_code == 200
+    data1 = response1.json()
+    assert data1["status"] == "allowed"
+    
+    # Second call on T1 faulty (different certificate) within the window
+    response2 = client.post(
+        "/api/gate-check",
+        data={"run_id": "f584d5f35228"}
+    )
+    
+    # Should get 429 because the 1-per-window bucket is exhausted
+    assert response2.status_code == 429
+    data2 = response2.json()
+    assert "Rate limit exceeded for gate-check" in data2["detail"]
+    assert "retry_after" in data2
+    
+    # Check Retry-After header
+    retry_after = response2.headers.get("Retry-After")
+    assert retry_after is not None
+    assert int(retry_after) > 0
+
+
+def test_gate_check_cached_hit_after_miss(client, temp_base_dir, monkeypatch):
+    """
+    Test that a cached hit right after a miss gets 200 without consuming the gate-check bucket.
+    
+    Uses a long window to avoid timing dependency on replay duration.
+    After the cached hit, a POST for a different certificate gets 429 (proof the hit did not reset).
+    """
+    # Set a long window so the test does not depend on replay speed
+    monkeypatch.setenv("CORONER_GATE_CHECK_RATE_WINDOW", "3600")
+    
+    # First call on T1 correct (miss)
+    response1 = client.post(
+        "/api/gate-check",
+        data={"run_id": "29c15f04407b"}
+    )
+    
+    assert response1.status_code == 200
+    data1 = response1.json()
+    assert data1["status"] == "allowed"
+    
+    # Second call on T1 correct (cache hit) within the window
+    # This should return 200 without consuming the gate-check bucket
+    response2 = client.post(
+        "/api/gate-check",
+        data={"run_id": "29c15f04407b"}
+    )
+    
+    assert response2.status_code == 200
+    data2 = response2.json()
+    assert data2["status"] == "allowed"
+    assert data1 == data2
+    
+    # Third call on T1 faulty (different certificate, cache miss)
+    # Should get 429 because the bucket was consumed by the first POST
+    response3 = client.post(
+        "/api/gate-check",
+        data={"run_id": "f584d5f35228"}
+    )
+    
+    assert response3.status_code == 429
+    data3 = response3.json()
+    assert "Rate limit exceeded for gate-check" in data3["detail"]

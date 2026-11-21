@@ -803,6 +803,13 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - The sample README already states the D-62 wording "Coroner audits a Kiro-generated Java port..."; the port does not exist yet, so the main README gets no CardDemo line until the audit has run (note N1 stays on hold).
 - Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1365.70 of 4000 used at the last reading (R-117).
 
+### R-120 2026-11-21: gate-check cache served before the gate-check rate bucket; tests independent of replay speed
+- CI on c818c21 (image) failed test_gate_check_cache and test_gate_check_cache_invalidated_on_change with 429: the endpoint consumed its 1-per-10-s bucket before looking at the cache, and the replay in the image is faster than the 16 s measured on the Mac, so the second POST came within the window. Product effect: a visitor going back to story step 4 within 10 s got 429 for an answer that costs nothing.
+- Fix (calls p310 and p317, sonnet-4.5; p322, sonnet-5.5): coroner/ui/app.py /api/gate-check now runs global limit, per-IP limit, run_id validation, certificate read (404/413), cache lookup by the raw-bytes SHA-256; a hit returns the cached JSON without touching the gate-check bucket; only a request that will start a replay consumes it. New tests: two different certificates within the window, the second gets 429 with Retry-After; a cached hit right after a miss gets 200 and does not reset the bucket. Tests that expect 429 set CORONER_GATE_CHECK_RATE_WINDOW=3600; tests that make two replays call reset_rate_limiter() between them. p310 left two scratch files at the root (moved away); p317's first version of one test still depended on machine speed.
+- Results (operator): Mac, tests/test_gate_check.py with slow tests: 15 passed in 188.58 s (after p317) and 15 passed (after p322, agent's run 224.70 s); CI image built from this tree, the CI command (CORONER_NO_SKIP=1, not slow and not repo): 1 failed, 452 passed before p322 (test_gate_check_cache_invalidated_on_change, 429 == 200), then 453 passed in 472.67 s.
+- Kiro models: from p321 on, claude-sonnet-5.5 (same 1.30x rate as sonnet-4.5) and claude-haiku-5.5 replace the 4.5 versions; `kiro-cli chat --list-models` lists them.
+- Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1490.85 of 4000 used (2509.15 left), reading while p321 runs.
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.

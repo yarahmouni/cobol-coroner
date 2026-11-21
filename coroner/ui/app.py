@@ -1362,16 +1362,6 @@ async def gate_check(request: Request, run_id: str = Form(...)):
     # Get client address
     client_ip = get_client_address(request)
     
-    # Rate limiting: /api/gate-check 1 per 10 seconds per client (same as verify)
-    gate_check_window = int(os.environ.get("CORONER_GATE_CHECK_RATE_WINDOW", "10"))
-    retry_after = check_rate_limit(f"endpoint:/api/gate-check:ip:{client_ip}", 1, gate_check_window)
-    if retry_after:
-        return JSONResponse(
-            status_code=429,
-            content={"detail": "Rate limit exceeded for gate-check", "retry_after": retry_after},
-            headers={"Retry-After": str(retry_after)}
-        )
-    
     # Rate limiting: global 100/min
     retry_after = check_rate_limit("global", 100, 60)
     if retry_after:
@@ -1416,6 +1406,17 @@ async def gate_check(request: Request, run_id: str = Form(...)):
     cached_response = get_cached_gate_check(cert_file_sha256)
     if cached_response is not None:
         return JSONResponse(content=cached_response)
+    
+    # Cache miss: will perform replay, so check the gate-check-specific rate limit
+    # Rate limiting: /api/gate-check 1 per 10 seconds per client (same as verify)
+    gate_check_window = int(os.environ.get("CORONER_GATE_CHECK_RATE_WINDOW", "10"))
+    retry_after = check_rate_limit(f"endpoint:/api/gate-check:ip:{client_ip}", 1, gate_check_window)
+    if retry_after:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded for gate-check", "retry_after": retry_after},
+            headers={"Retry-After": str(retry_after)}
+        )
     
     # Build scope from certificate
     scope = {
