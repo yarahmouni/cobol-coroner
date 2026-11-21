@@ -966,6 +966,12 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Results (operator, Mac): `docker compose config` lists the new digest for the three services; tests/test_docker_compose.py with repo tests passed (last line below). Fresh run after `docker compose down -v`, the old image removed and `docker logout ghcr.io`: anonymous pull 48.9 s; `docker compose up -d` 1 min 11 s, coroner-init "Bundled demo runs generated."; `make deploy-check URL=http://127.0.0.1:8000`: all 10 checks PASS (clean-clone build, form, T1 faulty ZOMBIE f584d5f35228, T1 correct ALIVE 29c15f04407b, tamper INVALID, certificate VALID, no-store, 413 at 17 KB, story step 5, fool page) in 3 min 23 s. In that stack /fool with the three defects on reads "Coroner detected 3 of 3 injected defects" with 682, 86 and 87 of 2000 test cases diverging, and story step 4 reads "682 of 2000 batches diverge". Outputs kept for docs/deploy.md, which is updated next.
 - Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
 
+### R-146 2026-11-21: docs/deploy.md follows the re-pinned image
+- Calls p350 (sonnet-5.5) and p351 (haiku-5.5, one word), docs worktree. The old digest e671f330... no longer appears; every "Measured on the operator's Mac" block now holds the outputs of R-145 (redacted copies): pull 48.9 s, `docker compose up -d` 1 min 11 s, compose ps and init logs on sha256:837503172e4d..., merged server config image lines, and the local deploy check with its 10 PASS lines in 3 min 22.9 s including the clean-clone build. The live-check section lists the nine PASS lines printed with --skip-build (p350 wrote "ten"; corrected in p351) and explains the two new checks (story step 5, fool page).
+- Addendum to R-145: tests/test_docker_compose.py with repo tests: 49 passed in 96.58 s.
+- Checks (operator): diff read; no old digest, no em dash; the nine lines match scripts/deploy_check.py.
+- Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.

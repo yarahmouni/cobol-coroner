@@ -12,7 +12,7 @@ How outputs are labelled in this guide:
 Three Coroner services plus cloudflared. All three Coroner services run the same prebuilt image from GitHub Container Registry, pinned by digest:
 
 ```
-ghcr.io/yarahmouni/cobol-coroner@sha256:e671f330fa7ebd78c5d5041bbccfbe9cddf7f3e12a33b4a94825ee1d0bf75d50
+ghcr.io/yarahmouni/cobol-coroner@sha256:837503172e4d54702edb6b87d48659e120cc1d3fda11bd6ebe2f5789b0ebe1e8
 ```
 
 The package is public, so pulling needs no login. The image is published by `.github/workflows/publish-image.yml` and is the image the CI tests run. The server never builds anything.
@@ -177,36 +177,37 @@ Measured on the operator's Mac, 2026-11-21 (`docker compose pull` with `docker-c
 
 ```
  coroner-init Skipped - Image is already being pulled by coroner-engine 
- coroner-engine Pulling 
  coroner-api Skipped - Image is already being pulled by coroner-engine 
- fd61ddc72eed Pull complete 
- ddfd41bec198 Pull complete 
- 7b00dd344443 Pull complete 
- 40bb5b1db2fe Pull complete 
- 29703623e91c Pull complete 
- 11ee20fcec43 Pull complete 
- 1ed1089815e9 Pull complete 
- d222a9004e62 Pull complete 
- 0d30095640ea Pull complete 
- 0c99b233a51f Pull complete 
- ade29527b776 Pull complete 
- cc1887cbd036 Pull complete 
+ coroner-engine Pulling 
+ 8d79fc8bd5fd Pull complete 
+ 949d78adb05f Pull complete 
+ bc777f1a7182 Pull complete 
+ e818fb0ed7af Pull complete 
+ c8b5dc0d7729 Pull complete 
+ 03081bab56a7 Pull complete 
+ 2185503755d0 Pull complete 
+ 8c88dceddb62 Pull complete 
+ 0e0cd2eaf9e9 Pull complete 
+ f85e9761f760 Pull complete 
+ e852391a6cbc Pull complete 
+ e6e5137408a8 Pull complete 
+ 2e65c2200cda Pull complete 
  coroner-engine Pulled 
-docker compose pull  0.20s user 0.20s system 0% cpu 50.703 total
+docker compose pull  0.19s user 0.16s system 0% cpu 48.869 total
 ```
 
-The last line is the `time` output of the operator's shell: the pull took 50.7 seconds there. On the server the same command also pulls cloudflared (Output: measured at deploy time).
+The last line is the `time` output of the operator's shell: the pull took 48.9 seconds there. On the server the same command also pulls cloudflared (Output: measured at deploy time).
 
 Read the digest back from the pulled image and compare it with the one in `docker-compose.yml`. They must match exactly:
 
 ```bash
-docker image inspect --format '{{index .RepoDigests 0}}' ghcr.io/yarahmouni/cobol-coroner@sha256:e671f330fa7ebd78c5d5041bbccfbe9cddf7f3e12a33b4a94825ee1d0bf75d50
+docker image inspect --format '{{index .RepoDigests 0}}' ghcr.io/yarahmouni/cobol-coroner@sha256:837503172e4d54702edb6b87d48659e120cc1d3fda11bd6ebe2f5789b0ebe1e8
 ```
 
 Measured on the operator's Mac, 2026-11-21:
 
 ```
-ghcr.io/yarahmouni/cobol-coroner@sha256:e671f330fa7ebd78c5d5041bbccfbe9cddf7f3e12a33b4a94825ee1d0bf75d50
+ghcr.io/yarahmouni/cobol-coroner@sha256:837503172e4d54702edb6b87d48659e120cc1d3fda11bd6ebe2f5789b0ebe1e8
 ```
 
 ## 5. Check the merged configuration
@@ -221,10 +222,10 @@ Measured on the operator's Mac, 2026-11-21 (line numbers are positions in the me
 
 ```
 23:    image: cloudflare/cloudflared:2026.10.7@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba
-75:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:e671f330fa7ebd78c5d5041bbccfbe9cddf7f3e12a33b4a94825ee1d0bf75d50
-118:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:e671f330fa7ebd78c5d5041bbccfbe9cddf7f3e12a33b4a94825ee1d0bf75d50
-154:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:e671f330fa7ebd78c5d5041bbccfbe9cddf7f3e12a33b4a94825ee1d0bf75d50
-183:x-coroner-image: ghcr.io/yarahmouni/cobol-coroner@sha256:e671f330fa7ebd78c5d5041bbccfbe9cddf7f3e12a33b4a94825ee1d0bf75d50
+75:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:837503172e4d54702edb6b87d48659e120cc1d3fda11bd6ebe2f5789b0ebe1e8
+118:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:837503172e4d54702edb6b87d48659e120cc1d3fda11bd6ebe2f5789b0ebe1e8
+154:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:837503172e4d54702edb6b87d48659e120cc1d3fda11bd6ebe2f5789b0ebe1e8
+183:x-coroner-image: ghcr.io/yarahmouni/cobol-coroner@sha256:837503172e4d54702edb6b87d48659e120cc1d3fda11bd6ebe2f5789b0ebe1e8
 ```
 
 All three Coroner services must show the same digest, and none of them may have a `build` key. The API must not publish a port on the server. This command must print nothing:
@@ -264,10 +265,10 @@ Output: measured at deploy time. The Compose lines for the network, the volumes 
  Container cobol-lazarus-coroner-init-1  Exited
  Container cobol-lazarus-coroner-api-1  Starting
  Container cobol-lazarus-coroner-api-1  Started
-docker compose up -d  0.29s user 0.20s system 0% cpu 1:19.09 total
+docker compose up -d  0.24s user 0.16s system 0% cpu 1:11.11 total
 ```
 
-First start took 1 minute 19 seconds there, because coroner-init generates the bundled demo runs before the API starts. A later restart skips the generation.
+First start took 1 minute 11 seconds there, because coroner-init generates the bundled demo runs before the API starts. A later restart skips the generation.
 
 List the running services:
 
@@ -279,8 +280,8 @@ Output: measured at deploy time. Look for `coroner-api`, `coroner-engine` and `c
 
 ```
 SERVICE          IMAGE                                                                                                      STATUS
-coroner-api      ghcr.io/yarahmouni/cobol-coroner@sha256:e671f330fa7ebd78c5d5041bbccfbe9cddf7f3e12a33b4a94825ee1d0bf75d50   Up 4 seconds
-coroner-engine   ghcr.io/yarahmouni/cobol-coroner@sha256:e671f330fa7ebd78c5d5041bbccfbe9cddf7f3e12a33b4a94825ee1d0bf75d50   Up About a minute
+coroner-api      ghcr.io/yarahmouni/cobol-coroner@sha256:837503172e4d54702edb6b87d48659e120cc1d3fda11bd6ebe2f5789b0ebe1e8   Up Less than a second
+coroner-engine   ghcr.io/yarahmouni/cobol-coroner@sha256:837503172e4d54702edb6b87d48659e120cc1d3fda11bd6ebe2f5789b0ebe1e8   Up About a minute
 ```
 
 Check that the demo runs were generated:
@@ -376,7 +377,7 @@ Before the server, run the same pinned image on your own machine, without cloudf
 docker compose up -d
 ```
 
-Measured on the operator's Mac, 2026-11-21: the output shown in step 6 (1 minute 19 seconds, UI answering on http://127.0.0.1:8000 afterwards).
+Measured on the operator's Mac, 2026-11-21: the output shown in step 6 (1 minute 11 seconds, UI answering on http://127.0.0.1:8000 afterwards).
 
 Open http://127.0.0.1:8000. The home page shows the Run audit form.
 
@@ -391,27 +392,29 @@ Measured on the operator's Mac, 2026-11-21 (`URL` defaults to http://127.0.0.1:8
 ```
 .venv/bin/python scripts/deploy_check.py --url http://127.0.0.1:8000
 Building image from clean git clone...
-Current HEAD: 1b04cf0bb35e25c0d5c5456b1476d630a32596b7
+Current HEAD: 6b6b34858876a0dc500bdef0842f9dc214872045
 Cloning into <temp dir>
 Building Docker image (this may take a few minutes)...
 PASS: Image built successfully from clean checkout
 
 Running checks against http://127.0.0.1:8000...
 PASS: GET / returns 200 with Run audit form
-T1 faulty: job submitted, job_id=7276c233f29e
+T1 faulty: job submitted, job_id=204621afa1da
 PASS: T1 faulty: ZOMBIE verdict, run_id=f584d5f35228
-T1 correct: job submitted, job_id=d18b78c1aa3b
+T1 correct: job submitted, job_id=dc7283adb66d
 PASS: T1 correct: ALIVE verdict, run_id=29c15f04407b
 PASS: Tamper: INVALID with replay mismatch, run_id=f584d5f35228
 PASS: Verify: certificate VALID, run_id=f584d5f35228
 PASS: Cache-Control: /api/* responses include no-store
 PASS: Body limit: 17 KB body rejected with 413
+PASS: Story step 5: Cause of death, positioning sentence and a branch table row
+PASS: Fool page: counter and three checkboxes
 
 Deployment check PASSED: all checks succeeded
-make deploy-check URL=http://127.0.0.1:8000 PYTHON=.venv/bin/python  0.83s user 1.70s system 2% cpu 1:28.61 total
+make deploy-check URL=http://127.0.0.1:8000 PYTHON=.venv/bin/python  1.28s user 2.26s system 1% cpu 3:22.92 total
 ```
 
-The last line is the `time` output of the operator's shell: 1 minute 28.6 seconds in total, with the image build coming from a warm Docker cache.
+The last line is the `time` output of the operator's shell: 3 minutes 22.9 seconds in total, including the image build from a clean `git clone`.
 
 Stop:
 
@@ -456,7 +459,7 @@ make deploy-check URL=https://coroner.iqoba.com
 .venv/bin/python scripts/deploy_check.py --url https://coroner.iqoba.com --skip-build
 ```
 
-Output: measured at deploy time. The script prints one line per check. A healthy deployment prints these seven PASS lines (quoted from `scripts/deploy_check.py`; the run ids are filled in by the script), then the final line, and exits with code 0:
+Output: measured at deploy time. The script prints one line per check. A healthy deployment prints these nine PASS lines (quoted from `scripts/deploy_check.py`; the run ids are filled in by the script), then the final line, and exits with code 0:
 
 ```
 PASS: GET / returns 200 with Run audit form
@@ -466,6 +469,8 @@ PASS: Tamper: INVALID with replay mismatch, run_id=<run id>
 PASS: Verify: certificate VALID, run_id=<run id>
 PASS: Cache-Control: /api/* responses include no-store
 PASS: Body limit: 17 KB body rejected with 413
+PASS: Story step 5: Cause of death, positioning sentence and a branch table row
+PASS: Fool page: counter and three checkboxes
 
 Deployment check PASSED: all checks succeeded
 ```
@@ -478,3 +483,4 @@ What each check means and what to do on a `FAIL:`:
 - **T1 faulty and T1 correct**: a Run audit (2000 cases, seed 42) returns ZOMBIE for the faulty port and ALIVE for the correct port. On FAIL, read the coroner-engine logs for job errors.
 - **Tamper**: an edited copy of the certificate replays as INVALID with a replay mismatch. **Verify**: the unmodified certificate replays as VALID. On FAIL, check that the run files exist under `/data/runs` and read the coroner-api logs.
 - **Cache-Control**: every `/api/*` response carries `no-store`. **Body limit**: a 17 KB body is rejected with 413. A FAIL on either is a code issue, not a deployment issue.
+- **Story step 5**: `/story/step/5` shows the "Cause of death" heading, the positioning sentence and at least one branch table row. **Fool page**: `/fool` shows the counter sentence and the three checkboxes case1, case2 and case4. Both read the bundled demo runs and start no audit. On FAIL, check that coroner-init ended with `Bundled demo runs generated.` (step 6).
