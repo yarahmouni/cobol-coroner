@@ -13,6 +13,9 @@ from coroner.parse.schema import GeneratorScriptError, Schema, SchemaColumn
 # Increment when generation logic changes in a way that affects output bytes
 GENERATOR_VERSION = 1
 
+# Share of rounding-tie cases used by every audit (calibrated in R-55)
+DEFAULT_TIE_SHARE = 0.06
+
 
 def draw_int(rng: random.Random, lo: int, hi: int) -> int:
     """

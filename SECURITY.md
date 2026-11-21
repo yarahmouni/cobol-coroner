@@ -65,6 +65,7 @@ The live demo at https://coroner.iqoba.com implements the following security con
 - Tamper works server-side on a logged copy (deleted after replay)
 - Replay timeout: 90 seconds (kills process group)
 - Replay recomputes every recorded file hash before running
+- Replay regenerates the cases from the recorded seed and compares them with the stored cases file (certificates made before the generator version was recorded are replayed with a warning instead)
 
 ### Gate Check (POST /api/gate-check)
 

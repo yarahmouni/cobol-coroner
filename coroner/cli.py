@@ -8,7 +8,7 @@ from pathlib import Path
 
 from coroner.parse.schema import load_schema, GeneratorScriptError
 from coroner.parse.copybook import parse_cobol_structure
-from coroner.gen import GeneratorScript, generate_cases
+from coroner.gen import DEFAULT_TIE_SHARE, GeneratorScript, generate_cases
 from coroner.run import compile_cobol, compile_java, run_cobol, run_java, run_cobol_instrumented
 from coroner.compare import compare_outputs
 from coroner.verdict import compute_verdict
@@ -143,7 +143,7 @@ def run_verify(
     import csv
     import shutil
     
-    tie_share = 0.06  # Calibrated in R-55
+    tie_share = DEFAULT_TIE_SHARE  # Calibrated in R-55
     
     def record_step(name: str, start: float):
         if timings:
@@ -418,7 +418,7 @@ def run_verify(
     
     # Generate certificate
     from coroner.certificate import generate_certificate
-    generate_certificate(run_id, cobol_path, copybooks_dir, java_path, schema_path, base_dir)
+    generate_certificate(run_id, cobol_path, copybooks_dir, java_path, schema_path, base_dir, tie_share)
     
     record_step("Store results", step_start)
     

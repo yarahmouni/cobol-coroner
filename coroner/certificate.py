@@ -4,6 +4,7 @@ import os
 import sys
 import hashlib
 import csv
+import tempfile
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Optional
@@ -11,6 +12,7 @@ from typing import Optional
 from coroner.verdict import Verdict
 from coroner.parse.schema import load_schema
 from coroner.parse.copybook import parse_cobol_structure
+from coroner.gen import DEFAULT_TIE_SHARE, GENERATOR_VERSION, GeneratorScript, generate_cases
 from coroner.run import compile_cobol, compile_java, run_cobol, run_java, run_cobol_instrumented, JAVA_LOCALE
 from coroner.compare import compare_outputs
 from coroner.verdict import compute_verdict
@@ -94,7 +96,8 @@ def generate_certificate(
     copybook_dir: str,
     java_file: str,
     schema_file: str,
-    base_dir: str = "."
+    base_dir: str = ".",
+    tie_share: float = DEFAULT_TIE_SHARE
 ) -> None:
     """
     Generate certificate.json after a run.
@@ -112,6 +115,8 @@ def generate_certificate(
         java_file: Path to Java source file
         schema_file: Path to schema.json
         base_dir: Base directory for runs/ (default current directory)
+        tie_share: Tie share the cases were generated with (recorded, with the
+            generator version, so that replay can regenerate the cases)
         
     Raises:
         FileNotFoundError: If required run files not found
@@ -174,6 +179,9 @@ def generate_certificate(
         "cases_file_line_ending": inputs["cases_file_line_ending"],
         "case_count": inputs["case_count"],
         "random_seed": inputs["random_seed"],
+        # What replay needs to regenerate the cases from the seed
+        "generator_version": GENERATOR_VERSION,
+        "tie_share": tie_share,
         "cobc_flags": inputs.get("cobc_flags", []),
         "java_locale": JAVA_LOCALE,  # Locale used for Java execution
         "python_version": inputs["python_version"],
@@ -414,11 +422,44 @@ def replay_certificate(certificate_path: str, base_dir: Optional[str] = None) ->
         
         cobol_structure = parse_cobol_structure(cobol_file, copybook_dir)
         
+        # The stored cases must be what the recorded seed produces. Certificates
+        # without a generator version, or made by another version, cannot be checked.
+        recorded_generator_version = cert.get("generator_version")
+        if recorded_generator_version == GENERATOR_VERSION:
+            script = GeneratorScript.read(schema_obj) if schema_obj.generator_script_path else None
+            if script is not None and script.sha256 != recorded_script_hash:
+                return ReplayResult(
+                    valid=False, reason="generator script hash mismatch",
+                    verdict=None, cases_total=0, cases_divergent=0,
+                    paragraph_coverage_reached=0, paragraph_coverage_total=0,
+                    branch_coverage_reached=0, branch_coverage_total=0,
+                    cases_file="", warnings=[]
+                )
+            with tempfile.TemporaryDirectory(prefix="coroner_regen_") as regen_dir:
+                regenerated = generate_cases(
+                    schema_obj, cobol_structure, cert["random_seed"], cert["case_count"],
+                    cert["tie_share"], regen_dir, script
+                )
+                regenerated_bytes = Path(regenerated).read_bytes()
+            if regenerated_bytes != Path(cases_file).read_bytes():
+                return ReplayResult(
+                    valid=False, reason="replay mismatch (generated cases do not match random_seed)",
+                    verdict=None, cases_total=0, cases_divergent=0,
+                    paragraph_coverage_reached=0, paragraph_coverage_total=0,
+                    branch_coverage_reached=0, branch_coverage_total=0,
+                    cases_file="", warnings=[]
+                )
+        else:
+            recorded_text = "none" if recorded_generator_version is None else recorded_generator_version
+            warnings.append(
+                f"cases not regenerated from the seed (generator version recorded: {recorded_text}, "
+                f"current: {GENERATOR_VERSION})"
+            )
+        
         # Get cobc_flags from certificate (default empty list)
         cobol_flags = cert.get("cobc_flags", [])
         
         # Create temporary build directory for replay
-        import tempfile
         with tempfile.TemporaryDirectory(prefix="coroner_replay_") as replay_build:
             program_name = schema_obj.program_name
             java_class = Path(java_file).stem

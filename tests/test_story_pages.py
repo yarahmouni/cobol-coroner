@@ -824,6 +824,18 @@ def test_step8_cheating_gives_invalid_with_the_replay_reason_and_leaves_the_orig
 
 
 @pytest.mark.slow
+def test_step8_seed_only_edit_gives_invalid(story_runs, tamper_client):
+    """A certificate cannot claim a seed it was not produced with (R-138)."""
+    client, _ = tamper_client
+    run_dir = _t1_faulty_run_dir(story_runs.base)
+    certificate = _read(run_dir, "certificate.json")
+    fields = form_fields(client.get("/story/step/8").text, "/story/tamper")
+    text = visible_text(_post_tamper(client, fields, random_seed=certificate["random_seed"] + 1).text)
+    assert "Certificate: INVALID" in text
+    assert "replay mismatch (generated cases do not match random_seed)" in text
+
+
+@pytest.mark.slow
 def test_step8_unmodified_values_give_valid(story_runs, tamper_client):
     client, _ = tamper_client
     run_dir = _t1_faulty_run_dir(story_runs.base)
