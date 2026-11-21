@@ -136,3 +136,16 @@ def story_runs(tmp_path_factory):
     assert _folder_listing(repo_runs) == before, "the story catalog touched the repository runs/ folder"
 
     return namedtuple("StoryRuns", "base cases catalog")(base, STORY_CASES, catalog)
+
+
+@pytest.fixture
+def story_client(story_runs, monkeypatch):
+    """A test client whose base directory is the real catalog of `story_runs`, with a clean gate cache."""
+    from fastapi.testclient import TestClient
+
+    from coroner.ui.app import app, clear_gate_check_cache
+
+    monkeypatch.setenv("CORONER_BASE_DIR", str(story_runs.base))
+    clear_gate_check_cache()
+    yield TestClient(app)
+    clear_gate_check_cache()

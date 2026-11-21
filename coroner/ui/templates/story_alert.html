@@ -1,0 +1,12 @@
+{% from "story_macros.html" import gate_form, run_retry_form %}
+<div class="story-alert" role="alert">
+    <p>{{ message }}</p>
+    {% if retry_after %}
+    <p>Try again in {{ retry_after }} second{{ '' if retry_after|string == '1' else 's' }}.</p>
+    {% endif %}
+    {% if retry_action == 'gate' %}
+    {{ gate_form(run_id, view, "Check again") }}
+    {% elif retry_action == 'run' %}
+    {{ run_retry_form(port, seed, cases, view) }}
+    {% endif %}
+</div>

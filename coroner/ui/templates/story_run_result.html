@@ -1,0 +1,16 @@
+{% from "story_macros.html" import status_badge %}
+{% set kind = {'ALIVE': 'alive', 'ZOMBIE': 'zombie'}.get(result.status, 'error') %}
+<div class="verdict-badge {{ kind }}" style="padding: 1rem; margin: 0.5rem 0;" role="status" aria-live="polite">
+    <p>Your run</p>
+    {% if cached %}
+    <p>This exact audit already exists.</p>
+    {% endif %}
+    {{ status_badge(kind) }}
+    <div class="verdict-status" style="font-size: 1.25rem;">{{ result.status if result.status else "no verdict recorded" }}</div>
+    {% if result.cases_divergent is not none and result.cases_total is not none %}
+    <p>{{ result.cases_divergent }} of {{ result.cases_total }} batches diverge</p>
+    {% else %}
+    <p>The batch counts are not recorded for this run.</p>
+    {% endif %}
+    <a href="/run/{{ result.run_id }}">Open the run</a>
+</div>

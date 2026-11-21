@@ -1,0 +1,19 @@
+<p>Every night, the bank reconciles branch subtotals to catch posting errors before opening.</p>
+{{ listing_html }}
+{% if view == 'engineer' %}
+<section class="panel" aria-labelledby="technical-details">
+    <h3 id="technical-details">Technical details</h3>
+    <dl>
+        <dt>Schema file</dt>
+        <dd>{{ engineer.schema_file }}</dd>
+        <dt>Input columns</dt>
+        <dd>{{ engineer.input_columns|join(", ") }}</dd>
+        <dt>COBOL file</dt>
+        <dd>{{ engineer.cobol_file }}</dd>
+        {% if engineer.table_first_line is not none %}
+        <dt>Branch table</dt>
+        <dd>lines {{ engineer.table_first_line }} to {{ engineer.table_last_line }}</dd>
+        {% endif %}
+    </dl>
+</section>
+{% endif %}

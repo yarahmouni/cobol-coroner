@@ -9,6 +9,7 @@ import html
 import json
 import re
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Iterable, Optional
 
@@ -334,3 +335,193 @@ def render_listing(blocks: list[ListingBlock], view: Optional[str]) -> Markup:
         parts.append("</pre></div>")
     parts.append("</details>")
     return Markup("".join(parts))
+
+
+# ---------------------------------------------------------------- story shell and steps 1 to 3
+
+STEP_COUNT = 8
+STORY_TRAP_ID = "T1"
+POSITIONING_SENTENCE = (
+    "Coroner does not translate COBOL. AWS Transform, Kiro, an LLM or a human migrates COBOL "
+    "to Java. Coroner independently verifies the result."
+)
+STEP_TITLES = {
+    1: "Bank process",
+    2: "COBOL result",
+    3: "Java migration",
+    4: "Coroner compares",
+    5: "Where and why",
+    6: "Apply the fix",
+    7: "ALIVE certificate",
+    8: "Try to cheat",
+}
+
+
+def step_url(step: int, view: Optional[str]) -> str:
+    """URL of a step. The view is always written, so every link carries it."""
+    return f"/story/step/{step}?view={normalize_view(view)}"
+
+
+def parse_step(value) -> Optional[int]:
+    """The step number of a URL segment when it is a whole number from 1 to STEP_COUNT, else None."""
+    if isinstance(value, str) and re.fullmatch(r"[0-9]{1,3}", value):
+        number = int(value)
+        if 1 <= number <= STEP_COUNT:
+            return number
+    return None
+
+
+def trap_folder(trap_id: str) -> Path:
+    """The samples/traps folder of a trap (T1 gives T1-ebcdic-match-merge)."""
+    folders = sorted(p for p in TRAPS_ROOT.glob(f"{trap_id}-*") if p.is_dir())
+    if len(folders) != 1:
+        raise StoryDataError(f"There is no single trap folder for {trap_id}")
+    return folders[0]
+
+
+def load_trap(trap_id: str) -> dict:
+    """trap.json of a trap."""
+    trap = _read_json(trap_folder(trap_id) / "trap.json")
+    if trap is None:
+        raise StoryDataError(f"{trap_id} has no trap.json")
+    return trap
+
+
+def trap_cobol_path(trap_id: str) -> Path:
+    """The COBOL program of a trap folder. Used where no run is needed (step 1)."""
+    programs = sorted(trap_folder(trap_id).glob("*.cob"))
+    if len(programs) != 1:
+        raise StoryDataError(f"There is no single COBOL program in the folder of {trap_id}")
+    return programs[0]
+
+
+def _need(value):
+    """A file or value the page cannot be shown without: absent means the bundled runs are missing."""
+    if value is None:
+        raise StoryDataError(MISSING_RUNS_MESSAGE)
+    return value
+
+
+def story_run(base_dir, correct: bool = False) -> Run:
+    """The bundled run of the story trap (faulty by default), found through runs/trap_catalog.json."""
+    entry = load_catalog(base_dir).get(STORY_TRAP_ID)
+    run_id = _need(entry).correct_run_id if correct else _need(entry).faulty_run_id
+    return load_run(base_dir, _need(run_id))
+
+
+def same_amount(first: str, second: str) -> bool:
+    """True when two amounts written as text are the same number (compared as decimals)."""
+    try:
+        return Decimal(first) == Decimal(second)
+    except InvalidOperation:
+        return first == second
+
+
+def audit_result(base_dir, run_id: str) -> dict:
+    """The verdict and the counts of a run, read from its verdict.json (a missing key is None)."""
+    verdict = _need(load_run(base_dir, run_id).verdict)
+    return {
+        "run_id": run_id,
+        "status": verdict.get("status"),
+        "cases_divergent": verdict.get("cases_divergent"),
+        "cases_total": verdict.get("cases_total"),
+    }
+
+
+def _step_1(base_dir, view: str) -> dict:
+    folder = trap_folder(STORY_TRAP_ID)
+    cobol = trap_cobol_path(STORY_TRAP_ID)
+    blocks = listing(folder, cobol, ["table"])
+    schema = _need(_read_json(folder / "schema.json"))
+    table = blocks[0]
+    return {
+        "content": "story_step_1.html",
+        "listing_html": render_listing(blocks, view),
+        "engineer": {
+            "schema_file": "schema.json",
+            "input_columns": [column["name"] for column in schema["input"]["columns"]],
+            "cobol_file": cobol.name,
+            "table_first_line": table.first_line,
+            "table_last_line": table.last_line,
+        },
+    }
+
+
+def _step_2(base_dir, view: str) -> dict:
+    run = story_run(base_dir)
+    verdict = _need(run.verdict)
+    reconciliation = _need(run.reconciliation)
+    inputs = _need(run.inputs)
+    trap = load_trap(STORY_TRAP_ID)
+    cobol = resolve_cobol_path(inputs)
+    rows = sorted(
+        ({"branch": b["branch"], "amount": b["cobol_subtotal"]} for b in reconciliation["branches"]),
+        key=lambda row: row["branch"],
+    )
+    blocks = listing(trap_folder(STORY_TRAP_ID), cobol, ["collation", "sort"])
+    return {
+        "content": "story_step_2.html",
+        "transactions": _need(transaction_count(run)),
+        "cases": verdict["cases_total"],
+        "rows": rows,
+        "suspense": {
+            "label": trap["suspense_label"],
+            "code": trap["suspense_code"],
+            "amount": reconciliation["suspense"]["cobol"],
+        },
+        "grand_total": reconciliation["grand_total"]["cobol"],
+        "listing_html": render_listing(blocks, view),
+        "engineer": {"run_id": run.run_id, "seed": inputs["random_seed"], "cobol_file": cobol.name},
+    }
+
+
+def _step_3(base_dir, view: str) -> dict:
+    run = story_run(base_dir)
+    totals = _need(run.reconciliation)["grand_total"]
+    certificate = run.certificate
+    java_file = Path(certificate["java_file"]).name if certificate and certificate.get("java_file") else None
+    return {
+        "content": "story_step_3.html",
+        "cobol_total": totals["cobol"],
+        "java_total": totals["java"],
+        "totals_match": same_amount(totals["cobol"], totals["java"]),
+        "engineer": {"run_id": run.run_id, "java_file": java_file},
+    }
+
+
+# Steps 4 to 8 are added by later tasks of the spec; until then they show their heading only.
+_STEP_BUILDERS = {1: _step_1, 2: _step_2, 3: _step_3}
+
+
+def build_step(base_dir, step: int, view: Optional[str]) -> dict:
+    """
+    Everything the story page template needs for one step.
+
+    A missing or unreadable file gives `error` (the typed message) and no step content, so no
+    default number is ever shown.
+    """
+    view = normalize_view(view)
+    context = {
+        "step": step,
+        "step_count": STEP_COUNT,
+        "title": STEP_TITLES[step],
+        "view": view,
+        "error": None,
+        "content": None,
+        "noscript_notes": [],
+        "back_url": step_url(step - 1, view) if step > 1 else None,
+        "next_url": step_url(step + 1, view) if step < STEP_COUNT else "/",
+        "next_label": "Next" if step < STEP_COUNT else "Finish",
+        "business_url": step_url(step, "business"),
+        "engineer_url": step_url(step, "engineer"),
+        "positioning": POSITIONING_SENTENCE,
+    }
+    builder = _STEP_BUILDERS.get(step)
+    if builder is not None:
+        try:
+            context.update(builder(base_dir, view))
+        except StoryDataError as e:
+            context["error"] = str(e)
+        except (KeyError, TypeError) as e:
+            context["error"] = f"A bundled run file does not have the expected content ({e})."
+    return context

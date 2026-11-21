@@ -1,0 +1,26 @@
+{# One step of the story. htmx swaps this into #story-content; the full page includes it. #}
+{% if is_fragment %}<title>Step {{ step }} of {{ step_count }}: {{ title }} - COBOL Coroner</title>{% endif %}
+<nav aria-label="View" class="story-views">
+    <a href="{{ business_url }}" hx-get="{{ business_url }}" hx-target="#story-content" hx-push-url="true"{% if view == 'business' %} aria-current="true"{% endif %}>Business view</a>
+    <a href="{{ engineer_url }}" hx-get="{{ engineer_url }}" hx-target="#story-content" hx-push-url="true"{% if view == 'engineer' %} aria-current="true"{% endif %}>Engineer view</a>
+</nav>
+<p class="story-progress">Step {{ step }} of {{ step_count }}</p>
+<h2 id="step-heading" tabindex="-1">{{ title }}</h2>
+{% if error %}
+<p class="story-alert" role="alert">{{ error }}</p>
+{% elif content %}
+{% include content %}
+{% endif %}
+{% for note in noscript_notes %}
+<noscript><p>{{ note }}</p></noscript>
+{% endfor %}
+<nav aria-label="Story steps" class="story-steps">
+    {% if back_url %}
+    <a class="story-back" href="{{ back_url }}" hx-get="{{ back_url }}" hx-target="#story-content" hx-push-url="true">Back</a>
+    {% endif %}
+    {% if step < step_count %}
+    <a class="story-next" href="{{ next_url }}" hx-get="{{ next_url }}" hx-target="#story-content" hx-push-url="true">{{ next_label }}</a>
+    {% else %}
+    <a class="story-next" href="{{ next_url }}">{{ next_label }}</a>
+    {% endif %}
+</nav>

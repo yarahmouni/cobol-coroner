@@ -1,0 +1,17 @@
+<p>A Java version was written to replace it.</p>
+<p>COBOL grand total: <strong class="story-amount">{{ cobol_total }}</strong></p>
+<p>Java grand total: <strong class="story-amount">{{ java_total }}</strong></p>
+<p>{% if totals_match %}They match.{% else %}They differ.{% endif %}</p>
+{% if view == 'engineer' %}
+<section class="panel" aria-labelledby="technical-details">
+    <h3 id="technical-details">Technical details</h3>
+    <dl>
+        <dt>Run id</dt>
+        <dd>{{ engineer.run_id }}</dd>
+        {% if engineer.java_file %}
+        <dt>Java file</dt>
+        <dd>{{ engineer.java_file }}</dd>
+        {% endif %}
+    </dl>
+</section>
+{% endif %}

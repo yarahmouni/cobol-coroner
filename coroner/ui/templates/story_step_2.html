@@ -1,0 +1,44 @@
+<p>The COBOL program posted {{ transactions }} transactions in {{ cases }} test batches.</p>
+<div style="overflow-x: auto;">
+    <table>
+        <caption class="story-progress">Subtotals posted by the COBOL program</caption>
+        <thead>
+            <tr>
+                <th scope="col">Branch</th>
+                <th scope="col" class="story-amount">COBOL subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <th scope="row">{{ row.branch }}</th>
+                <td class="story-amount">{{ row.amount }}</td>
+            </tr>
+            {% endfor %}
+            <tr>
+                <th scope="row">{{ suspense.label|capitalize }} ({{ suspense.code }})</th>
+                <td class="story-amount">{{ suspense.amount }}</td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <tr>
+                <th scope="row">Grand total</th>
+                <td class="story-amount">{{ grand_total }}</td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+{{ listing_html }}
+{% if view == 'engineer' %}
+<section class="panel" aria-labelledby="technical-details">
+    <h3 id="technical-details">Technical details</h3>
+    <dl>
+        <dt>Run id</dt>
+        <dd>{{ engineer.run_id }}</dd>
+        <dt>Seed</dt>
+        <dd>{{ engineer.seed }}</dd>
+        <dt>COBOL file</dt>
+        <dd>{{ engineer.cobol_file }}</dd>
+    </dl>
+</section>
+{% endif %}

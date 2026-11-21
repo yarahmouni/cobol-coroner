@@ -1,0 +1,33 @@
+{# Shapes of the verdict badges (D-56): ALIVE circle, ZOMBIE square, INVALID triangle, ERROR diamond. #}
+{% macro status_badge(kind) %}
+{% if kind == 'alive' %}
+<svg class="status-icon" width="32" height="32" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="20" fill="currentColor"/></svg>
+{% elif kind == 'zombie' %}
+<svg class="status-icon" width="32" height="32" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect x="4" y="4" width="40" height="40" fill="currentColor"/></svg>
+{% elif kind == 'invalid' %}
+<svg class="status-icon" width="32" height="32" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><polygon points="24,4 44,44 4,44" fill="currentColor"/></svg>
+{% else %}
+<svg class="status-icon" width="32" height="32" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect x="10" y="10" width="28" height="28" transform="rotate(45 24 24)" fill="currentColor"/></svg>
+{% endif %}
+{% endmacro %}
+
+{# The gate form of steps 4 and 7, also used by the "Check again" button of an alert. #}
+{% macro gate_form(run_id, view, label) %}
+<form class="story-action" hx-post="/story/gate-check" hx-target="#gate-result" hx-swap="innerHTML" hx-disabled-elt="find button">
+    <input type="hidden" name="run_id" value="{{ run_id }}">
+    <input type="hidden" name="view" value="{{ view }}">
+    <button type="submit">{{ label }}</button>
+    <span class="htmx-indicator">Checking the gate. This replays the audit.</span>
+</form>
+{% endmacro %}
+
+{# Retry of Run it yourself: the same values the visitor sent. #}
+{% macro run_retry_form(port, seed, cases, view) %}
+<form class="story-action" hx-post="/story/run" hx-target="#run-result" hx-swap="innerHTML" hx-disabled-elt="find button">
+    <input type="hidden" name="port" value="{{ port }}">
+    <input type="hidden" name="seed" value="{{ seed }}">
+    <input type="hidden" name="cases" value="{{ cases }}">
+    <input type="hidden" name="view" value="{{ view }}">
+    <button type="submit">Try again</button>
+</form>
+{% endmacro %}

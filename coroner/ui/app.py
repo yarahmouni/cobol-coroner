@@ -48,6 +48,7 @@ class CacheControlMiddleware:
     Pure ASGI middleware that sets Cache-Control headers on all responses.
     
     - /api/* responses: no-store, no-cache, must-revalidate (any status)
+    - /story and /story/* responses: no-store (any status)
     - /static/* responses: public, max-age=86400
     - Other paths: no Cache-Control header
     """
@@ -66,6 +67,8 @@ class CacheControlMiddleware:
         cache_header = None
         if path.startswith("/api/"):
             cache_header = b"no-store, no-cache, must-revalidate"
+        elif path == "/story" or path.startswith("/story/"):
+            cache_header = b"no-store"
         elif path.startswith("/static/"):
             cache_header = b"public, max-age=86400"
         
@@ -97,20 +100,22 @@ class CacheControlMiddleware:
 
 class BodySizeLimitMiddleware:
     """
-    Pure ASGI middleware that enforces body size limit on /api/* endpoints.
+    Pure ASGI middleware that enforces body size limit on /api/* and /story/* endpoints
+    (the story fragment routes call the API route functions, so they get the same limit).
     
     Rejects requests with Content-Length > 16384 or actual body > 16384 bytes.
     Returns 413 Payload Too Large.
     """
     
     MAX_SIZE = 16 * 1024  # 16 KB
+    LIMITED_PREFIXES = ("/api/", "/story/")
     
     def __init__(self, app):
         self.app = app
     
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
         """ASGI callable."""
-        if scope["type"] != "http" or not scope["path"].startswith("/api/"):
+        if scope["type"] != "http" or not scope["path"].startswith(self.LIMITED_PREFIXES):
             return await self.app(scope, receive, send)
         
         # Check Content-Length header
@@ -1316,6 +1321,14 @@ def clear_gate_check_cache():
         _gate_check_cache.clear()
 
 
+# Messages of the gate-check answer. The story fragment compares the returned message with
+# these constants to pick the badge, so the text lives in one place.
+GATE_MESSAGE_ALLOWED = "Commit allowed"
+GATE_MESSAGE_ZOMBIE = "This ZOMBIE migration cannot be committed"
+GATE_MESSAGE_INVALID = "Certificate invalid or does not match the audited files"
+GATE_MESSAGE_UNAVAILABLE = "Replay did not complete, try again"
+
+
 @app.post("/api/gate-check")
 async def gate_check(request: Request, run_id: str = Form(...)):
     """
@@ -1421,7 +1434,7 @@ async def gate_check(request: Request, run_id: str = Form(...)):
             status_code=503,
             content={
                 "status": "unavailable",
-                "message": "Replay did not complete, try again",
+                "message": GATE_MESSAGE_UNAVAILABLE,
                 "retry_after": gate_check_window,
             },
             headers={"Retry-After": str(gate_check_window)}
@@ -1441,15 +1454,15 @@ async def gate_check(request: Request, run_id: str = Form(...)):
         response_data = {
             "status": "allowed",
             "exit_code": 0,
-            "message": "Commit allowed"
+            "message": GATE_MESSAGE_ALLOWED
         }
     else:
         # exit_code is 1 or 2
         # Only show "ZOMBIE cannot be committed" when hash matches, replay is VALID, and status is ZOMBIE
         if hash_match and replay == "VALID" and status == "ZOMBIE":
-            message = "This ZOMBIE migration cannot be committed"
+            message = GATE_MESSAGE_ZOMBIE
         else:
-            message = "Certificate invalid or does not match the audited files"
+            message = GATE_MESSAGE_INVALID
         
         response_data = {
             "status": "blocked",
@@ -2138,6 +2151,13 @@ async def job_status(job_id: str):
         shutil.rmtree(job_dir)
     
     return JSONResponse(content=response_content)
+
+
+# The guided story pages and fragments (coroner/ui/story_routes.py). They call the route
+# functions above, so this import stays at the end of the module.
+from coroner.ui.story_routes import router as story_router  # noqa: E402
+
+app.include_router(story_router)
 
 
 def main():

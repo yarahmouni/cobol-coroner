@@ -1,0 +1,6 @@
+{% from "story_macros.html" import status_badge %}
+<div class="verdict-badge {{ kind }}" style="padding: 1rem; margin: 0.5rem 0;" role="status" aria-live="polite">
+    {{ status_badge(kind) }}
+    <div class="verdict-status" style="font-size: 1.25rem;">{{ heading }}</div>
+    <p>Exit code {{ exit_code }}</p>
+</div>
