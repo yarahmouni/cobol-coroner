@@ -150,3 +150,42 @@ From `docs/reviews.md`:
 The power `coroner-audit` is in [`powers/coroner-audit/`](../powers/coroner-audit/). It works in the Kiro IDE 1.4.178 on Windows 10 x64. On 2026-11-21 Kiro installed it from the Powers panel, its MCP server started from the published image pinned by digest, and Kiro called `run_differential_check`, `get_verdict`, `get_failure_report` and `verify_certificate` on Case 1 (run `f584d5f35228`, ZOMBIE on 682 of 2000 cases; `verify_certificate` returned valid). The evidence is in [`docs/evidence/kiro-power-run.md`](evidence/kiro-power-run.md). Kiro adapted the power files in the IDE. The example values in `POWER.md` were later replaced with values measured through the same image.
 
 The Kiro IDE could not be installed on the project Mac (macOS 12.7.6). Homebrew refuses the current cask ("does not run on macOS versions older than Ventura"), and the oldest official IDE build still offered on the Kiro downloads page (1.2.56) shows "requires macOS 13.0 or later". With kiro-cli 3.5.0 the power installed, but its MCP server never appeared in a session. All other Kiro work was done through kiro-cli 3.5.0.
+
+## 9. Property-based testing
+
+What is true in the code, with the file for each statement.
+
+**The generator is seeded.** [`coroner/gen/__init__.py`](../coroner/gen/__init__.py) builds every case from `random.Random(seed)` and uses `random()` only (D-30 in `docs/decisions.md`, rule in `.kiro/steering/quality.md`). The same seed gives the same cases: `tests/test_gen.py::test_generate_cases_deterministic` and the golden SHA-256 values of credit-fees seeds 42 and 123 in `tests/test_gen_regression.py`, keyed by `GENERATOR_VERSION`. What it generates:
+
+- numeric values drawn by magnitude (the number of integer digits first, then the digits), so small and large values both appear;
+- for schemas with `PRINCIPAL` and `FEE-RATE` (credit-fees) or the `product_pairs` strategy (Case 2), rounding ties: `tie_share` of the cases, 6 % by default, two thirds with an even preceding digit (they diverge under HALF_EVEN) and one third with an odd digit as control;
+- string values from the schema `domain`, with optional `domain_weights` (Case 1 branch codes);
+- batches of 5 to 25 rows per CASE-ID for schemas with `case_rows` (Case 1);
+- special formats on request: packed hex, zoned overpunch, dirty numeric text.
+
+It does not generate deliberate boundary values in an audit. `generate_limits`, `generate_boundaries` and `generate_string_values` exist in the module, but `generate_cases` does not call them, and no test calls them.
+
+**Property 1, on every generated case.** The Java output equals the COBOL output, field by field, with no tolerance, and the exit status is the same (`.kiro/steering/comparison-rules.md`, D-09, D-31). Normalization only pads a value to the schema scale and trims trailing spaces; a value with extra non-zero decimals is divergent, never rounded (`coroner/compare/__init__.py`).
+
+**Property 2, Case 1 (control-break batches).** For one batch, the branch subtotals plus the suspense line equal the grand total. The faulty port keeps this property while it moves the amounts of branches 001 and 9ZZ to suspense. That is why a total-only reconciliation does not see Case 1. Coroner compares every output row, the TOTAL row included, and reports `grand_total_matches` (`compute_exposure` in `coroner/compare/__init__.py`); it does not assert the conservation law itself at run time. The jqwik test below asserts it on the two Java ports. It does not run the COBOL program and asserts no COBOL output.
+
+**Hypothesis tests.** Four properties in [`tests/test_compare.py`](../tests/test_compare.py), all on the normalizer:
+
+| Test | Property |
+|---|---|
+| `test_normalize_decimal_idempotent` | normalizing a decimal with 2 places twice gives the same result |
+| `test_normalize_string_idempotent` | normalizing a string twice gives the same result |
+| `test_extra_decimals_divergent` | a value with non-zero digits beyond the schema scale is divergent, any other value is not |
+| `test_string_trim_trailing_only` | only trailing spaces are trimmed, leading spaces are kept |
+
+[`tests/conftest.py`](../tests/conftest.py) loads a profile with `derandomize=True` and no example database, so the tests are reproducible. Hypothesis never generates certificate cases (D-30).
+
+**jqwik test on the Java side.** [`samples/traps/T1-ebcdic-match-merge/java/property/MatchMergeProperties.java`](../samples/traps/T1-ebcdic-match-merge/java/property/MatchMergeProperties.java), run by `make pbt` with jqwik 1.10.2 on the JUnit Platform console launcher (jars downloaded and SHA-256 checked by `scripts/download_junit.py`). It runs the compiled faulty and correct `MatchMerge` classes as they are used by the engine (file in, file out, one JVM per batch). Batches have 1 to 25 transactions, amounts at scale 2 from -9999.99 to 9999.99, and branch codes from the schema domain plus random 3-character codes. 30 tries per property, seed 42.
+
+| Property | What it states |
+|---|---|
+| `correctPortConservesTheTotal` | correct port: subtotals plus suspense equal the grand total, and the grand total equals the sum of the input amounts |
+| `totalIsConservedEvenByTheFaultyPort` | the same law holds for the faulty port |
+| `faultyPortPostsBranch001ToSuspense` | for a batch with a transaction for branch 001, the correct port posts the 001 amount to branch 001 and the faulty port to suspense (9ZZ the same way); this compares the two ports with each other and states what the faulty code does, not an expected business output |
+
+The pytest test [`tests/test_property_t1.py`](../tests/test_property_t1.py) runs `make pbt` and checks that the three properties passed (slow marker).

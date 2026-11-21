@@ -99,6 +99,7 @@ None of the items below is committed. They are installed or downloaded when the 
 | GnuCOBOL | 3.2 (built from `https://ftp.gnu.org/gnu/gnucobol/gnucobol-3.2.tar.xz`), SHA-256 `3bb48af46ced4779facf41fdc2ee60e4ccb86eaa99d010b36685315df39c2ee2`, checked with `sha256sum -c` | `Dockerfile`, builder stage |
 | Other Debian packages | build-essential 12.9, xz-utils 5.4.1-1+deb12u2, libgmp-dev 2:6.2.1+dfsg1-1.1, libdb-dev 5.3.2, libncurses-dev 6.4-4, libgmp10 2:6.2.1+dfsg1-1.1, libdb5.3 5.3.28+dfsg2-1, libncurses6 6.4-4, gcc 4:12.2.0-3, libc6-dev 2.36-9+deb12u14, git 1:2.39.5-0+deb12u3, make 4.3-4.1 | `Dockerfile` |
 | JUnit Platform Console Standalone | 6.1.3 (EPL-2.0), SHA-256 `e62b96ac475dbcde8599ea905d088f65d90778f86e259b856a49fa5c4ea256ec` | `scripts/download_junit.py` |
+| jqwik (jqwik-api, jqwik-engine) | 1.10.2 (EPL-2.0), SHA-256 `7e3b95d4ff78410273921a55aeaaea4294e5ed8171f7284680e9c3a84bf7088e` and `b4cc136a0efc1e2aa31514aae8d80b66fef53894c2d2777e2cc1143ca7511098`, downloaded to `build/junit/` the same way | `scripts/download_junit.py` |
 | cloudflared | `cloudflare/cloudflared:2026.10.7`, digest `sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba`, live server only | `docker-compose.server.yml`, `docs/deploy.md` |
 | GitHub Actions | `actions/checkout` v7.0.1, `actions/setup-python` v7.1.0, `gitleaks/gitleaks-action` v3.0.0, each pinned by commit SHA | `.github/workflows/` |
 

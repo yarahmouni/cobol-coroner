@@ -43,7 +43,7 @@ COBOL Coroner uses the following third-party components.
 
 ### hypothesis 6.170.14
 - License: MPL-2.0
-- Used in: Property-based testing (tests/test_compare.py, tests/test_normalize.py)
+- Used in: Property-based testing (tests/test_compare.py)
 - Source: https://pypi.org/project/hypothesis/
 
 ## Python Packages (Test Only)
@@ -165,6 +165,15 @@ COBOL Coroner uses the following third-party components.
 - SHA-256: e62b96ac475dbcde8599ea905d088f65d90778f86e259b856a49fa5c4ea256ec
 - Used in: JUnit regression test execution (coroner/diag/junit.py)
 - Source: https://repo1.maven.org/maven2/org/junit/platform/junit-platform-console-standalone/6.1.3/
+
+### jqwik 1.10.2 (jqwik-api and jqwik-engine)
+- License: Eclipse Public License v2.0 (EPL-2.0), as stated in the POM of each artifact
+- Location: build/junit/jqwik-api-1.10.2.jar and build/junit/jqwik-engine-1.10.2.jar (downloaded by scripts/download_junit.py, not committed)
+- SHA-256 jqwik-api-1.10.2.jar: 7e3b95d4ff78410273921a55aeaaea4294e5ed8171f7284680e9c3a84bf7088e
+- SHA-256 jqwik-engine-1.10.2.jar: b4cc136a0efc1e2aa31514aae8d80b66fef53894c2d2777e2cc1143ca7511098
+- Used in: property tests of the Case 1 Java ports (samples/traps/T1-ebcdic-match-merge/java/property/, `make pbt`)
+- Source: https://repo1.maven.org/maven2/net/jqwik/
+- Note: the other jqwik modules and the dependencies named in the POMs are not downloaded: the JUnit console standalone jar already carries the JUnit Platform, opentest4j and apiguardian classes.
 
 ## cloudflared
 

@@ -137,6 +137,7 @@ make demo
 make zombie
 make acceptance
 make junit-jars
+make pbt  # jqwik properties of the Case 1 Java ports
 make serve  # starts the UI at http://127.0.0.1:8000
 ```
 
@@ -183,6 +184,19 @@ Validated under GnuCOBOL 3.x
 ```
 
 Note: Branch coverage counts only the branches reached by generated valid inputs. Input-validation error paths are not generated.
+
+## Property-based testing
+
+Coroner generates its cases from `schema.json` with `random.Random(seed)`, using `random()` only, so the same seed gives the same cases. Values are drawn by magnitude (number of digits first, then the digits), string columns come from the schema domain, rounding ties are added for fee-and-rate schemas (6 % of the cases by default), and batch schemas (Case 1) get 5 to 25 rows per case. It does not generate deliberate boundary values: the limit and boundary helpers in `coroner/gen` are not called by an audit.
+
+The property checked on every generated case: the Java output equals the COBOL output, field by field, with no numeric tolerance, and both exit with the same status.
+
+A second property holds for each Case 1 batch: the branch subtotals plus suspense equal the grand total. The faulty port keeps it while it moves the amounts of branches 001 and 9ZZ to suspense, which is why a total-only check does not see the error. Coroner compares every output row, the TOTAL row included, and reports whether the grand total matches.
+
+The tests of these properties:
+
+- `tests/test_compare.py`: four Hypothesis properties of the normalizer (idempotence of decimal and string normalization, extra decimals are divergent and never rounded, only trailing spaces are trimmed). `tests/conftest.py` makes them reproducible.
+- `make pbt`: three jqwik properties on the two Java ports of Case 1 (`samples/traps/T1-ebcdic-match-merge/java/property/MatchMergeProperties.java`, jqwik 1.10.2, 30 tries each, seed 42): the correct port conserves the total, the faulty port conserves it too, and for a batch with a branch 001 transaction the faulty port posts it to suspense where the correct port posts it to branch 001. It runs the ports and asserts no COBOL output. `tests/test_property_t1.py` runs it.
 
 ## The full chain
 
@@ -329,6 +343,7 @@ All COBOL programs and data in this repository are synthetic. No code or data fr
 - pytest 9.2.0 (MIT)
 - pyyaml 6.0.3 (MIT)
 - hypothesis 6.170.14 (MPL-2.0)
+- jqwik 1.10.2, jqwik-api and jqwik-engine jars (EPL-2.0, Java property tests only; downloaded by `scripts/download_junit.py` into `build/junit/`, not committed)
 - playwright 1.64.1 (Apache-2.0, screenshots only; `python -m playwright install chromium` downloads a Chromium browser not part of this repository; use `make screenshots SCREENSHOT_CHANNEL=chrome` with an installed Google Chrome when Playwright's Chromium is not available)
 - Pillow 13.0.0 (MIT-CMU, screenshots only)
 

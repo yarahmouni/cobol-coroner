@@ -2,7 +2,7 @@ PYTHON ?= .venv/bin/python
 SCREENSHOT_CHANNEL ?=
 URL ?= http://127.0.0.1:8000
 
-.PHONY: test test-all smoke smoke-ui demo zombie serve java-sample hooks junit-jars acceptance precommit traps demo-ebcdic coroner-gate screenshots deploy-check
+.PHONY: test test-all smoke smoke-ui demo zombie serve java-sample hooks junit-jars pbt acceptance precommit traps demo-ebcdic coroner-gate screenshots deploy-check
 
 test:
 	$(PYTHON) -m pytest -q
@@ -48,6 +48,19 @@ hooks:
 
 junit-jars:
 	@$(PYTHON) scripts/download_junit.py
+
+# Property-based test of the two T1 Java ports (jqwik on the JUnit Platform console launcher)
+T1_JAVA := samples/traps/T1-ebcdic-match-merge/java
+PBT_CP := build/junit/junit-platform-console-standalone-6.1.3.jar:build/junit/jqwik-api-1.10.2.jar:build/junit/jqwik-engine-1.10.2.jar
+
+pbt: junit-jars
+	@mkdir -p build/pbt/faulty build/pbt/correct build/pbt/property
+	@javac -encoding UTF-8 -nowarn -d build/pbt/faulty $(T1_JAVA)/faulty/MatchMerge.java
+	@javac -encoding UTF-8 -nowarn -d build/pbt/correct $(T1_JAVA)/correct/MatchMerge.java
+	@javac -encoding UTF-8 -Xlint:all -cp $(PBT_CP) -d build/pbt/property $(T1_JAVA)/property/MatchMergeProperties.java
+	@java -Dpbt.faulty=build/pbt/faulty -Dpbt.correct=build/pbt/correct -cp "$(PBT_CP):build/pbt/property:$(T1_JAVA)/property" \
+		org.junit.platform.console.ConsoleLauncher execute --include-engine=jqwik --select-class=MatchMergeProperties \
+		--details=tree --disable-banner --disable-ansi-colors
 
 precommit:
 	@JAVA_FILE=$${CORONER_PRECOMMIT_JAVA:-samples/credit-fees/java/CreditFees.java}; \
