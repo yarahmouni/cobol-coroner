@@ -48,6 +48,7 @@ COBOL + copybooks + Java 17 + schema.json
 - `CODE_OF_CONDUCT.md`
 - `CONTRIBUTING.md`
 - `cloudflared-config.yml`: Cloudflare tunnel ingress configuration
+- `docker-compose.build.yml`: Docker Compose override that builds the image from the Dockerfile as coroner-local:latest (developers)
 - `docker-compose.server.yml`: Docker Compose override for live server (removes published port, adds cloudflared)
 - `docker-compose.yml`: Docker Compose for local and tester mode (API, engine, init services)
 - `Dockerfile`

@@ -1,0 +1,28 @@
+# Docker Compose override: build the image from the Dockerfile (developers).
+#
+# Usage: docker compose -f docker-compose.yml -f docker-compose.build.yml up --build
+#
+# All three services use the local tag coroner-local:latest and are never
+# pulled. Testers do not need this file: docker-compose.yml pulls the
+# prebuilt image pinned by digest.
+
+x-coroner-build: &coroner-build
+  context: .
+  platforms:
+    - linux/amd64
+
+services:
+  coroner-init:
+    build: *coroner-build
+    image: coroner-local:latest
+    pull_policy: never
+
+  coroner-api:
+    build: *coroner-build
+    image: coroner-local:latest
+    pull_policy: never
+
+  coroner-engine:
+    build: *coroner-build
+    image: coroner-local:latest
+    pull_policy: never

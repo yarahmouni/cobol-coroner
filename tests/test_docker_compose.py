@@ -5,6 +5,7 @@ These tests validate that both docker-compose.yml and docker-compose.server.yml
 are valid and properly configured with security limits.
 """
 import ast
+import json
 import os
 import subprocess
 import sys
@@ -727,50 +728,11 @@ run_expect 0 test3_no_run bash -c "echo 'no run line'; exit 0"
         os.unlink(case3_path)
 
 
-def test_single_build_service():
-    """Exactly one service has build key, all three use same image name."""
+def test_engine_depends_on_init():
+    """The engine starts after the init service."""
     with open("docker-compose.yml") as f:
-        config = yaml.safe_load(f)
-    
-    services = config["services"]
-    
-    # Count services with build key
-    services_with_build = [
-        name for name, svc in services.items()
-        if "build" in svc
-    ]
-    assert len(services_with_build) == 1, (
-        f"Expected exactly 1 service with build, got {len(services_with_build)}: "
-        f"{services_with_build}"
-    )
-    
-    # The one with build must be coroner-init
-    assert services_with_build[0] == "coroner-init"
-    
-    # All three services must use the same image name
-    init_image = services["coroner-init"]["image"]
-    api_image = services["coroner-api"]["image"]
-    engine_image = services["coroner-engine"]["image"]
-    
-    assert init_image == api_image == engine_image, (
-        f"All three services must use same image. "
-        f"Got init={init_image}, api={api_image}, engine={engine_image}"
-    )
-    
-    # The image name must be coroner-local:latest
-    assert init_image == "coroner-local:latest"
-    
-    # API and engine must have pull_policy: never
-    assert services["coroner-api"]["pull_policy"] == "never"
-    assert services["coroner-engine"]["pull_policy"] == "never"
-    
-    # API and engine must not have build key
-    assert "build" not in services["coroner-api"]
-    assert "build" not in services["coroner-engine"]
-    
-    # Engine must depend on init
-    engine_depends = services["coroner-engine"].get("depends_on", {})
-    assert "coroner-init" in engine_depends
+        services = yaml.safe_load(f)["services"]
+    assert "coroner-init" in services["coroner-engine"].get("depends_on", {})
 
 
 # Check for duplicate test function names at module load time
@@ -844,3 +806,84 @@ def test_workflows_use_docker_init():
                     f"docker run in {workflow_file} missing --init flag:\n"
                     f"{docker_run_line[:200]}"
                 )
+
+
+PINNED_IMAGE = (
+    "ghcr.io/yarahmouni/cobol-coroner@sha256:"
+    "e671f330fa7ebd78c5d5041bbccfbe9cddf7f3e12a33b4a94825ee1d0bf75d50"
+)
+LOCAL_IMAGE = "coroner-local:latest"
+COMPOSE_SERVICES = ["coroner-init", "coroner-api", "coroner-engine"]
+SERVER_ENV = {
+    "TUNNEL_ID": "test-tunnel-id",
+    "TUNNEL_CREDENTIALS_FILE": "/tmp/test-credentials.json",
+}
+
+
+def _compose_config(files, extra_env=None):
+    """Return the services of `docker compose -f ... config --format json`."""
+    cmd = ["docker", "compose"]
+    for name in files:
+        cmd += ["-f", name]
+    cmd += ["config", "--format", "json"]
+    env = os.environ.copy()
+    env.update(extra_env or {})
+    result = subprocess.run(cmd, capture_output=True, text=True, env=env)
+    assert result.returncode == 0, (
+        f"{' '.join(cmd)} failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+    )
+    return json.loads(result.stdout)["services"]
+
+
+def test_base_compose_has_no_build_and_pulls_when_missing():
+    """docker-compose.yml never builds, pulls the pinned image when missing, pins amd64."""
+    with open("docker-compose.yml") as f:
+        services = yaml.safe_load(f)["services"]
+    for name in COMPOSE_SERVICES:
+        service = services[name]
+        assert "build" not in service, f"{name} must not have a build key"
+        assert service.get("pull_policy") == "missing", (
+            f"{name} must pull the pinned image when it is missing"
+        )
+        assert service.get("platform") == "linux/amd64", f"{name} must set platform"
+        assert service["image"] == PINNED_IMAGE, name
+
+
+@pytest.mark.repo
+def test_base_compose_resolves_to_pinned_digest():
+    """Every service of docker-compose.yml resolves to the exact pinned digest."""
+    services = _compose_config(["docker-compose.yml"])
+    assert sorted(services) == sorted(COMPOSE_SERVICES)
+    for name in COMPOSE_SERVICES:
+        assert services[name]["image"] == PINNED_IMAGE, name
+        assert "build" not in services[name], name
+
+
+@pytest.mark.repo
+def test_build_override_resolves_to_local_tag_with_build_context():
+    """With docker-compose.build.yml every service uses coroner-local:latest and builds."""
+    services = _compose_config(["docker-compose.yml", "docker-compose.build.yml"])
+    assert sorted(services) == sorted(COMPOSE_SERVICES)
+    for name in COMPOSE_SERVICES:
+        service = services[name]
+        assert service["image"] == LOCAL_IMAGE, name
+        assert service.get("build", {}).get("context"), f"{name} must have a build context"
+        assert Path(service["build"]["context"]).resolve() == Path.cwd().resolve(), name
+        assert service.get("pull_policy") == "never", name
+
+
+@pytest.mark.repo
+def test_server_override_still_renders_with_pinned_image():
+    """The live server override renders (exit 0), keeps the pinned image and has no build."""
+    result = subprocess.run(
+        ["docker", "compose", "-f", "docker-compose.yml", "-f", "docker-compose.server.yml", "config", "-q"],
+        capture_output=True,
+        text=True,
+        env={**os.environ, **SERVER_ENV},
+    )
+    assert result.returncode == 0, result.stderr
+    services = _compose_config(["docker-compose.yml", "docker-compose.server.yml"], SERVER_ENV)
+    for name in COMPOSE_SERVICES:
+        assert services[name]["image"] == PINNED_IMAGE, name
+        assert "build" not in services[name], name
+    assert "cloudflared" in services

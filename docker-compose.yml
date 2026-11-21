@@ -3,17 +3,24 @@
 # For testers: download the repository ZIP, extract, and run `docker compose up`
 # The UI opens at http://127.0.0.1:8000 with bundled demo runs.
 #
-# The prebuilt GitHub Container Registry image pinned by digest replaces
-# `build: .` in a later task (deployment).
+# All three services run one prebuilt image from GitHub Container Registry,
+# pinned by digest (published by .github/workflows/publish-image.yml, commit
+# 57a60f2). Nothing is built on the tester's machine: Docker pulls the image
+# when it is missing. The reference is a YAML anchor in this file and not an
+# environment variable, so a stray variable in a shell cannot change which
+# image runs.
+#
+# To build from the Dockerfile instead (developers):
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up --build
+
+x-coroner-image: &coroner-image ghcr.io/yarahmouni/cobol-coroner@sha256:e671f330fa7ebd78c5d5041bbccfbe9cddf7f3e12a33b4a94825ee1d0bf75d50
 
 services:
   # Init service: generates bundled demo runs at first start
   coroner-init:
-    build:
-      context: .
-      platforms:
-        - linux/amd64
-    image: coroner-local:latest
+    image: *coroner-image
+    platform: linux/amd64
+    pull_policy: missing
     init: true
     user: "1000:1000"
     security_opt:
@@ -44,8 +51,9 @@ services:
 
   # API service: FastAPI UI and endpoints
   coroner-api:
-    image: coroner-local:latest
-    pull_policy: never
+    image: *coroner-image
+    platform: linux/amd64
+    pull_policy: missing
     init: true
     user: "1000:1000"
     security_opt:
@@ -78,8 +86,9 @@ services:
 
   # Engine service: runs COBOL and Java in isolated container
   coroner-engine:
-    image: coroner-local:latest
-    pull_policy: never
+    image: *coroner-image
+    platform: linux/amd64
+    pull_policy: missing
     init: true
     user: "1000:1000"
     security_opt:
