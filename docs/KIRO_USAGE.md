@@ -147,5 +147,6 @@ From `docs/reviews.md`:
 
 ## 8. Kiro powers
 
-A Kiro power for Coroner was drafted but is not part of the repository: with kiro-cli 3.5.0 it installed but its MCP server never appeared in a session (docs/reviews.md, Q6). It is not claimed here until a real run works.
-<!-- OWNER: Kiro IDE test result -->
+A Kiro power for Coroner was drafted and then dropped. It is not part of the repository and is not claimed. With kiro-cli 3.5.0 it installed, but its MCP server never appeared in a session (docs/reviews.md, Q6).
+
+The Kiro IDE, which documents powers, could not be installed on the project Mac (macOS 12.7.6). Homebrew refuses the current cask ("does not run on macOS versions older than Ventura"), and the oldest official IDE build still offered on the Kiro downloads page (1.2.56) shows "requires macOS 13.0 or later". Kiro was used through kiro-cli 3.5.0 for all specs, code, hooks, MCP and agent work.
