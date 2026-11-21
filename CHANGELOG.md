@@ -9,7 +9,7 @@ State at 2026-11-21, from the review log (R-xxx) and the judge guide:
 - The live site https://coroner.iqoba.com is online. The deployment check passed all 10 checks against it on 2026-11-21 (R-148, fd81f52); the judge guide links to it, and the deployment guide records the server outputs (R-152).
 - Trap T6 is a placeholder; the owner's field trap has not been received (Q1).
 - The independence table has one pending row for a port written by hand by the author. The row is removed if it has not arrived by 2026-11-26 (Q3).
-- The Kiro power `coroner-audit` is not in the repository and is not claimed (Q6).
+- The Kiro power `coroner-audit` is in `powers/coroner-audit/` and was run in the Kiro IDE 1.4.178 on Windows (evidence [`docs/evidence/kiro-power-run.md`](docs/evidence/kiro-power-run.md), Q6).
 - The CardDemo audit run is not bundled yet and the main README has no CardDemo line (R-126).
 - The guided story ("Try the bank failure") has a spec (c65a8ba) and its gate-check endpoint (909b2c2); the story pages are not described as built in the review log.
 - The default test suite target of 60 s is not reached (R-78).

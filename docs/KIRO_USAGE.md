@@ -147,6 +147,6 @@ From `docs/reviews.md`:
 
 ## 8. Kiro powers
 
-A Kiro power for Coroner was drafted and then dropped. It is not part of the repository and is not claimed. With kiro-cli 3.5.0 it installed, but its MCP server never appeared in a session (docs/reviews.md, Q6).
+The power `coroner-audit` is in [`powers/coroner-audit/`](../powers/coroner-audit/). It works in the Kiro IDE 1.4.178 on Windows 10 x64. On 2026-11-21 Kiro installed it from the Powers panel, its MCP server started from the published image pinned by digest, and Kiro called `run_differential_check`, `get_verdict`, `get_failure_report` and `verify_certificate` on Case 1 (run `f584d5f35228`, ZOMBIE on 682 of 2000 cases; `verify_certificate` returned valid). The evidence is in [`docs/evidence/kiro-power-run.md`](evidence/kiro-power-run.md). Kiro adapted the power files in the IDE. The example values in `POWER.md` were later replaced with values measured through the same image.
 
-The Kiro IDE, which documents powers, could not be installed on the project Mac (macOS 12.7.6). Homebrew refuses the current cask ("does not run on macOS versions older than Ventura"), and the oldest official IDE build still offered on the Kiro downloads page (1.2.56) shows "requires macOS 13.0 or later". Kiro was used through kiro-cli 3.5.0 for all specs, code, hooks, MCP and agent work.
+The Kiro IDE could not be installed on the project Mac (macOS 12.7.6). Homebrew refuses the current cask ("does not run on macOS versions older than Ventura"), and the oldest official IDE build still offered on the Kiro downloads page (1.2.56) shows "requires macOS 13.0 or later". With kiro-cli 3.5.0 the power installed, but its MCP server never appeared in a session. All other Kiro work was done through kiro-cli 3.5.0.

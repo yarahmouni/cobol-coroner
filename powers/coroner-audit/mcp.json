@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "coroner": {
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "--init",
+               "ghcr.io/yarahmouni/cobol-coroner@sha256:837503172e4d54702edb6b87d48659e120cc1d3fda11bd6ebe2f5789b0ebe1e8",
+               "python", "-m", "coroner.mcp"]
+    }
+  }
+}
