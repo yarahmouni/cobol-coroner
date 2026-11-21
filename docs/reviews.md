@@ -954,6 +954,12 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Results: agent: image build exit 0; CI command in the image 709 passed, 291 deselected in 494.33 s; tests/test_mcp_server.py and tests/test_gate.py with slow and repo tests in the image 24 passed in 82.93 s (includes test_server_from_temp_directory); Mac tests/test_gate.py with slow tests 15 passed in 72.39 s. Operator: CI command on that image: 709 passed, 291 deselected in 506.09 s, no failure. Disk after the agent's prunes: 19 GB free.
 - Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
 
+### R-144 2026-11-21: JUnit download retries on transient errors
+- CI run 44891114478 (Test and Security on 3069b9a) failed while building the image: scripts/download_junit.py got "HTTP Error 404: Not Found" from repo1.maven.org for junit-platform-console-standalone-6.1.3.jar; `curl -I` on the same URL answered 200 ten minutes later and the rerun passed. One attempt made every image build (CI, publish, the clean-clone build of make deploy-check) fail on a transient error.
+- Fix (call p348, sonnet-5.5, independence worktree): fetch() retries up to 4 attempts on OSError and HTTPException with waits of 2, 4 and 8 s, one stderr line per failed attempt, "ERROR: download failed after 4 attempts" and exit 1 at the end; the SHA-256 check is unchanged (a wrong hash still removes the file and fails); URL, hash, directory, attempts and wait are parameters with the old values as defaults. tests/test_download_junit.py: a local http.server answering 404 twice then the bytes (success on attempt 3), all attempts failing, the waits [2, 4, 8], a wrong hash, unchanged defaults.
+- Results: agent: 5 passed in 2.41 s; a real download from Maven Central passed the hash check. Operator: 5 passed.
+- Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.
