@@ -38,7 +38,7 @@ Docker Desktop is the only prerequisite on the host. No GnuCOBOL, no JDK and no 
 The MCP server starts from the published image over stdio:
 
 ```
-docker run --rm -i --init ghcr.io/yarahmouni/cobol-coroner@sha256:837503172e4d54702edb6b87d48659e120cc1d3fda11bd6ebe2f5789b0ebe1e8 python -m coroner.mcp
+docker run --rm -i --init ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4 python -m coroner.mcp
 ```
 
 - The image is linux/amd64, so it needs an x86-64 machine.
@@ -216,6 +216,8 @@ Generate or regenerate the Coroner Certificate for a run.
 }
 ```
 
+(The hash differs on every generation, because the certificate records its timestamp.)
+
 The certificate records (the keys written by `generate_certificate` in `coroner/certificate.py`):
 - The statement ("Reproducible run record: <sub label>. Validated under GnuCOBOL 3.x. This is not a formal proof of equivalence."), the verdict status and sub-label
 - Number of cases and divergences, and the exit status of the COBOL and the Java run
@@ -273,13 +275,11 @@ Get the trap catalog detection matrix.
 **Arguments:**
 - `trap_id` (string, optional): Return only one trap (e.g., "T1", "T2"). Without it the tool returns all traps under the key `traps`.
 
-**Returns:** when the catalog has not been built, which is the case with the default image, the tool returns this error (measured):
+**Returns:** the trap catalog that was built into the image (`python -m coroner traps`, run during the image build). It works in a fresh container with no volume. Without `trap_id` it returns all traps under the key `traps`.
 
-```
-Error executing tool get_detection_matrix: Detection Matrix not available yet: the trap catalog has not been run
-```
+The catalog lists the run ids of the image build (for example `faulty_run_id` and `correct_run_id`). Their run folders are not in the image. To get a run folder, run the same audit again with `run_differential_check`: run ids are derived from content, so the same audit gives the same run id.
 
-The catalog exists only after `python -m coroner traps` has run in the same container. Measured for `trap_id` "T1", from a container of the same image in which `python -m coroner traps` had been run first, shortened to the fields listed here:
+Measured for `trap_id` "T1", in a fresh container of the image pinned above, shortened to the fields listed here:
 
 ```json
 {

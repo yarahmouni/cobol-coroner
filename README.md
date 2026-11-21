@@ -123,7 +123,7 @@ You need Docker with Compose. The compose file pulls a prebuilt image pinned by 
 docker compose up -d
 ```
 
-The first start takes about one minute, because the bundled demo runs are generated. The operator's Mac measured 1 minute 11 seconds ([docs/deploy.md](docs/deploy.md)). Then open http://127.0.0.1:8000. Stop with `docker compose down`.
+The first start takes about one minute, because the bundled demo runs are generated. The operator's Mac measured 47 seconds ([docs/deploy.md](docs/deploy.md)). Then open http://127.0.0.1:8000. Stop with `docker compose down`.
 
 ### On your machine (GnuCOBOL and JDK 17 installed)
 

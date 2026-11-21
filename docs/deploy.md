@@ -12,7 +12,7 @@ How outputs are labelled in this guide:
 Three Coroner services plus cloudflared. All three Coroner services run the same prebuilt image from GitHub Container Registry, pinned by digest:
 
 ```
-ghcr.io/yarahmouni/cobol-coroner@sha256:837503172e4d54702edb6b87d48659e120cc1d3fda11bd6ebe2f5789b0ebe1e8
+ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4
 ```
 
 The package is public, so pulling needs no login. The image is published by `.github/workflows/publish-image.yml` and is the image the CI tests run. The server never builds anything.
@@ -35,6 +35,8 @@ The compose files set `platform: linux/amd64`, so the server must be amd64.
 ```bash
 uname -m
 ```
+
+Measured on the server with the previous image (...b0ebe1e8); measured again after the redeploy with the batched image.
 
 Measured on the server, 2026-11-21:
 
@@ -203,41 +205,22 @@ No build happens on the server and no registry login is needed. Pull the three C
 docker compose -f docker-compose.yml -f docker-compose.server.yml pull
 ```
 
-Measured on the operator's Mac, 2026-11-21 (`docker compose pull` with `docker-compose.yml` only, so cloudflared is not in this output; the image layers are the same on the server):
+Measured on the operator's Mac, 2026-11-21 (`docker compose pull` with `docker-compose.yml` only, in a separate compose project with fresh volumes, after `docker logout ghcr.io`, with the previous image not present; so cloudflared is not part of it): the anonymous pull took 45 seconds. The layer lines of this pull were not recorded. The image layers are the same on the server.
 
-```
- coroner-init Skipped - Image is already being pulled by coroner-engine 
- coroner-api Skipped - Image is already being pulled by coroner-engine 
- coroner-engine Pulling 
- 8d79fc8bd5fd Pull complete 
- 949d78adb05f Pull complete 
- bc777f1a7182 Pull complete 
- e818fb0ed7af Pull complete 
- c8b5dc0d7729 Pull complete 
- 03081bab56a7 Pull complete 
- 2185503755d0 Pull complete 
- 8c88dceddb62 Pull complete 
- 0e0cd2eaf9e9 Pull complete 
- f85e9761f760 Pull complete 
- e852391a6cbc Pull complete 
- e6e5137408a8 Pull complete 
- 2e65c2200cda Pull complete 
- coroner-engine Pulled 
-docker compose pull  0.19s user 0.16s system 0% cpu 48.869 total
-```
-
-The last line is the `time` output of the operator's shell: the pull took 48.9 seconds there. On the server the same command also pulls cloudflared. Measured on the server, 2026-11-21 (owner's summary): both images were pulled, the Coroner image in 17.4 s and cloudflared in 0.8 s.
+On the server the same command also pulls cloudflared. Measured on the server, 2026-11-21 (owner's summary): both images were pulled, the Coroner image in 17.4 s and cloudflared in 0.8 s.
 
 Read the digest back from the pulled image and compare it with the one in `docker-compose.yml`. They must match exactly:
 
 ```bash
-docker image inspect --format '{{index .RepoDigests 0}}' ghcr.io/yarahmouni/cobol-coroner@sha256:837503172e4d54702edb6b87d48659e120cc1d3fda11bd6ebe2f5789b0ebe1e8
+docker image inspect --format '{{index .RepoDigests 0}}' ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4
 ```
 
-Measured on the operator's Mac, 2026-11-21:
+The output of this command was not recorded for the new image. What was measured on the operator's Mac, 2026-11-21, is `docker compose config --images` in the same separate compose project, which lists the digest for the three Coroner services:
 
 ```
-ghcr.io/yarahmouni/cobol-coroner@sha256:837503172e4d54702edb6b87d48659e120cc1d3fda11bd6ebe2f5789b0ebe1e8
+ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4
+ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4
+ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4
 ```
 
 ## 5. Check the merged configuration
@@ -248,14 +231,14 @@ Before starting, list the image lines of the merged configuration:
 docker compose -f docker-compose.yml -f docker-compose.server.yml config | grep -n "image:"
 ```
 
-Measured on the operator's Mac, 2026-11-21 (line numbers are positions in the merged output):
+Measured on the operator's Mac, 2026-11-21 (with `TUNNEL_ID` and `TUNNEL_CREDENTIALS_FILE` set to dummy values; line numbers are positions in the merged output):
 
 ```
 23:    image: cloudflare/cloudflared:2026.10.7@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba
-75:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:837503172e4d54702edb6b87d48659e120cc1d3fda11bd6ebe2f5789b0ebe1e8
-118:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:837503172e4d54702edb6b87d48659e120cc1d3fda11bd6ebe2f5789b0ebe1e8
-154:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:837503172e4d54702edb6b87d48659e120cc1d3fda11bd6ebe2f5789b0ebe1e8
-183:x-coroner-image: ghcr.io/yarahmouni/cobol-coroner@sha256:837503172e4d54702edb6b87d48659e120cc1d3fda11bd6ebe2f5789b0ebe1e8
+75:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4
+118:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4
+154:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4
+183:x-coroner-image: ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4
 ```
 
 All three Coroner services must show the same digest, and none of them may have a `build` key. The API must not publish a port on the server. This command must print nothing:
@@ -263,6 +246,8 @@ All three Coroner services must show the same digest, and none of them may have 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.server.yml config | grep -n "published"
 ```
+
+Measured on the operator's Mac, 2026-11-21 (same dummy values): the command printed nothing.
 
 If it prints a line, the `ports: !reset []` override did not apply: your Compose is too old (see Troubleshooting).
 
@@ -274,33 +259,9 @@ Measured on the server, 2026-11-21 (owner's summary): the image check printed fo
 docker compose -f docker-compose.yml -f docker-compose.server.yml up -d
 ```
 
-Measured on the server, 2026-11-21 (owner's summary): Compose created the network and the two volumes; `coroner-init` exited after 55.0 s; `coroner-engine`, `coroner-api` and `cloudflared` started. On the operator's Mac, the same command with `docker-compose.yml` only (no cloudflared) gave, on 2026-11-21:
+Measured on the server, 2026-11-21 (owner's summary): Compose created the network and the two volumes; `coroner-init` exited after 55.0 s; `coroner-engine`, `coroner-api` and `cloudflared` started. On the operator's Mac, the same command with `docker-compose.yml` only (no cloudflared), in a separate compose project with fresh volumes, took 47 seconds on 2026-11-21. The Compose output lines of this start were not recorded.
 
-```
- Network cobol-lazarus_default  Creating
- Network cobol-lazarus_default  Created
- Volume "cobol-lazarus_coroner-data"  Creating
- Volume "cobol-lazarus_coroner-data"  Created
- Volume "cobol-lazarus_coroner-exchange"  Creating
- Volume "cobol-lazarus_coroner-exchange"  Created
- Container cobol-lazarus-coroner-init-1  Creating
- Container cobol-lazarus-coroner-init-1  Created
- Container cobol-lazarus-coroner-engine-1  Creating
- Container cobol-lazarus-coroner-engine-1  Created
- Container cobol-lazarus-coroner-api-1  Creating
- Container cobol-lazarus-coroner-api-1  Created
- Container cobol-lazarus-coroner-init-1  Starting
- Container cobol-lazarus-coroner-init-1  Started
- Container cobol-lazarus-coroner-engine-1  Starting
- Container cobol-lazarus-coroner-engine-1  Started
- Container cobol-lazarus-coroner-init-1  Waiting
- Container cobol-lazarus-coroner-init-1  Exited
- Container cobol-lazarus-coroner-api-1  Starting
- Container cobol-lazarus-coroner-api-1  Started
-docker compose up -d  0.24s user 0.16s system 0% cpu 1:11.11 total
-```
-
-First start took 1 minute 11 seconds there, because coroner-init generates the bundled demo runs before the API starts. A later restart or redeploy generates no run that already exists: coroner-init keeps every existing run folder and only rebuilds the two catalog files (see "Update to a new image").
+First start took 47 seconds there, because coroner-init generates the bundled demo runs before the API starts. A later restart or redeploy generates no run that already exists: coroner-init keeps every existing run folder and only rebuilds the two catalog files (see "Update to a new image").
 
 List the running services:
 
@@ -308,12 +269,13 @@ List the running services:
 docker compose -f docker-compose.yml -f docker-compose.server.yml ps --format 'table {{.Service}}\t{{.Image}}\t{{.Status}}'
 ```
 
-Measured on the server, 2026-11-21 (owner's summary): `cloudflared`, `coroner-api` and `coroner-engine` all have a status starting with `Up`. Look for `coroner-api`, `coroner-engine` and `cloudflared` with a status starting with `Up`. `coroner-init` is not listed because it has exited. On the operator's Mac (no cloudflared), 2026-11-21:
+Measured on the server, 2026-11-21 (owner's summary): `cloudflared`, `coroner-api` and `coroner-engine` all have a status starting with `Up`. Look for `coroner-api`, `coroner-engine` and `cloudflared` with a status starting with `Up`. Without `-a`, `coroner-init` is not listed because it has exited. On the operator's Mac (no cloudflared), 2026-11-21, the command was run with `-a`, so the exited `coroner-init` is listed:
 
 ```
 SERVICE          IMAGE                                                                                                      STATUS
-coroner-api      ghcr.io/yarahmouni/cobol-coroner@sha256:837503172e4d54702edb6b87d48659e120cc1d3fda11bd6ebe2f5789b0ebe1e8   Up Less than a second
-coroner-engine   ghcr.io/yarahmouni/cobol-coroner@sha256:837503172e4d54702edb6b87d48659e120cc1d3fda11bd6ebe2f5789b0ebe1e8   Up About a minute
+coroner-api      ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4   Up 5 minutes
+coroner-engine   ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4   Up 6 minutes
+coroner-init     ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4   Exited (0) 5 minutes ago
 ```
 
 Check that the demo runs were generated:
@@ -322,11 +284,17 @@ Check that the demo runs were generated:
 docker compose -f docker-compose.yml -f docker-compose.server.yml logs coroner-init
 ```
 
-Measured on the operator's Mac, 2026-11-21 (last lines):
+Measured on the operator's Mac, 2026-11-21 (last 12 lines):
 
 ```
-coroner-init-1  | Running T5 faulty Java...
-coroner-init-1  | Running T5 correct Java...
+coroner-init-1  | No run found for T4 faulty, generating it
+coroner-init-1  | Generated run e00ac9d50c76 for T4 faulty
+coroner-init-1  | No run found for T4 correct, generating it
+coroner-init-1  | Generated run 1c1b8639eb0c for T4 correct
+coroner-init-1  | No run found for T5 faulty, generating it
+coroner-init-1  | Generated run 5e61025dd742 for T5 faulty
+coroner-init-1  | No run found for T5 correct, generating it
+coroner-init-1  | Generated run 677bd44c5bf5 for T5 correct
 coroner-init-1  | 
 coroner-init-1  | Wrote /data/runs/trap_catalog.json
 coroner-init-1  | Wrote /data/runs/trap_catalog.txt
@@ -335,7 +303,7 @@ coroner-init-1  | Bundled demo runs generated.
 
 On the server the service name prefix differs. The last line must be `Bundled demo runs generated.` On the server, 2026-11-21, the logs end with `Bundled demo runs generated.`
 
-The excerpt above was measured before the redeploy rule below. The script now prints one more line before the catalog step, `Bundled runs kept: <run ids>; generated: <run ids>` (`none` when a list is empty), and the catalog step prints `Kept existing run <id> for <trap> <faulty or correct>` for each port that already has a run. The last line is unchanged.
+The excerpt above is the end of a first start, on fresh volumes, where every run is generated. On a later start the script prints one more line before the catalog step, `Bundled runs kept: <run ids>; generated: <run ids>` (`none` when a list is empty), and the catalog step prints `Kept existing run <id> for <trap> <faulty or correct>` for each port that already has a run. The last line is unchanged.
 
 Check that cloudflared connected:
 
@@ -413,7 +381,7 @@ Before the server, run the same pinned image on your own machine, without cloudf
 docker compose up -d
 ```
 
-Measured on the operator's Mac, 2026-11-21: the output shown in step 6 (1 minute 11 seconds, UI answering on http://127.0.0.1:8000 afterwards).
+Measured on the operator's Mac, 2026-11-21: the start time given in step 6 (47 seconds), and the compose state shown there with the UI answering on http://127.0.0.1:8000.
 
 Open http://127.0.0.1:8000. The home page shows the Run audit form.
 
@@ -423,21 +391,21 @@ Run the deployment check against it (needs the project virtual environment, see 
 make deploy-check
 ```
 
-Measured on the operator's Mac, 2026-11-21 (`URL` defaults to http://127.0.0.1:8000; the first line is the command as `make` printed it with `PYTHON` pointing to the project environment):
+Measured on the operator's Mac, 2026-11-21 (`make deploy-check URL=http://127.0.0.1:8000`, exit code 0, 242 seconds wall time; the first line is the command `make` runs with `PYTHON` pointing to the project environment):
 
 ```
 .venv/bin/python scripts/deploy_check.py --url http://127.0.0.1:8000
 Building image from clean git clone...
-Current HEAD: 6b6b34858876a0dc500bdef0842f9dc214872045
-Cloning into <temp dir>
+Current HEAD: c3358edb8845747c4c848b6aceccdb3bb34bce14
+Cloning into <TMPDIR>/coroner-deploy-XXXX...
 Building Docker image (this may take a few minutes)...
 PASS: Image built successfully from clean checkout
 
 Running checks against http://127.0.0.1:8000...
 PASS: GET / returns 200 with Run audit form
-T1 faulty: job submitted, job_id=204621afa1da
+T1 faulty: job submitted, job_id=8fde10b9e9af
 PASS: T1 faulty: ZOMBIE verdict, run_id=f584d5f35228
-T1 correct: job submitted, job_id=dc7283adb66d
+T1 correct: job submitted, job_id=61a0679e6b82
 PASS: T1 correct: ALIVE verdict, run_id=29c15f04407b
 PASS: Tamper: INVALID with replay mismatch, run_id=f584d5f35228
 PASS: Verify: certificate VALID, run_id=f584d5f35228
@@ -447,10 +415,9 @@ PASS: Story step 5: Cause of death, positioning sentence and a branch table row
 PASS: Fool page: counter and three checkboxes
 
 Deployment check PASSED: all checks succeeded
-make deploy-check URL=http://127.0.0.1:8000 PYTHON=.venv/bin/python  1.28s user 2.26s system 1% cpu 3:22.92 total
 ```
 
-The last line is the `time` output of the operator's shell: 3 minutes 22.9 seconds in total, including the image build from a clean `git clone`.
+The whole command took 242 seconds, including the image build from a clean `git clone`.
 
 Stop:
 
@@ -494,6 +461,8 @@ make deploy-check URL=https://coroner.iqoba.com
 ```bash
 .venv/bin/python scripts/deploy_check.py --url https://coroner.iqoba.com --skip-build
 ```
+
+The output below was measured against the live site while it ran the previous image (...b0ebe1e8); it is kept as recorded.
 
 Measured against https://coroner.iqoba.com from the operator's Mac, 2026-11-21 (exit code 0, 1 min 32 s in total, build from the Docker cache):
 

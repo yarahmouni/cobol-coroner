@@ -200,6 +200,7 @@ Title `@coroner-audit/coroner/verify_certificate`, arguments `{"path": "runs/f58
 Kiro edited the 4 files in `powers/coroner-audit/` in a separate chat ("Set Up Coroner Power", not part of the export). `02-kiro-file-changes.png` shows its summary. The changed files were checked against the original power by diff:
 
 - `mcp.json` is byte for byte the Docker stdio configuration with the pinned image.
+- Later change on the Mac (docs/reviews.md R-163): `mcp.json`, `POWER.md` and `README.md` now pin the image published on 2026-11-21 from commit c3358ed (sha256:0ca88a1f...501a4ad4). The run recorded in this file used the previous image (sha256:837503172e4d...b0ebe1e8), as quoted above.
 - `POWER.md`: `kiro_version` removed from the front matter; Prerequisites now say Docker Desktop and the image; the `@coroner/` prefix replaced by bare tool names; `get_detection_matrix` states the error the image returns.
 - `README.md`: install from the Powers panel; Prerequisites as in POWER.md; the `{REPOSITORY_ROOT}` Configuration section removed; the "Tested:" placeholder left unchanged.
 - `steering/audit-workflow.md`: bare tool names.
