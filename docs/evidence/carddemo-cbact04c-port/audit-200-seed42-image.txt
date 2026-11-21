@@ -1,0 +1,7 @@
+ALIVE: PASS: business behavior preserved on 200 cases
+Paragraph coverage 34/34
+Branch coverage (Coroner definition) 66/99
+Validated under GnuCOBOL 3.x
+Run: runs/a5edaf1924a5
+Duration: 40.8 s
+exit=0

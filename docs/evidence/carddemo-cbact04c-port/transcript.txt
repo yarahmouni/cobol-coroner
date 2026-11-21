@@ -1,0 +1,48 @@
+[tool] Reading listing port-input
+[tool] status: Completed
+[tool] Reading CBACT04C.cob:1
+[tool] status: Completed
+[tool] Reading HARNESS-CBACT04C.cob:1
+[tool] status: Completed
+[tool] Reading LOAD-FILES.cob:1, RUN-CBACT04C.cob:1, DUMP-ACCT.cob:1, CEE3ABD.cob:1, CVACT01Y.cpy:1, CVACT03Y.cpy:1, CVTRA01Y.cpy:1, CVTRA02Y.cpy:1, CVTRA05Y.cpy:1
+[tool] Reading input-example.csv:1, output-example.csv:1
+[tool] Running: head -c 2500 port-input/schema.json; echo; python3 -c " import json;d=json.load(open('port-input/schema.json'));print(type(d), list(d.keys()) if isinstance(d,dict) else len(d))"
+[tool] status: Completed
+[tool] status: Completed
+[tool] status: Completed
+[tool] Running: cd port-input && python3 -c " import json;d=json.load(open('schema.json')) print(d['input'].keys(), d['output'].keys()) o=d['output']['columns']; print(len(o)); print([c['name'] for c in o...
+[denied] tool permission approval is not supported in non-interactive mode. Use --trust-all-tools to auto-approve.
+[tool] status: Failed: Running: cd port-input && python3 -c " import json;d=json.load(open('schema.json')) print(d['input'].keys(), d['output'].keys()) o=d['output']['columns']; print(len(o)); print([c['name'] for c in o...
+[tool] status: Failed
+[tool] Searching for 'TX-1-|UPDATED-BAL-1|NUM-TRANS|EXIT-CODE' in schema.json
+[tool] status: Completed
+[tool] Reading schema.json:167-184
+[tool] status: Completed
+[tool] Creating Cbact04c.java
+[tool] status: Completed
+[tool] Running: javac -d build/cd-port port/Cbact04c.java
+[tool] status: Completed
+[tool] Running: INPUT_FILE=port-input/fixtures/input-example.csv OUTPUT_FILE=build/cd-port/out-example.csv java -cp build/cd-port Cbact04c; echo rc=$?; cmp build/cd-port/out-example.csv port-input/fixture...
+[denied] tool permission approval is not supported in non-interactive mode. Use --trust-all-tools to auto-approve.
+[tool] status: Failed: Running: INPUT_FILE=port-input/fixtures/input-example.csv OUTPUT_FILE=build/cd-port/out-example.csv java -cp build/cd-port Cbact04c; echo rc=$?; cmp build/cd-port/out-example.csv port-input/fixture...
+[tool] Running: env INPUT_FILE=port-input/fixtures/input-example.csv OUTPUT_FILE=build/cd-port/out-example.csv java -cp build/cd-port Cbact04c
+[tool] status: Completed
+[tool] Running: diff build/cd-port/out-example.csv port-input/fixtures/output-example.csv
+[tool] status: Completed
+[tool] Creating SOURCE.md
+[tool] status: Completed
+[tool] Searching for '—' in port
+[tool] status: Completed
+I wrote `port/Cbact04c.java` and `port/SOURCE.md`. The port compiles and its output for the example row is identical to `fixtures/output-example.csv`.
+
+- **Compile:** `javac -d build/cd-port port/Cbact04c.java` succeeded with no errors, so there were no compile fixes.
+- **Example check:** I ran the class on `fixtures/input-example.csv` and compared its output to `fixtures/output-example.csv` with `diff`, which reported no differences. I made no changes to the port after that check.
+- **What it does:** It simulates the harness, LOAD-FILES, the program and DUMP-ACCT in memory. It keeps the original behaviour of never updating the last account, and truncates interest toward zero to 2 decimals.
+- **Untested assumptions:** The example only exercises the normal path. Two assumptions come from reading the COBOL, not from any example:
+  - An abend is reported as exit code 231.
+  - `NUMVAL` skips characters it does not recognise.
+
+  Both are listed in `SOURCE.md`.
+- **Reading note:** I read `schema.json` only in part: the first 2,500 bytes, lines 166 to 183 and a few grep matches. The other listed files were read in full. `SOURCE.md` says this.
+
+I touched nothing outside `port-input/`, `port/` and `build/cd-port/`, and I compiled and ran no COBOL.

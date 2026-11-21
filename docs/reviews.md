@@ -848,6 +848,13 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Checks (operator): the diff read in full; no em dash.
 - Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
 
+### R-126 2026-11-21: CardDemo CBACT04C Java port by an isolated Kiro session: ALIVE on 200 cases
+- Call p327 (sonnet-5.5), in a separate worktree emptied of every tracked file (including .kiro/, docs/, README.md, samples/); inputs copied to port-input/: the six adapted COBOL programs, five upstream copybooks, schema.json, and one example row with the output the COBOL harness produced for it (probe-nonzero, recorded by the operator from a fresh build). Prompt modelled on the kiro-fresh prompt (R-112): port from the COBOL alone, Java 17, BigDecimal, the contract's exact output text; it could check its class against the example; it could not run COBOL or any audit. Evidence in docs/evidence/carddemo-cbact04c-port/ (prompt, transcript, input hashes, sandbox listing, audit output).
+- The agent read only files under port-input/ (transcript), compiled with no fix, matched the example byte for byte and changed nothing after. Its SOURCE.md states, from reading the code, the abend exit 231 (999 mod 256), truncation of the interest to 2 decimals, and that the last account is never rewritten.
+- Results (operator): input hashes unchanged after the session; port committed verbatim (SHA-256 e16d5d6c...). Audit of the unchanged port in the CI image built from the CardDemo worktree (same engine as main): `coroner verify --cobol samples/carddemo-cbact04c/adapted/HARNESS-CBACT04C.cob --copybooks samples/carddemo-cbact04c/upstream/cpy --java <port> --schema samples/carddemo-cbact04c/schema.json --cases 200 --seed 42`: ALIVE, 0 of 200 cases divergent, run a5edaf1924a5, 40.8 s; the certificate replays VALID. The coverage lines (paragraphs 34/34, branches 66/99) measure the harness program, which is the program the engine compiles, not CBACT04C alone.
+- Wording (D-62): no behavioral difference across the tested scenarios; not a certification for all inputs. The run is not bundled yet: the sample README, the catalog entry and a regression test are next.
+- Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.
