@@ -789,6 +789,12 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Owner answers recorded under Q3, Q4 and Q6 below.
 - Kiro balance (2026-11-21): plan 405.95 of 531 used (125.05 left); kiroween2026 1365.70 of 4000 used (2634.30 left), reading after p308, p309, p311 and while p312 and p313 run.
 
+### R-118 2026-11-21: Java runs with a fixed locale; verdicts no longer depend on the machine
+- Defect measured by the operator: the fresh Kiro port formats amounts with String.format("%+010.2f"), which follows the JVM default locale. In the project image: ALIVE 0 of 2000. On the operator's Mac (Java default locale fr_FR; macOS Java ignores the LANG=C.UTF-8 the engine sets): ZOMBIE 2000 of 2000, Java printing "+009723,98". A certificate made on one machine could replay differently on another.
+- Fix (calls p308 and p312, sonnet): one constant JAVA_LOCALE = "en_US" in coroner/run/__init__.py, from which JAVA_LOCALE_PROPERTIES (-Duser.language, -Duser.country, -Duser.variant=, -Dfile.encoding=UTF-8) is built; run_java and the JUnit runner in coroner/diag/junit.py pass them; javac gets -encoding UTF-8. Certificates record "java_locale"; it is not part of the run id. The first call's tests did not run (wrong argument names and paths); sent back, fixed in p312.
+- Results (operator, on the Mac): kiro-fresh port against the Case 1 COBOL, 200 cases, seed 42: exposure sum 0.00 (ALIVE); Case 1 correct port, 2000 cases, seed 42: run id 29c15f04407b unchanged; its new certificate contains "java_locale": "en_US" and replays VALID; tests/test_java_locale.py tests/test_certificate.py tests/test_engine_extensions.py with slow tests: 23 passed in 54.12 s.
+- Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1365.70 of 4000 used at the last reading (R-117); no new reading for this entry.
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.

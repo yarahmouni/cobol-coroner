@@ -11,6 +11,24 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+# Java locale for deterministic behavior across machines
+# This ensures String.format and other locale-sensitive operations
+# behave identically on Linux, macOS, Windows regardless of system locale
+JAVA_LOCALE = "en_US"
+
+# Derive Java properties from JAVA_LOCALE
+_locale_parts = JAVA_LOCALE.split("_")
+JAVA_LOCALE_PROPERTIES = [
+    f"-Duser.language={_locale_parts[0]}",
+    f"-Duser.country={_locale_parts[1]}",
+    "-Duser.variant=",
+    "-Dfile.encoding=UTF-8"
+]
+
+# Javac encoding for source files
+JAVAC_ENCODING = ["-encoding", "UTF-8"]
+
+
 @dataclass
 class RunResult:
     """Result of a program execution."""
@@ -259,7 +277,7 @@ def compile_java(source: str, output_dir: str, base_dir: str = ".") -> None:
     
     # Cache miss: compile
     def build_fn(temp_dir: Path):
-        cmd = ['javac', '-Xlint:all', '-d', str(temp_dir), source]
+        cmd = ['javac', '-Xlint:all'] + JAVAC_ENCODING + ['-d', str(temp_dir), source]
         
         try:
             result = subprocess.run(
@@ -401,6 +419,9 @@ def run_java(class_name: str, classpath: str, input_csv: str, output_csv: str, t
     """
     Run Java main class with INPUT_FILE and OUTPUT_FILE environment variables.
     
+    Java locale properties are set to ensure deterministic behavior across machines
+    (macOS, Linux, Windows) regardless of system locale settings.
+    
     Args:
         class_name: Fully qualified main class name
         classpath: Classpath for java command
@@ -423,7 +444,7 @@ def run_java(class_name: str, classpath: str, input_csv: str, output_csv: str, t
     
     try:
         result = subprocess.run(
-            ['java', '-cp', classpath, class_name],
+            ['java'] + JAVA_LOCALE_PROPERTIES + ['-cp', classpath, class_name],
             capture_output=True,
             text=True,
             timeout=timeout,

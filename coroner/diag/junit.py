@@ -371,8 +371,9 @@ def verify_junit_test(test_path: str, java_path: str, junit_jar: str, work_dir: 
     
     # Compile Java port
     try:
+        from coroner.run import JAVAC_ENCODING
         result = subprocess.run(
-            ["javac", "-d", str(work_path), str(java_file)],
+            ["javac"] + JAVAC_ENCODING + ["-d", str(work_path), str(java_file)],
             capture_output=True,
             text=True,
             timeout=30
@@ -385,7 +386,7 @@ def verify_junit_test(test_path: str, java_path: str, junit_jar: str, work_dir: 
     # Compile test
     try:
         result = subprocess.run(
-            ["javac", "-cp", f"{junit_jar_path}:{work_path}", "-d", str(work_path), str(test_file)],
+            ["javac"] + JAVAC_ENCODING + ["-cp", f"{junit_jar_path}:{work_path}", "-d", str(work_path), str(test_file)],
             capture_output=True,
             text=True,
             timeout=30
@@ -397,9 +398,11 @@ def verify_junit_test(test_path: str, java_path: str, junit_jar: str, work_dir: 
     
     # Run test with JUnit, using absolute classpath and explicit class selection
     try:
+        from coroner.run import JAVA_LOCALE_PROPERTIES
         result = subprocess.run(
             [
-                "java",
+                "java"
+            ] + JAVA_LOCALE_PROPERTIES + [
                 f"-Dcoroner.java.classpath={work_path}",
                 "-jar", str(junit_jar_path),
                 "execute",

@@ -11,7 +11,7 @@ from typing import Optional
 from coroner.verdict import Verdict
 from coroner.parse.schema import load_schema
 from coroner.parse.copybook import parse_cobol_structure
-from coroner.run import compile_cobol, compile_java, run_cobol, run_java, run_cobol_instrumented
+from coroner.run import compile_cobol, compile_java, run_cobol, run_java, run_cobol_instrumented, JAVA_LOCALE
 from coroner.compare import compare_outputs
 from coroner.verdict import compute_verdict
 from coroner.parse.trace import parse_trace_counts
@@ -175,6 +175,7 @@ def generate_certificate(
         "case_count": inputs["case_count"],
         "random_seed": inputs["random_seed"],
         "cobc_flags": inputs.get("cobc_flags", []),
+        "java_locale": JAVA_LOCALE,  # Locale used for Java execution
         "python_version": inputs["python_version"],
         "cobc_version": inputs["cobc_version"],
         "javac_version": inputs["javac_version"],
