@@ -433,23 +433,19 @@ def test_cache_control_api_tamper_validation_error(client, tmp_path):
 
 
 def test_cache_control_static_files(client):
-    """Test Cache-Control on static files."""
-    # Create a test static file
+    """Test Cache-Control on static files.
+
+    The request is for a file that is part of the package (the vendored htmx), so the test
+    writes nothing into the source tree.
+    """
     static_dir = Path(__file__).parent.parent / "coroner" / "ui" / "static"
-    test_file = static_dir / "test.txt"
-    
-    if not static_dir.exists():
-        pytest.skip("Static directory does not exist")
-    
-    try:
-        test_file.write_text("test content")
-        
-        response = client.get("/static/test.txt")
-        assert response.status_code == 200
-        assert response.headers["cache-control"] == "public, max-age=86400"
-    finally:
-        if test_file.exists():
-            test_file.unlink()
+    served = static_dir / "htmx.min.js"
+    assert served.is_file(), "the vendored htmx file is missing"
+
+    response = client.get("/static/htmx.min.js")
+    assert response.status_code == 200
+    assert response.content == served.read_bytes()
+    assert response.headers["cache-control"] == "public, max-age=86400"
 
 
 def test_verify_and_tamper_separate_limits(client, tmp_path):

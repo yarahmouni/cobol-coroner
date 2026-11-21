@@ -361,8 +361,8 @@ def _check_tool_available(tool: str) -> bool:
         return False
 
 
-def _run_program(program_type: str, input_csv: str, output_csv: str, timeout: float = 30) -> int:
-    """Run COBOL or Java program on the given input."""
+def _run_program(program_type: str, input_csv: str, output_csv: str, work_dir: Path, timeout: float = 30) -> int:
+    """Run COBOL or Java program on the given input; the compiled files go to work_dir (a temporary folder)."""
     import os
     
     if program_type == "cobol":
@@ -371,7 +371,7 @@ def _run_program(program_type: str, input_csv: str, output_csv: str, timeout: fl
             [
                 "cobc", "-x", "-Wall",
                 "-I", "samples/credit-fees/copybooks",
-                "-o", "build/test_compare_cobol",
+                "-o", str(work_dir / "test_compare_cobol"),
                 "samples/credit-fees/CREDIT-FEES.cob"
             ],
             capture_output=True,
@@ -382,7 +382,7 @@ def _run_program(program_type: str, input_csv: str, output_csv: str, timeout: fl
         
         # Run COBOL
         result = subprocess.run(
-            ["build/test_compare_cobol"],
+            [str(work_dir / "test_compare_cobol")],
             env={**os.environ, "INPUT_FILE": input_csv, "OUTPUT_FILE": output_csv},
             capture_output=True,
             timeout=timeout
@@ -391,11 +391,11 @@ def _run_program(program_type: str, input_csv: str, output_csv: str, timeout: fl
     
     elif program_type == "java":
         # Compile Java
-        Path("build/test_compare_java").mkdir(parents=True, exist_ok=True)
+        (work_dir / "test_compare_java").mkdir(parents=True, exist_ok=True)
         compile_result = subprocess.run(
             [
                 "javac", "-Xlint:all",
-                "-d", "build/test_compare_java",
+                "-d", str(work_dir / "test_compare_java"),
                 "samples/credit-fees/java/CreditFees.java"
             ],
             capture_output=True,
@@ -406,7 +406,7 @@ def _run_program(program_type: str, input_csv: str, output_csv: str, timeout: fl
         
         # Run Java
         result = subprocess.run(
-            ["java", "-cp", "build/test_compare_java", "CreditFees"],
+            ["java", "-cp", str(work_dir / "test_compare_java"), "CreditFees"],
             env={**os.environ, "INPUT_FILE": input_csv, "OUTPUT_FILE": output_csv},
             capture_output=True,
             timeout=timeout
@@ -431,10 +431,10 @@ def test_e2e_real_programs_no_divergence(tmp_path):
     java_output = tmp_path / "java_output.csv"
     
     # Run COBOL
-    cobol_rc = _run_program("cobol", input_csv, str(cobol_output))
+    cobol_rc = _run_program("cobol", input_csv, str(cobol_output), tmp_path)
     
     # Run Java
-    java_rc = _run_program("java", input_csv, str(java_output))
+    java_rc = _run_program("java", input_csv, str(java_output), tmp_path)
     
     # Compare
     result = compare_outputs(str(cobol_output), str(java_output), schema, cobol_rc, java_rc)
@@ -457,10 +457,10 @@ def test_e2e_detect_divergence(tmp_path):
     java_output_modified = tmp_path / "java_output_modified.csv"
     
     # Run COBOL
-    cobol_rc = _run_program("cobol", input_csv, str(cobol_output))
+    cobol_rc = _run_program("cobol", input_csv, str(cobol_output), tmp_path)
     
     # Run Java
-    java_rc = _run_program("java", input_csv, str(java_output_orig))
+    java_rc = _run_program("java", input_csv, str(java_output_orig), tmp_path)
     
     # Modify one FEE-AMOUNT in Java output by 0.01
     with open(java_output_orig, 'r', encoding='utf-8') as f:

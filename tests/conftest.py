@@ -1,5 +1,10 @@
 """Pytest configuration for Coroner tests."""
 import json
+import os
+import shutil
+import subprocess
+import sys
+from collections import namedtuple
 from pathlib import Path
 
 import pytest
@@ -51,6 +56,24 @@ def isolated_variants_dir(tmp_path_factory):
 
 
 @pytest.fixture(autouse=True, scope="function")
+def restore_environment():
+    """Give every test the environment the previous one started with.
+
+    Several tests set CORONER_BASE_DIR, CORONER_EXCHANGE_DIR and other variables on os.environ for
+    the process. Without this fixture such a value stays set for every later test of the same
+    process, so the result of a test would depend on which tests ran before it in its worker
+    (pytest-xdist runs files in another order than a serial run).
+    """
+    before = dict(os.environ)
+    yield
+    for name in set(os.environ) - set(before):
+        del os.environ[name]
+    for name, value in before.items():
+        if os.environ.get(name) != value:
+            os.environ[name] = value
+
+
+@pytest.fixture(autouse=True, scope="function")
 def reset_ui_rate_limiter():
     """Reset UI rate limiter before each test."""
     import sys
@@ -68,59 +91,17 @@ def reset_ui_rate_limiter():
         mod.reset_rate_limiter()
 
 
-@pytest.fixture(scope="module")
-def t1_faulty_run(tmp_path_factory):
-    """Create a real T1 faulty run at 200 cases for UI tests."""
-    from coroner.cli import run_verify
-    
-    tmp_path = tmp_path_factory.mktemp("t1_faulty")
-    
-    cobol_file = Path("samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob").resolve()
-    copybooks = Path("samples/traps/T1-ebcdic-match-merge/copybooks").resolve()
-    java_file = Path("samples/traps/T1-ebcdic-match-merge/java/faulty/MatchMerge.java").resolve()
-    schema_file = Path("samples/traps/T1-ebcdic-match-merge/schema.json").resolve()
-    
-    verdict, run_dir = run_verify(
-        cobol_path=str(cobol_file),
-        copybooks_dir=str(copybooks),
-        java_path=str(java_file),
-        schema_path=str(schema_file),
-        num_cases=200,
-        seed=42,
-        timings=False,
-        base_dir=str(tmp_path),
-    )
-    
-    return run_dir.name, tmp_path
+REPO_ROOT = Path(__file__).resolve().parent.parent
+T1_SAMPLE = "samples/traps/T1-ebcdic-match-merge"
+CREDIT_FEES_SAMPLE = "samples/credit-fees"
 
+# Run ids asserted by the tests (same inputs, seed 42, 2000 cases).
+T1_FAULTY_2000_ID = "f584d5f35228"
+T1_CORRECT_2000_ID = "29c15f04407b"
+CREDIT_FEES_2000_ID = "df4d7929ce44"
 
-@pytest.fixture(scope="module")
-def t1_correct_run(tmp_path_factory):
-    """Create a real T1 correct run at 200 cases for UI tests."""
-    from coroner.cli import run_verify
-    
-    tmp_path = tmp_path_factory.mktemp("t1_correct")
-    
-    cobol_file = Path("samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob").resolve()
-    copybooks = Path("samples/traps/T1-ebcdic-match-merge/copybooks").resolve()
-    java_file = Path("samples/traps/T1-ebcdic-match-merge/java/correct/MatchMerge.java").resolve()
-    schema_file = Path("samples/traps/T1-ebcdic-match-merge/schema.json").resolve()
-    
-    verdict, run_dir = run_verify(
-        cobol_path=str(cobol_file),
-        copybooks_dir=str(copybooks),
-        java_path=str(java_file),
-        schema_path=str(schema_file),
-        num_cases=200,
-        seed=42,
-        timings=False,
-        base_dir=str(tmp_path),
-    )
-    
-    return run_dir.name, tmp_path
-
-
-STORY_CASES = 9
+# One real engine audit: run id, its base directory, the run folder, the CLI exit status and stdout.
+EngineRun = namedtuple("EngineRun", "run_id base run_dir returncode stdout")
 
 
 def _folder_listing(folder: Path) -> list:
@@ -128,6 +109,211 @@ def _folder_listing(folder: Path) -> list:
     if not folder.exists():
         return []
     return sorted((p.name, p.stat().st_mtime_ns) for p in folder.iterdir())
+
+
+def file_state(path: Path):
+    """Modification time and SHA-256 of a file, or None when it does not exist."""
+    import hashlib
+
+    if not path.exists():
+        return None
+    return (path.stat().st_mtime_ns, hashlib.sha256(path.read_bytes()).hexdigest())
+
+
+def _tree_state(folder: Path) -> list:
+    """Relative path, size and modification time of every file under a folder."""
+    return sorted(
+        (str(p.relative_to(folder)), p.stat().st_size, p.stat().st_mtime_ns)
+        for p in folder.rglob("*") if p.is_file()
+    )
+
+
+def _engine_audit(base: Path, cobol: str, copybooks: str, java: str, schema: str,
+                  cases: int, expected_exit: int) -> EngineRun:
+    """Run `python -m coroner verify` from the repository root into `base`, with relative sample paths.
+
+    Relative paths make the certificate record the same paths as the bundled ones, so the gate
+    can match it against the repository files.
+    """
+    env = {**os.environ, "CORONER_BASE_DIR": str(base)}
+    env.pop("CORONER_REPLAY_TIMEOUT", None)
+    proc = subprocess.run(
+        [sys.executable, "-m", "coroner", "verify", "--cobol", cobol, "--copybooks", copybooks,
+         "--java", java, "--schema", schema, "--cases", str(cases), "--seed", "42"],
+        cwd=REPO_ROOT, env=env, capture_output=True, text=True, timeout=600,
+    )
+    assert proc.returncode == expected_exit, (
+        f"audit of {java} at {cases} cases exited {proc.returncode}, expected {expected_exit}\n"
+        f"{proc.stdout}\n{proc.stderr}"
+    )
+    run_id = None
+    for line in proc.stdout.splitlines():
+        if line.startswith("Run: "):
+            run_id = Path(line.split("Run: ", 1)[1].strip()).name
+            break
+    assert run_id is not None, f"no run id in the output:\n{proc.stdout}"
+    run_dir = base / "runs" / run_id
+    assert (run_dir / "certificate.json").is_file(), f"audit did not produce run {run_id}\n{proc.stdout}"
+    return EngineRun(run_id, base, run_dir, proc.returncode, proc.stdout)
+
+
+def _shared_engine_run(base: Path, expected_id, *audit_args) -> EngineRun:
+    """One shared audit: the repository runs/ folder is checked before and after, the run id when given."""
+    repo_runs = REPO_ROOT / "runs"
+    before = _folder_listing(repo_runs)
+    run = _engine_audit(base, *audit_args)
+    if expected_id is not None:
+        assert run.run_id == expected_id, f"run id {run.run_id}, expected {expected_id}"
+    assert _folder_listing(repo_runs) == before, "the engine run touched the repository runs/ folder"
+    return run
+
+
+def _t1_args(kind: str) -> tuple:
+    return (f"{T1_SAMPLE}/MATCH-MERGE.cob", f"{T1_SAMPLE}/copybooks",
+            f"{T1_SAMPLE}/java/{kind}/MatchMerge.java", f"{T1_SAMPLE}/schema.json")
+
+
+@pytest.fixture
+def copy_runs():
+    """Return a function that copies run folders into another base directory.
+
+    A test that edits a run (tamper, an edited certificate, a forged copy) must work on its own
+    copy of a shared run, never on the shared one: `copy_runs(source_base, target_base, *run_ids)`.
+    """
+    def copy(source_base: Path, target_base: Path, *run_ids: str) -> None:
+        (target_base / "runs").mkdir(parents=True, exist_ok=True)
+        for run_id in run_ids:
+            shutil.copytree(source_base / "runs" / run_id, target_base / "runs" / run_id)
+    return copy
+
+
+def _assert_shared_run_unchanged(run: EngineRun, state: list) -> None:
+    assert _tree_state(run.run_dir) == state, (
+        f"a test changed the shared run {run.run_id}; a test that edits a run must copy it first"
+    )
+
+
+@pytest.fixture(scope="session")
+def engine_2000_base(tmp_path_factory):
+    """One temporary base directory for the 2000-case runs shared by the whole session."""
+    return tmp_path_factory.mktemp("engine_2000")
+
+
+@pytest.fixture(scope="session")
+def t1_faulty_2000(engine_2000_base):
+    """T1 faulty, 2000 cases, seed 42: ZOMBIE, exit 1, run f584d5f35228. Shared, read only.
+
+    Built once per session by the real engine (CLI, relative sample paths) into `engine_2000_base`.
+    Tests that edit the run copy it with `copy_runs`; the fixture checks at the end of the session
+    that the shared run folder did not change.
+    """
+    run = _shared_engine_run(engine_2000_base, T1_FAULTY_2000_ID, *_t1_args("faulty"), 2000, 1)
+    state = _tree_state(run.run_dir)
+    yield run
+    _assert_shared_run_unchanged(run, state)
+
+
+@pytest.fixture(scope="session")
+def t1_correct_2000(engine_2000_base):
+    """T1 correct, 2000 cases, seed 42: ALIVE, exit 0, run 29c15f04407b. Shared, read only."""
+    run = _shared_engine_run(engine_2000_base, T1_CORRECT_2000_ID, *_t1_args("correct"), 2000, 0)
+    state = _tree_state(run.run_dir)
+    yield run
+    _assert_shared_run_unchanged(run, state)
+
+
+@pytest.fixture(scope="session")
+def credit_fees_2000(engine_2000_base):
+    """credit-fees correct port, 2000 cases, seed 42: ALIVE, exit 0, run df4d7929ce44. Shared, read only."""
+    run = _shared_engine_run(
+        engine_2000_base, CREDIT_FEES_2000_ID,
+        f"{CREDIT_FEES_SAMPLE}/CREDIT-FEES.cob", f"{CREDIT_FEES_SAMPLE}/copybooks",
+        f"{CREDIT_FEES_SAMPLE}/java/CreditFees.java", f"{CREDIT_FEES_SAMPLE}/schema.json", 2000, 0,
+    )
+    state = _tree_state(run.run_dir)
+    yield run
+    _assert_shared_run_unchanged(run, state)
+
+
+@pytest.fixture(scope="session")
+def t1_faulty_200(tmp_path_factory):
+    """T1 faulty, 200 cases, seed 42: ZOMBIE, exit 1. Shared by the tests that only read the run."""
+    run = _shared_engine_run(tmp_path_factory.mktemp("t1_faulty_200"), None, *_t1_args("faulty"), 200, 1)
+    state = _tree_state(run.run_dir)
+    yield run
+    _assert_shared_run_unchanged(run, state)
+
+
+@pytest.fixture(scope="session")
+def t1_correct_200(tmp_path_factory):
+    """T1 correct, 200 cases, seed 42: ALIVE, exit 0. Shared by the tests that only read the run."""
+    run = _shared_engine_run(tmp_path_factory.mktemp("t1_correct_200"), None, *_t1_args("correct"), 200, 0)
+    state = _tree_state(run.run_dir)
+    yield run
+    _assert_shared_run_unchanged(run, state)
+
+
+@pytest.fixture(scope="session")
+def t1_faulty_30(tmp_path_factory):
+    """T1 faulty, 30 cases, seed 42: ZOMBIE, exit 1. Shared; a test that edits it copies it first."""
+    run = _shared_engine_run(tmp_path_factory.mktemp("t1_faulty_30"), None, *_t1_args("faulty"), 30, 1)
+    assert json.loads((run.run_dir / "verdict.json").read_text())["status"] == "ZOMBIE"
+    state = _tree_state(run.run_dir)
+    yield run
+    _assert_shared_run_unchanged(run, state)
+
+
+def _credit_fees_args(java: str) -> tuple:
+    return (f"{CREDIT_FEES_SAMPLE}/CREDIT-FEES.cob", f"{CREDIT_FEES_SAMPLE}/copybooks",
+            java, f"{CREDIT_FEES_SAMPLE}/schema.json")
+
+
+@pytest.fixture(scope="session")
+def credit_fees_alive_30(tmp_path_factory):
+    """credit-fees correct port, 30 cases, seed 42: ALIVE, exit 0. Shared; a test that edits it copies it first."""
+    run = _shared_engine_run(
+        tmp_path_factory.mktemp("credit_fees_alive_30"), None,
+        *_credit_fees_args(f"{CREDIT_FEES_SAMPLE}/java/CreditFees.java"), 30, 0,
+    )
+    assert json.loads((run.run_dir / "verdict.json").read_text())["status"] == "ALIVE"
+    state = _tree_state(run.run_dir)
+    yield run
+    _assert_shared_run_unchanged(run, state)
+
+
+@pytest.fixture(scope="session")
+def credit_fees_half_even_30(tmp_path_factory):
+    """credit-fees HALF_EVEN variant, 30 cases, seed 42: ZOMBIE, exit 1. Shared; copy it before editing.
+
+    The variant is generated from the correct port into the fixture's own base directory, which stays
+    in place for the whole session because the certificate records the path of the Java file.
+    """
+    from coroner.catalog.legacy_variant import generate_half_even_variant
+
+    base = tmp_path_factory.mktemp("credit_fees_half_even_30")
+    variant = base / "variant" / "CreditFees.java"
+    variant.parent.mkdir()
+    generate_half_even_variant(str(REPO_ROOT / CREDIT_FEES_SAMPLE / "java" / "CreditFees.java"), str(variant))
+    run = _shared_engine_run(base, None, *_credit_fees_args(str(variant)), 30, 1)
+    assert json.loads((run.run_dir / "verdict.json").read_text())["status"] == "ZOMBIE"
+    state = _tree_state(run.run_dir)
+    yield run
+    _assert_shared_run_unchanged(run, state)
+
+
+@pytest.fixture
+def t1_faulty_run(t1_faulty_200):
+    """A real T1 faulty run at 200 cases for UI tests: (run id, base directory). Read only."""
+    return t1_faulty_200.run_id, t1_faulty_200.base
+
+
+@pytest.fixture
+def t1_correct_run(t1_correct_200):
+    """A real T1 correct run at 200 cases for UI tests: (run id, base directory). Read only."""
+    return t1_correct_200.run_id, t1_correct_200.base
+
+
+STORY_CASES = 9
 
 
 @pytest.fixture(scope="session")
@@ -145,8 +331,11 @@ def story_runs(tmp_path_factory):
     cases T4 is ALIVE (0 divergent cases). The fixture asserts the three verdicts, so a
     generator change that lowers one of them fails here and not in a later test.
 
-    Returns a namedtuple (base, cases, catalog): the base directory to give to the story data
-    layer, the case count, and the dict returned by run_catalog.
+    Returns a namedtuple (base, cases, catalog, repo_catalog_before): the base directory to give to the
+    story data layer, the case count, the dict returned by run_catalog, and the state (mtime and SHA-256,
+    or None when absent) of the repository's runs/trap_catalog.json taken before the catalog was built.
+    This is the one shared catalog of the session: the story, fool-independent UI and Detection Matrix
+    tests read it, and a test that writes to it copies it first.
     """
     from collections import namedtuple
 
@@ -154,6 +343,7 @@ def story_runs(tmp_path_factory):
 
     repo_runs = Path(__file__).resolve().parent.parent / "runs"
     before = _folder_listing(repo_runs)
+    catalog_before = file_state(repo_runs / "trap_catalog.json")
 
     base = tmp_path_factory.mktemp("story_runs")
     catalog = run_catalog(seed=42, cases=STORY_CASES, base_dir=str(base))
@@ -166,7 +356,9 @@ def story_runs(tmp_path_factory):
         )
     assert _folder_listing(repo_runs) == before, "the story catalog touched the repository runs/ folder"
 
-    return namedtuple("StoryRuns", "base cases catalog")(base, STORY_CASES, catalog)
+    return namedtuple("StoryRuns", "base cases catalog repo_catalog_before")(
+        base, STORY_CASES, catalog, catalog_before,
+    )
 
 
 @pytest.fixture

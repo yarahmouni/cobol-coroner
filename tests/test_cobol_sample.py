@@ -13,13 +13,12 @@ COBOL_TIMEOUT = 10
 
 
 @pytest.fixture(scope="session")
-def cobol_binary():
-    """Compile CREDIT-FEES.cob once per test session."""
+def cobol_binary(tmp_path_factory):
+    """Compile CREDIT-FEES.cob once per test session, into a temporary folder."""
     if not shutil.which("cobc"):
         pytest.skip("cobc not found on PATH")
     
-    build_dir = Path("build")
-    build_dir.mkdir(exist_ok=True)
+    build_dir = tmp_path_factory.mktemp("cobol_sample_build")
     
     binary_path = build_dir / "credit-fees"
     source_path = Path("samples/credit-fees/CREDIT-FEES.cob")

@@ -12,8 +12,11 @@ BUILD_DIR = Path('build/traps/T3')
 
 
 @pytest.fixture(scope="module", autouse=True)
-def build_programs():
+def build_programs(tmp_path_factory):
     """Build COBOL and Java programs."""
+    # Every build output goes to a temporary folder of this module (safe under pytest-xdist)
+    global BUILD_DIR
+    BUILD_DIR = tmp_path_factory.mktemp("t3_build")
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
     
     # Compile COBOL
@@ -164,7 +167,7 @@ def test_faulty_java_differs():
 
 
 @pytest.mark.slow
-def test_verify_correct_alive():
+def test_verify_correct_alive(tmp_path):
     """Verify with correct Java gives ALIVE on 200 cases."""
     result = subprocess.run(
         [
@@ -178,7 +181,8 @@ def test_verify_correct_alive():
         ],
         capture_output=True,
         text=True,
-        timeout=60
+        timeout=60,
+        env={**os.environ, "CORONER_BASE_DIR": str(tmp_path)}
     )
     
     assert result.returncode == 0, f"Verify failed: {result.stdout}\n{result.stderr}"
@@ -187,7 +191,7 @@ def test_verify_correct_alive():
 
 
 @pytest.mark.slow
-def test_verify_faulty_zombie():
+def test_verify_faulty_zombie(tmp_path):
     """Verify with faulty Java gives ZOMBIE on 200 cases."""
     result = subprocess.run(
         [
@@ -201,7 +205,8 @@ def test_verify_faulty_zombie():
         ],
         capture_output=True,
         text=True,
-        timeout=60
+        timeout=60,
+        env={**os.environ, "CORONER_BASE_DIR": str(tmp_path)}
     )
     
     assert result.returncode == 1, f"Expected exit code 1 (ZOMBIE): {result.stdout}\n{result.stderr}"
@@ -210,7 +215,7 @@ def test_verify_faulty_zombie():
 
 
 @pytest.mark.slow
-def test_verify_2000_cases():
+def test_verify_2000_cases(tmp_path):
     """Measure divergence count on 2000 cases with seed 42."""
     result = subprocess.run(
         [
@@ -224,7 +229,8 @@ def test_verify_2000_cases():
         ],
         capture_output=True,
         text=True,
-        timeout=120
+        timeout=120,
+        env={**os.environ, "CORONER_BASE_DIR": str(tmp_path)}
     )
     
     assert result.returncode == 1, f"Expected exit code 1 (ZOMBIE): {result.stdout}\n{result.stderr}"

@@ -9,19 +9,19 @@ import pytest
 
 
 @pytest.fixture(scope="session")
-def compile_cobol():
-    """Compile COBOL program once per session."""
+def compile_cobol(tmp_path_factory):
+    """Compile COBOL program once per session into a temporary folder; returns the binary path."""
     if not shutil.which("cobc"):
         pytest.skip("cobc not found")
     
-    os.makedirs("build", exist_ok=True)
+    binary = tmp_path_factory.mktemp("credit_fees_cobol") / "credit-fees"
     result = subprocess.run(
         [
             "cobc",
             "-x",
             "-Wall",
             "-I", "samples/credit-fees/copybooks",
-            "-o", "build/credit-fees",
+            "-o", str(binary),
             "samples/credit-fees/CREDIT-FEES.cob"
         ],
         capture_output=True,
@@ -31,19 +31,21 @@ def compile_cobol():
     if result.returncode != 0:
         pytest.fail(f"COBOL compilation failed: {result.stderr.decode('utf-8')}")
 
+    return binary
+
 
 @pytest.fixture(scope="session")
-def compile_java():
-    """Compile Java program once per session."""
+def compile_java(tmp_path_factory):
+    """Compile Java program once per session into a temporary folder; returns the class folder."""
     if not shutil.which("javac"):
         pytest.skip("javac not found")
     
-    os.makedirs("build/java", exist_ok=True)
+    classes = tmp_path_factory.mktemp("credit_fees_java")
     result = subprocess.run(
         [
             "javac",
             "-Xlint:all",
-            "-d", "build/java",
+            "-d", str(classes),
             "samples/credit-fees/java/CreditFees.java"
         ],
         capture_output=True,
@@ -56,6 +58,8 @@ def compile_java():
     if result.stderr:
         pytest.fail(f"Java compilation warnings: {result.stderr.decode('utf-8')}")
 
+    return classes
+
 
 def run_cobol(input_file, output_file, compile_cobol):
     """Run COBOL program with given input and output files."""
@@ -64,7 +68,7 @@ def run_cobol(input_file, output_file, compile_cobol):
     env["OUTPUT_FILE"] = output_file
     
     result = subprocess.run(
-        ["./build/credit-fees"],
+        [str(compile_cobol)],
         env=env,
         capture_output=True,
         timeout=10
@@ -83,7 +87,7 @@ def run_java(input_file, output_file, compile_java):
     env["OUTPUT_FILE"] = output_file
     
     result = subprocess.run(
-        ["java", "-cp", "build/java", "CreditFees"],
+        ["java", "-cp", str(compile_java), "CreditFees"],
         env=env,
         capture_output=True,
         timeout=10

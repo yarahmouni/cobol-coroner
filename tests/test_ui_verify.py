@@ -13,29 +13,17 @@ from coroner.cli import run_verify
 
 
 @pytest.fixture
-def alive_run_with_cert(tmp_path, monkeypatch):
-    """Create a real ALIVE run with certificate at 30 cases."""
+def alive_run_with_cert(credit_fees_alive_30, tmp_path, monkeypatch, copy_runs):
+    """A real ALIVE run with certificate at 30 cases, copied into this test's own folder.
+
+    The run is the session fixture credit_fees_alive_30 of tests/conftest.py (real engine audit);
+    a test that edits the certificate or adds a forged copy changes only its own folder.
+    """
     # Set CORONER_BASE_DIR to tmp_path
     monkeypatch.setenv("CORONER_BASE_DIR", str(tmp_path))
     
-    # Run credit-fees with correct Java
-    cobol_file = Path("samples/credit-fees/CREDIT-FEES.cob").resolve()
-    copybooks = Path("samples/credit-fees/copybooks").resolve()
-    java_file = Path("samples/credit-fees/java/CreditFees.java").resolve()
-    schema_file = Path("samples/credit-fees/schema.json").resolve()
-    
-    verdict, run_dir = run_verify(
-        cobol_path=str(cobol_file),
-        copybooks_dir=str(copybooks),
-        java_path=str(java_file),
-        schema_path=str(schema_file),
-        num_cases=30,
-        seed=42,
-        timings=False,
-        base_dir=str(tmp_path),
-    )
-    
-    run_id = run_dir.name
+    run_id = credit_fees_alive_30.run_id
+    copy_runs(credit_fees_alive_30.base, tmp_path, run_id)
     
     run_dir = tmp_path / "runs" / run_id
     
@@ -423,32 +411,17 @@ def test_verify_does_not_block_event_loop(tmp_path, monkeypatch):
 
 
 
-def test_verify_subprocess_real_certificate(tmp_path, monkeypatch):
+def test_verify_subprocess_real_certificate(credit_fees_alive_30, tmp_path, monkeypatch, copy_runs):
     """
     Test /api/verify through real subprocess replay on a real run in tmp_path.
     
     This exercises the actual subprocess path with certificate as positional argument.
     """
-    # Create a real ALIVE run
+    # A real ALIVE run (session fixture), copied into this test's own folder
     monkeypatch.setenv("CORONER_BASE_DIR", str(tmp_path))
     
-    cobol_file = Path("samples/credit-fees/CREDIT-FEES.cob").resolve()
-    copybooks = Path("samples/credit-fees/copybooks").resolve()
-    java_file = Path("samples/credit-fees/java/CreditFees.java").resolve()
-    schema_file = Path("samples/credit-fees/schema.json").resolve()
-    
-    verdict, run_dir = run_verify(
-        cobol_path=str(cobol_file),
-        copybooks_dir=str(copybooks),
-        java_path=str(java_file),
-        schema_path=str(schema_file),
-        num_cases=30,
-        seed=42,
-        timings=False,
-        base_dir=str(tmp_path),
-    )
-    
-    run_id = run_dir.name
+    run_id = credit_fees_alive_30.run_id
+    copy_runs(credit_fees_alive_30.base, tmp_path, run_id)
     
     # Verify certificate exists
     cert_file = tmp_path / "runs" / run_id / "certificate.json"
@@ -485,32 +458,17 @@ def test_verify_subprocess_real_certificate(tmp_path, monkeypatch):
     assert "30" in html
 
 
-def test_verify_subprocess_forged_certificate(tmp_path, monkeypatch):
+def test_verify_subprocess_forged_certificate(credit_fees_alive_30, tmp_path, monkeypatch, copy_runs):
     """
     Test /api/verify through subprocess detects a forged certificate.
     
     This verifies the subprocess returns INVALID with the real reason.
     """
-    # Create a real ALIVE run
+    # A real ALIVE run (session fixture), copied into this test's own folder
     monkeypatch.setenv("CORONER_BASE_DIR", str(tmp_path))
     
-    cobol_file = Path("samples/credit-fees/CREDIT-FEES.cob").resolve()
-    copybooks = Path("samples/credit-fees/copybooks").resolve()
-    java_file = Path("samples/credit-fees/java/CreditFees.java").resolve()
-    schema_file = Path("samples/credit-fees/schema.json").resolve()
-    
-    verdict, run_dir = run_verify(
-        cobol_path=str(cobol_file),
-        copybooks_dir=str(copybooks),
-        java_path=str(java_file),
-        schema_path=str(schema_file),
-        num_cases=30,
-        seed=42,
-        timings=False,
-        base_dir=str(tmp_path),
-    )
-    
-    run_id = run_dir.name
+    run_id = credit_fees_alive_30.run_id
+    copy_runs(credit_fees_alive_30.base, tmp_path, run_id)
     
     # Forge the certificate
     run_dir_path = tmp_path / "runs" / run_id
@@ -552,13 +510,13 @@ def test_verify_subprocess_forged_certificate(tmp_path, monkeypatch):
     assert "cases_divergent" in html
 
 
-def test_tamper_subprocess_real_certificate(tmp_path, monkeypatch):
+def test_tamper_subprocess_real_certificate(credit_fees_half_even_30, tmp_path, monkeypatch, copy_runs):
     """
     Test /api/tamper through real subprocess on a real run.
     
     This exercises the actual subprocess replay after tamper.
     """
-    # Create a real ZOMBIE run
+    # A real ZOMBIE run (session fixture, HALF_EVEN variant), copied into this test's own folder
     monkeypatch.setenv("CORONER_BASE_DIR", str(tmp_path))
     
     # Set CORONER_EXCHANGE_DIR for tamper to write copies
@@ -566,31 +524,8 @@ def test_tamper_subprocess_real_certificate(tmp_path, monkeypatch):
     exchange_dir.mkdir()
     monkeypatch.setenv("CORONER_EXCHANGE_DIR", str(exchange_dir))
     
-    cobol_file = Path("samples/credit-fees/CREDIT-FEES.cob").resolve()
-    copybooks = Path("samples/credit-fees/copybooks").resolve()
-    schema_file = Path("samples/credit-fees/schema.json").resolve()
-    
-    # Use HALF_EVEN for ZOMBIE
-    from coroner.catalog.legacy_variant import generate_half_even_variant
-    
-    java_source_path = Path("samples/credit-fees/java/CreditFees.java").resolve()
-    variant_dir = tmp_path / "variant"
-    variant_dir.mkdir()
-    variant_path = variant_dir / "CreditFees.java"
-    generate_half_even_variant(str(java_source_path), str(variant_path))
-    
-    verdict, run_dir = run_verify(
-        cobol_path=str(cobol_file),
-        copybooks_dir=str(copybooks),
-        java_path=str(variant_path),
-        schema_path=str(schema_file),
-        num_cases=30,
-        seed=42,
-        timings=False,
-        base_dir=str(tmp_path),
-    )
-    
-    run_id = run_dir.name
+    run_id = credit_fees_half_even_30.run_id
+    copy_runs(credit_fees_half_even_30.base, tmp_path, run_id)
     
     # Verify certificate exists and it's ZOMBIE
     cert_file = tmp_path / "runs" / run_id / "certificate.json"

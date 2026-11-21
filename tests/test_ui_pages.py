@@ -9,8 +9,6 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from coroner.cli import run_verify
-
 
 def compute_relative_luminance(r: int, g: int, b: int) -> float:
     """Compute relative luminance using WCAG 2 formula."""
@@ -41,52 +39,16 @@ def parse_hex_color(color: str) -> tuple[int, int, int]:
     return int(color[0:2], 16), int(color[2:4], 16), int(color[4:6], 16)
 
 
-@pytest.fixture(scope="module")
-def t1_faulty_run(tmp_path_factory):
-    """Create a real T1 faulty run at 200 cases."""
-    tmp_path = tmp_path_factory.mktemp("t1_faulty")
-    
-    cobol_file = Path("samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob").resolve()
-    copybooks = Path("samples/traps/T1-ebcdic-match-merge/copybooks").resolve()
-    java_file = Path("samples/traps/T1-ebcdic-match-merge/java/faulty/MatchMerge.java").resolve()
-    schema_file = Path("samples/traps/T1-ebcdic-match-merge/schema.json").resolve()
-    
-    verdict, run_dir = run_verify(
-        cobol_path=str(cobol_file),
-        copybooks_dir=str(copybooks),
-        java_path=str(java_file),
-        schema_path=str(schema_file),
-        num_cases=200,
-        seed=42,
-        timings=False,
-        base_dir=str(tmp_path),
-    )
-    
-    return tmp_path, run_dir.name
+@pytest.fixture
+def t1_faulty_run(t1_faulty_200):
+    """The shared real T1 faulty run at 200 cases (tests/conftest.py), read only: (base directory, run id)."""
+    return t1_faulty_200.base, t1_faulty_200.run_id
 
 
-@pytest.fixture(scope="module")
-def t1_correct_run(tmp_path_factory):
-    """Create a real T1 correct run at 200 cases."""
-    tmp_path = tmp_path_factory.mktemp("t1_correct")
-    
-    cobol_file = Path("samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob").resolve()
-    copybooks = Path("samples/traps/T1-ebcdic-match-merge/copybooks").resolve()
-    java_file = Path("samples/traps/T1-ebcdic-match-merge/java/correct/MatchMerge.java").resolve()
-    schema_file = Path("samples/traps/T1-ebcdic-match-merge/schema.json").resolve()
-    
-    verdict, run_dir = run_verify(
-        cobol_path=str(cobol_file),
-        copybooks_dir=str(copybooks),
-        java_path=str(java_file),
-        schema_path=str(schema_file),
-        num_cases=200,
-        seed=42,
-        timings=False,
-        base_dir=str(tmp_path),
-    )
-    
-    return tmp_path, run_dir.name
+@pytest.fixture
+def t1_correct_run(t1_correct_200):
+    """The shared real T1 correct run at 200 cases (tests/conftest.py), read only: (base directory, run id)."""
+    return t1_correct_200.base, t1_correct_200.run_id
 
 
 def test_run_page_t1_faulty_layout(t1_faulty_run, monkeypatch):

@@ -171,7 +171,7 @@ def test_generate_junit_test_compiles_with_junit_jar(test_schema, minimal_case, 
     assert (tmp_path / "ZombieRegressionTest.class").exists()
 
 
-def test_generate_junit_test_with_credit_fees_schema():
+def test_generate_junit_test_with_credit_fees_schema(tmp_path):
     """Test with actual credit-fees schema and minimal case from HALF_EVEN variant."""
     from coroner.parse.schema import load_schema
     
@@ -214,8 +214,8 @@ def test_generate_junit_test_with_credit_fees_schema():
         "REASON-CODE": "R01"
     }
     
-    # Generate test in build directory
-    build_test_dir = Path("build/test_junit")
+    # Generate test in a temporary directory
+    build_test_dir = tmp_path / "test_junit"
     build_test_dir.mkdir(parents=True, exist_ok=True)
     output_path = build_test_dir / "ZombieRegressionTest.java"
     
@@ -241,7 +241,7 @@ def test_generate_junit_test_with_credit_fees_schema():
     # and available in build/java. That's tested in the end-to-end tests.
 
 
-def test_junit_test_fails_against_half_even_variant():
+def test_junit_test_fails_against_half_even_variant(tmp_path):
     """
     End-to-end test: generate HALF_EVEN variant, compile it, generate JUnit test,
     run test against HALF_EVEN variant (should FAIL), then against correct Java (should PASS).
@@ -290,10 +290,10 @@ def test_junit_test_fails_against_half_even_variant():
     }
     
     # Create build directories
-    build_test_dir = Path("build/test_junit_e2e")
+    build_test_dir = tmp_path / "test_junit_e2e"
     build_test_dir.mkdir(parents=True, exist_ok=True)
     
-    build_java_dir = Path("build/test_junit_e2e/java")
+    build_java_dir = build_test_dir / "java"
     build_java_dir.mkdir(exist_ok=True)
     
     # Generate HALF_EVEN variant

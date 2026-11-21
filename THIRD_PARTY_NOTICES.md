@@ -53,6 +53,12 @@ COBOL Coroner uses the following third-party components.
 - Used in: HTTP client for API tests (tests/test_ui*.py)
 - Source: https://pypi.org/project/httpx/
 
+### pytest-xdist 3.8.0
+- License: MIT
+- Used in: Parallel test run (`make test`, `-n auto`); installed with the dev and test extras
+- Source: https://pypi.org/project/pytest-xdist/
+- Note: its dependency execnet 2.1.2 (MIT) is installed with it
+
 ## Python Packages (Screenshots Only)
 
 ### playwright 1.64.1

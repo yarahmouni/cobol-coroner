@@ -58,11 +58,11 @@ def test_parse_credit_fees_structure():
     assert total_branches >= 70, f"Expected at least 70 branches (33 IF + 33 ELSE + 4 WHEN), got {total_branches}"
 
 
-def test_parse_structure_empty_copybook_dir():
+def test_parse_structure_empty_copybook_dir(tmp_path):
     """Test parsing with empty copybook directory."""
     result = parse_cobol_structure(
         "samples/credit-fees/CREDIT-FEES.cob",
-        "build"  # Empty directory
+        str(tmp_path)  # Empty directory
     )
     
     # Should still parse main source

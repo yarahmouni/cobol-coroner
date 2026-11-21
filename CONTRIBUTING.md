@@ -17,10 +17,16 @@ make junit-jars
 
 ## Running Tests
 
-Default test suite (fast tests only, under 60 seconds):
+Default test suite (the tests not marked slow or repo), run in parallel with pytest-xdist (`-n auto --dist loadfile`, one test file per worker). Measured on the development Mac (8 logical CPUs, 2026-11-21): 802 tests in 3 min 14 s to 3 min 21 s; the 60 second target is not met:
 
 ```bash
 make test
+```
+
+The same tests in one process (7 min 43 s on the same Mac). Use it to debug a failure that only appears in parallel:
+
+```bash
+make test-serial
 ```
 
 All tests including slow ones:

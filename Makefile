@@ -2,9 +2,14 @@ PYTHON ?= .venv/bin/python
 SCREENSHOT_CHANNEL ?=
 URL ?= http://127.0.0.1:8000
 
-.PHONY: test test-all smoke smoke-ui demo zombie serve java-sample hooks junit-jars pbt acceptance precommit traps demo-ebcdic coroner-gate screenshots deploy-check static-page
+.PHONY: test test-serial test-all smoke smoke-ui demo zombie serve java-sample hooks junit-jars pbt acceptance precommit traps demo-ebcdic coroner-gate screenshots deploy-check static-page
 
+# Default suite in parallel (pytest-xdist). --dist loadfile keeps every test file on one worker, in file order,
+# so the module fixtures and the order of the tests of a file are the same as in a serial run.
 test:
+	$(PYTHON) -m pytest -q -n auto --dist loadfile
+
+test-serial:
 	$(PYTHON) -m pytest -q
 
 test-all:

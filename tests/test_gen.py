@@ -336,7 +336,7 @@ def test_generate_cases_viable_on_real_cobol(tmp_path):
     cases_path = generate_cases(schema, cobol_structure, seed=42, num_cases=2000, tie_share=0.05, base_dir=str(tmp_path))
     
     # Compile COBOL program
-    build_dir = Path('build')
+    build_dir = tmp_path / 'build'
     build_dir.mkdir(exist_ok=True)
     
     cobol_src = 'samples/credit-fees/CREDIT-FEES.cob'

@@ -15,54 +15,18 @@ T1_FAULTY_ID = "f584d5f35228"
 CREDIT_FEES_CORRECT_ID = "df4d7929ce44"
 
 
-def _listing(folder: Path) -> list:
-    """Names and modification times of the entries of a folder (empty if it does not exist)."""
-    if not folder.exists():
-        return []
-    return sorted((p.name, p.stat().st_mtime_ns) for p in folder.iterdir())
-
-
 @pytest.fixture(scope="session")
-def gate_engine_runs(tmp_path_factory):
+def gate_engine_runs(t1_faulty_2000, credit_fees_2000):
     """
-    The two runs the certificate-matching tests rely on, made once per session by the real engine.
+    The two runs the certificate-matching tests rely on, made by the real engine.
 
     T1 faulty (ZOMBIE, exit 1, run f584d5f35228) and credit-fees correct (ALIVE, exit 0, run
-    df4d7929ce44), 2000 cases, seed 42, written into a temporary base directory. Paths are given
-    relative to the repository root, so the certificates record the same relative paths as the
-    bundled ones. The repository runs/ folder (git-ignored, absent from the Docker image) is never
-    read or written: its listing is checked before and after.
+    df4d7929ce44), 2000 cases, seed 42. Both are the session fixtures of tests/conftest.py (one
+    temporary base shared with the other test files; the run ids are asserted there, and the
+    repository runs/ folder is checked there). These tests only read the certificates.
     """
-    repo_runs = _REPO_ROOT / "runs"
-    before = _listing(repo_runs)
-    base = tmp_path_factory.mktemp("gate_engine_runs")
-    env = {**os.environ, "CORONER_BASE_DIR": str(base)}
-    env.pop("CORONER_REPLAY_TIMEOUT", None)
-
-    t1 = "samples/traps/T1-ebcdic-match-merge"
-    cf = "samples/credit-fees"
-    audits = (
-        (T1_FAULTY_ID, 1, f"{t1}/MATCH-MERGE.cob", f"{t1}/copybooks",
-         f"{t1}/java/faulty/MatchMerge.java", f"{t1}/schema.json"),
-        (CREDIT_FEES_CORRECT_ID, 0, f"{cf}/CREDIT-FEES.cob", f"{cf}/copybooks",
-         f"{cf}/java/CreditFees.java", f"{cf}/schema.json"),
-    )
-    for run_id, expected_exit, cobol, copybooks, java, schema in audits:
-        proc = subprocess.run(
-            [sys.executable, "-m", "coroner", "verify", "--cobol", cobol, "--copybooks", copybooks,
-             "--java", java, "--schema", schema, "--cases", "2000", "--seed", "42"],
-            cwd=_REPO_ROOT, env=env, capture_output=True, text=True, timeout=600,
-        )
-        assert proc.returncode == expected_exit, (
-            f"audit for run {run_id} exited {proc.returncode}, expected {expected_exit}\n"
-            f"{proc.stdout}\n{proc.stderr}"
-        )
-        assert (base / "runs" / run_id / "certificate.json").is_file(), (
-            f"audit did not produce run {run_id}\n{proc.stdout}"
-        )
-
-    assert _listing(repo_runs) == before, "the engine runs touched the repository runs/ folder"
-    return base / "runs"
+    assert t1_faulty_2000.base == credit_fees_2000.base
+    return t1_faulty_2000.base / "runs"
 
 
 @pytest.fixture(scope="module")

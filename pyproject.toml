@@ -18,9 +18,11 @@ dev = [
     "pytest==9.2.0",
     "pyyaml==6.0.3",
     "hypothesis==6.170.14",
+    "pytest-xdist==3.8.0",
 ]
 test = [
     "httpx==0.28.1",
+    "pytest-xdist==3.8.0",
 ]
 screenshots = [
     "playwright==1.64.1",

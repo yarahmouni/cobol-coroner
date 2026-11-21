@@ -376,7 +376,8 @@ def test_end_to_end_half_even_divergence():
             cobol_structure=cobol_structure,
             seed=42,
             num_cases=30,
-            tie_share=0.05
+            tie_share=0.05,
+            base_dir=tmpdir
         )
         
         # Build HALF_EVEN variant
@@ -639,7 +640,8 @@ def test_coverage_uncovered_error_path():
             cobol_structure=cobol_structure,
             seed=42,
             num_cases=30,
-            tie_share=0.05
+            tie_share=0.05,
+            base_dir=tmpdir
         )
         
         # Compile instrumented COBOL

@@ -7,11 +7,20 @@ import pytest
 from coroner.traps import run_catalog
 
 
+@pytest.fixture(scope="module")
+def catalog_200(tmp_path_factory):
+    """The real trap catalog at 200 cases, seed 42, built once for the slow tests of this module.
+
+    run_catalog runs in a temporary base directory. The tests that write the catalog files write
+    them from a copy of this dict into their own folder.
+    """
+    return run_catalog(seed=42, cases=200, base_dir=str(tmp_path_factory.mktemp("catalog_200")))
+
+
 @pytest.mark.slow
-def test_catalog_runner_200_cases(tmp_path):
+def test_catalog_runner_200_cases(catalog_200):
     """Test catalog runner with 200 cases."""
-    # Run catalog with small case count
-    catalog = run_catalog(seed=42, cases=200, base_dir=str(tmp_path))
+    catalog = catalog_200
     
     assert "traps" in catalog
     traps = catalog["traps"]
@@ -64,9 +73,11 @@ def test_catalog_runner_200_cases(tmp_path):
 
 
 @pytest.mark.slow
-def test_catalog_json_written(tmp_path):
+def test_catalog_json_written(catalog_200, tmp_path):
     """Test that catalog JSON is written."""
-    catalog = run_catalog(seed=42, cases=200, base_dir=str(tmp_path))
+    import copy
+    
+    catalog = copy.deepcopy(catalog_200)
     
     from coroner.traps import write_catalog_files
     write_catalog_files(catalog, base_dir=str(tmp_path))
@@ -105,34 +116,34 @@ def test_catalog_json_written(tmp_path):
 
 
 
-def test_catalog_does_not_overwrite_real_file(tmp_path):
-    """Test that catalog runner never overwrites the repository's runs/trap_catalog.json."""
+def test_catalog_does_not_overwrite_real_file(story_runs):
+    """Test that catalog runner never overwrites the repository's runs/trap_catalog.json.
+
+    The catalog is the session fixture story_runs of tests/conftest.py: run_catalog and
+    write_catalog_files ran there with a temporary base directory, after the fixture recorded
+    the state of the repository file (mtime and SHA-256; None when the file is absent, as in
+    the Docker image).
+    """
     import hashlib
-    import os
     
     repo_catalog_path = Path(__file__).resolve().parent.parent / "runs" / "trap_catalog.json"
     
-    # Record mtime and SHA-256 if it exists (the file is absent in the Docker image)
-    if repo_catalog_path.exists():
-        original_mtime = os.path.getmtime(repo_catalog_path)
-        with open(repo_catalog_path, "rb") as f:
-            original_hash = hashlib.sha256(f.read()).hexdigest()
-    else:
-        original_mtime = None
-        original_hash = None
+    # The catalog really was built in a temporary base directory, not in the repository
+    assert (story_runs.base / "runs" / "trap_catalog.json").exists()
+    assert story_runs.base.resolve() != repo_catalog_path.parent.parent.resolve()
     
-    # Run catalog in tmp_path
-    run_catalog(seed=42, cases=30, base_dir=str(tmp_path))
+    # State recorded before the catalog was built
+    before = story_runs.repo_catalog_before
     
     # A file that was absent must not have been created
-    if original_mtime is None:
+    if before is None:
         assert not repo_catalog_path.exists(), "Catalog runner created the repository catalog"
+        return
     
     # Check the repository file was not touched
-    if original_mtime is not None:
-        new_mtime = os.path.getmtime(repo_catalog_path)
-        assert new_mtime == original_mtime, "Repository catalog mtime changed"
-        
-        with open(repo_catalog_path, "rb") as f:
-            new_hash = hashlib.sha256(f.read()).hexdigest()
-        assert new_hash == original_hash, "Repository catalog SHA-256 changed"
+    original_mtime, original_hash = before
+    assert repo_catalog_path.stat().st_mtime_ns == original_mtime, "Repository catalog mtime changed"
+    
+    with open(repo_catalog_path, "rb") as f:
+        new_hash = hashlib.sha256(f.read()).hexdigest()
+    assert new_hash == original_hash, "Repository catalog SHA-256 changed"

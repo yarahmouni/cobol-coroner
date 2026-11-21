@@ -9,42 +9,24 @@ from fastapi.testclient import TestClient
 
 
 @pytest.fixture
-def matrix_catalog(tmp_path):
-    """Create a real trap catalog at small case count."""
-    # Set CORONER_BASE_DIR to tmp_path
-    original_base = os.environ.get("CORONER_BASE_DIR")
-    os.environ["CORONER_BASE_DIR"] = str(tmp_path)
+def matrix_catalog(story_runs):
+    """The real trap catalog of the session (fixture story_runs of tests/conftest.py), read only.
+
+    story_runs ran run_catalog and write_catalog_files once in a temporary base directory (9 cases,
+    seed 42, faulty and correct port of T1 to T5). The page only reads the catalog file.
+    """
+    tmp_path = story_runs.base
     
-    try:
-        # Run the trap catalog at 50 cases per trap
-        from coroner.traps import run_catalog, write_catalog_files
-        
-        catalog_result = run_catalog(
-            base_dir=str(tmp_path),
-            cases=50,
-            seed=42
-        )
-        
-        # Write the catalog files
-        write_catalog_files(catalog_result, base_dir=str(tmp_path))
-        
-        # Verify catalog was written
-        catalog_file = tmp_path / "runs" / "trap_catalog.json"
-        assert catalog_file.exists()
-        
-        catalog_data = json.loads(catalog_file.read_text())
-        
-        # Convert traps list to dict keyed by id for easier lookup
-        traps_by_id = {trap["id"]: trap for trap in catalog_data["traps"]}
-        
-        yield traps_by_id, tmp_path
-        
-    finally:
-        # Restore original CORONER_BASE_DIR
-        if original_base is not None:
-            os.environ["CORONER_BASE_DIR"] = original_base
-        elif "CORONER_BASE_DIR" in os.environ:
-            del os.environ["CORONER_BASE_DIR"]
+    # Verify catalog was written
+    catalog_file = tmp_path / "runs" / "trap_catalog.json"
+    assert catalog_file.exists()
+    
+    catalog_data = json.loads(catalog_file.read_text())
+    
+    # Convert traps list to dict keyed by id for easier lookup
+    traps_by_id = {trap["id"]: trap for trap in catalog_data["traps"]}
+    
+    return traps_by_id, tmp_path
 
 
 def test_matrix_page_with_catalog(matrix_catalog, monkeypatch):

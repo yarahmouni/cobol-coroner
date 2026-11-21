@@ -8,53 +8,31 @@ from pathlib import Path
 
 import pytest
 
-from coroner.cli import run_verify
-
 
 @pytest.fixture
-def alive_run_2000_cases(tmp_path):
-    """Create a real ALIVE run with certificate at 2000 cases."""
-    # Set CORONER_BASE_DIR to tmp_path
-    original_base = os.environ.get("CORONER_BASE_DIR")
-    os.environ["CORONER_BASE_DIR"] = str(tmp_path)
+def alive_run_2000_cases(credit_fees_2000, tmp_path, monkeypatch, copy_runs):
+    """A real ALIVE run with certificate at 2000 cases, copied into this test's own folder.
+
+    The run is the session fixture credit_fees_2000 of tests/conftest.py (real engine audit of the
+    credit-fees correct port, 2000 cases, seed 42, run df4d7929ce44). A test that adds a forged
+    copy, an exchange folder or a build cache changes only its own folder.
+    """
+    # CORONER_BASE_DIR points at this test's folder (restored by monkeypatch)
+    monkeypatch.setenv("CORONER_BASE_DIR", str(tmp_path))
     
-    try:
-        # Run credit-fees with correct Java
-        cobol_file = Path("samples/credit-fees/CREDIT-FEES.cob").resolve()
-        copybooks = Path("samples/credit-fees/copybooks").resolve()
-        java_file = Path("samples/credit-fees/java/CreditFees.java").resolve()
-        schema_file = Path("samples/credit-fees/schema.json").resolve()
-        
-        verdict, run_dir = run_verify(
-            cobol_path=str(cobol_file),
-            copybooks_dir=str(copybooks),
-            java_path=str(java_file),
-            schema_path=str(schema_file),
-            num_cases=2000,
-            seed=42,
-            timings=False,
-            base_dir=str(tmp_path),
-        )
-        
-        run_id = run_dir.name
-        
-        run_dir = tmp_path / "runs" / run_id
-        
-        # Verify the run produced certificate
-        assert (run_dir / "certificate.json").exists()
-        
-        # Verify it's ALIVE
-        verdict_data = json.loads((run_dir / "verdict.json").read_text())
-        assert verdict_data["status"] == "ALIVE"
-        
-        yield run_id, tmp_path
-        
-    finally:
-        # Restore original CORONER_BASE_DIR
-        if original_base is not None:
-            os.environ["CORONER_BASE_DIR"] = original_base
-        elif "CORONER_BASE_DIR" in os.environ:
-            del os.environ["CORONER_BASE_DIR"]
+    run_id = credit_fees_2000.run_id
+    copy_runs(credit_fees_2000.base, tmp_path, run_id)
+    
+    run_dir = tmp_path / "runs" / run_id
+    
+    # Verify the run produced certificate
+    assert (run_dir / "certificate.json").exists()
+    
+    # Verify it's ALIVE
+    verdict_data = json.loads((run_dir / "verdict.json").read_text())
+    assert verdict_data["status"] == "ALIVE"
+    
+    yield run_id, tmp_path
 
 
 def test_cli_json_output(alive_run_2000_cases):

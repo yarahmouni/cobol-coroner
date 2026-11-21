@@ -1,9 +1,6 @@
 """Tests for /api/gate-check endpoint."""
 import json
-import os
-import shutil
-import subprocess
-import sys
+from collections import namedtuple
 from pathlib import Path
 
 import pytest
@@ -28,7 +25,6 @@ def client():
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-T1_DIR = REPO_ROOT / "samples" / "traps" / "T1-ebcdic-match-merge"
 T1_FAULTY_ID = "f584d5f35228"
 T1_CORRECT_ID = "29c15f04407b"
 
@@ -40,71 +36,54 @@ def _listing(folder: Path) -> list:
     return sorted((p.name, p.stat().st_mtime_ns) for p in folder.iterdir())
 
 
-@pytest.fixture(scope="session")
-def engine_runs(tmp_path_factory):
-    """
-    Produce the two T1 runs the tests assert, once per session, with the real engine.
-
-    The same audits as the bundled runs (2000 cases, seed 42): T1 faulty (ZOMBIE, exit 1,
-    run f584d5f35228) and T1 correct (ALIVE, exit 0, run 29c15f04407b). They are written
-    into a session folder through CORONER_BASE_DIR. The repository runs/ folder is never
-    read and never written: its listing is checked before and after.
-    """
-    repo_runs = REPO_ROOT / "runs"
-    before = _listing(repo_runs)
-
-    base = tmp_path_factory.mktemp("gate_check_engine_runs")
-    env = {**os.environ, "CORONER_BASE_DIR": str(base)}
-    env.pop("CORONER_REPLAY_TIMEOUT", None)
-
-    for java_kind, expected_exit, run_id in (
-        ("faulty", 1, T1_FAULTY_ID),
-        ("correct", 0, T1_CORRECT_ID),
-    ):
-        proc = subprocess.run(
-            [
-                sys.executable, "-m", "coroner", "verify",
-                "--cobol", str(T1_DIR / "MATCH-MERGE.cob"),
-                "--copybooks", str(T1_DIR / "copybooks"),
-                "--java", str(T1_DIR / "java" / java_kind / "MatchMerge.java"),
-                "--schema", str(T1_DIR / "schema.json"),
-                "--cases", "2000", "--seed", "42",
-            ],
-            cwd=REPO_ROOT, env=env, capture_output=True, text=True, timeout=600,
-        )
-        assert proc.returncode == expected_exit, (
-            f"T1 {java_kind} audit exited {proc.returncode}, expected {expected_exit}\n"
-            f"{proc.stdout}\n{proc.stderr}"
-        )
-        assert (base / "runs" / run_id / "certificate.json").is_file(), (
-            f"T1 {java_kind} audit did not produce run {run_id}\n{proc.stdout}"
-        )
-
-    assert _listing(repo_runs) == before, "the engine runs touched the repository runs/ folder"
-    return base / "runs"
-
-
 @pytest.fixture
-def temp_base_dir(tmp_path, monkeypatch, engine_runs):
+def temp_base_dir(tmp_path, monkeypatch, t1_faulty_2000, t1_correct_2000, copy_runs):
     """
-    Temporary base directory holding the T1 faulty and T1 correct runs.
+    Temporary base directory holding the T1 faulty and T1 correct runs at 2000 cases.
 
-    The runs come from the session fixture engine_runs (real engine audits) and are
+    The runs are the session fixtures t1_faulty_2000 and t1_correct_2000 of tests/conftest.py
+    (real engine audits, run ids f584d5f35228 and 29c15f04407b asserted there) and are
     copied into this test's own folder, so a test that edits a certificate cannot
     affect another test.
     """
     repo_runs = REPO_ROOT / "runs"
     before = _listing(repo_runs)
 
-    runs_dir = tmp_path / "runs"
-    runs_dir.mkdir()
-    for run_id in (T1_FAULTY_ID, T1_CORRECT_ID):
-        shutil.copytree(engine_runs / run_id, runs_dir / run_id)
+    copy_runs(t1_faulty_2000.base, tmp_path, T1_FAULTY_ID, T1_CORRECT_ID)
 
     monkeypatch.setenv("CORONER_BASE_DIR", str(tmp_path))
     reset_rate_limiter()
 
     yield tmp_path
+
+    assert _listing(repo_runs) == before, "the test touched the repository runs/ folder"
+
+
+SmallRuns = namedtuple("SmallRuns", "base faulty_id correct_id")
+
+
+@pytest.fixture
+def small_base_dir(tmp_path, monkeypatch, t1_faulty_200, t1_correct_200, copy_runs):
+    """
+    Temporary base directory holding the T1 faulty and T1 correct runs at 200 cases.
+
+    For the tests whose assertions do not depend on the 2000-case run (cache, rate limit,
+    validation, edited certificates): the status, the messages and the status codes are the
+    same at 200 cases, and the replay is shorter. The runs are the session fixtures
+    t1_faulty_200 and t1_correct_200 of tests/conftest.py, copied into this test's own folder.
+    Returns SmallRuns(base, faulty_id, correct_id).
+    """
+    repo_runs = REPO_ROOT / "runs"
+    before = _listing(repo_runs)
+
+    assert t1_faulty_200.returncode == 1 and t1_correct_200.returncode == 0
+    copy_runs(t1_faulty_200.base, tmp_path, t1_faulty_200.run_id)
+    copy_runs(t1_correct_200.base, tmp_path, t1_correct_200.run_id)
+
+    monkeypatch.setenv("CORONER_BASE_DIR", str(tmp_path))
+    reset_rate_limiter()
+
+    yield SmallRuns(tmp_path, t1_faulty_200.run_id, t1_correct_200.run_id)
 
     assert _listing(repo_runs) == before, "the test touched the repository runs/ folder"
 
@@ -166,7 +145,7 @@ def test_gate_check_correct(client, temp_base_dir):
     assert data["message"] == "Commit allowed"
 
 
-def test_gate_check_invalid_run_id(client, temp_base_dir):
+def test_gate_check_invalid_run_id(client, small_base_dir):
     """Test /api/gate-check with invalid run_id returns 422."""
     # Not 12 hex chars
     response = client.post(
@@ -177,7 +156,7 @@ def test_gate_check_invalid_run_id(client, temp_base_dir):
     assert response.status_code == 404
 
 
-def test_gate_check_unknown_run_id(client, temp_base_dir):
+def test_gate_check_unknown_run_id(client, small_base_dir):
     """Test /api/gate-check with non-existent run_id returns 404."""
     response = client.post(
         "/api/gate-check",
@@ -187,12 +166,12 @@ def test_gate_check_unknown_run_id(client, temp_base_dir):
     assert response.status_code == 404
 
 
-def test_gate_check_no_store(client, temp_base_dir):
+def test_gate_check_no_store(client, small_base_dir):
     """Test /api/gate-check responses have Cache-Control: no-store."""
     # Test on 200
     response = client.post(
         "/api/gate-check",
-        data={"run_id": "29c15f04407b"}
+        data={"run_id": small_base_dir.correct_id}
     )
     
     cache_control = response.headers.get("cache-control", "")
@@ -323,7 +302,7 @@ def test_gate_check_matches_run_gate_correct(temp_base_dir):
     assert data["exit_code"] == gate_exit_code
 
 
-def test_gate_check_cache(client, temp_base_dir, monkeypatch):
+def test_gate_check_cache(client, small_base_dir, monkeypatch):
     """
     Test that second POST within 600 s returns cached response without replay.
     
@@ -345,7 +324,7 @@ def test_gate_check_cache(client, temp_base_dir, monkeypatch):
     # First call
     response1 = client.post(
         "/api/gate-check",
-        data={"run_id": "29c15f04407b"}
+        data={"run_id": small_base_dir.correct_id}
     )
     
     assert response1.status_code == 200
@@ -355,7 +334,7 @@ def test_gate_check_cache(client, temp_base_dir, monkeypatch):
     # Second call within 600 s
     response2 = client.post(
         "/api/gate-check",
-        data={"run_id": "29c15f04407b"}
+        data={"run_id": small_base_dir.correct_id}
     )
     
     assert response2.status_code == 200
@@ -368,12 +347,12 @@ def test_gate_check_cache(client, temp_base_dir, monkeypatch):
     assert data1 == data2
 
 
-def test_gate_check_cache_invalidated_on_change(client, temp_base_dir):
+def test_gate_check_cache_invalidated_on_change(client, small_base_dir):
     """Test that a certificate edited after first call is not served from cache."""
     # First call
     response1 = client.post(
         "/api/gate-check",
-        data={"run_id": "29c15f04407b"}
+        data={"run_id": small_base_dir.correct_id}
     )
     
     assert response1.status_code == 200
@@ -386,7 +365,7 @@ def test_gate_check_cache_invalidated_on_change(client, temp_base_dir):
     reset_rate_limiter()
     
     # Edit the certificate (change status field)
-    cert_path = temp_base_dir / "runs" / "29c15f04407b" / "certificate.json"
+    cert_path = small_base_dir.base / "runs" / small_base_dir.correct_id / "certificate.json"
     cert_data = json.loads(cert_path.read_text())
     
     # Change status to ZOMBIE
@@ -404,7 +383,7 @@ def test_gate_check_cache_invalidated_on_change(client, temp_base_dir):
     # Second call with edited certificate
     response2 = client.post(
         "/api/gate-check",
-        data={"run_id": "29c15f04407b"}
+        data={"run_id": small_base_dir.correct_id}
     )
     
     assert response2.status_code == 200
@@ -481,10 +460,10 @@ def test_gate_check_cache_bypass_with_status_edit_no_hash_update(client, temp_ba
     assert "Certificate invalid" in data2["message"]
 
 
-def test_gate_check_certificate_too_large(client, temp_base_dir):
+def test_gate_check_certificate_too_large(client, small_base_dir):
     """Test /api/gate-check returns 413 for certificate over 1 MB."""
     # Create a large certificate (> 1 MB)
-    cert_path = temp_base_dir / "runs" / "29c15f04407b" / "certificate.json"
+    cert_path = small_base_dir.base / "runs" / small_base_dir.correct_id / "certificate.json"
     
     # Read the real certificate
     cert_data = json.loads(cert_path.read_text())
@@ -498,17 +477,17 @@ def test_gate_check_certificate_too_large(client, temp_base_dir):
     # Call endpoint
     response = client.post(
         "/api/gate-check",
-        data={"run_id": "29c15f04407b"}
+        data={"run_id": small_base_dir.correct_id}
     )
     
     assert response.status_code == 413
     assert "too large" in response.json()["detail"].lower()
 
 
-def test_gate_check_missing_java_file(client, temp_base_dir):
+def test_gate_check_missing_java_file(client, small_base_dir):
     """Test /api/gate-check with certificate naming missing java_file returns 200 blocked, not 500."""
     # Edit the certificate to reference a missing Java file
-    cert_path = temp_base_dir / "runs" / "29c15f04407b" / "certificate.json"
+    cert_path = small_base_dir.base / "runs" / small_base_dir.correct_id / "certificate.json"
     cert_data = json.loads(cert_path.read_text())
     
     # Change java_file to a path that does not exist
@@ -526,7 +505,7 @@ def test_gate_check_missing_java_file(client, temp_base_dir):
     # Call endpoint
     response = client.post(
         "/api/gate-check",
-        data={"run_id": "29c15f04407b"}
+        data={"run_id": small_base_dir.correct_id}
     )
     
     # Should return 200 blocked, not 500
@@ -537,7 +516,7 @@ def test_gate_check_missing_java_file(client, temp_base_dir):
 
 
 
-def test_gate_check_two_different_certificates_within_window(client, temp_base_dir, monkeypatch):
+def test_gate_check_two_different_certificates_within_window(client, small_base_dir, monkeypatch):
     """
     Test that two POSTs for two different certificates within the window: the second (a miss) gets 429.
     
@@ -549,7 +528,7 @@ def test_gate_check_two_different_certificates_within_window(client, temp_base_d
     # First call on T1 correct
     response1 = client.post(
         "/api/gate-check",
-        data={"run_id": "29c15f04407b"}
+        data={"run_id": small_base_dir.correct_id}
     )
     
     assert response1.status_code == 200
@@ -559,7 +538,7 @@ def test_gate_check_two_different_certificates_within_window(client, temp_base_d
     # Second call on T1 faulty (different certificate) within the window
     response2 = client.post(
         "/api/gate-check",
-        data={"run_id": "f584d5f35228"}
+        data={"run_id": small_base_dir.faulty_id}
     )
     
     # Should get 429 because the 1-per-window bucket is exhausted
@@ -574,7 +553,7 @@ def test_gate_check_two_different_certificates_within_window(client, temp_base_d
     assert int(retry_after) > 0
 
 
-def test_gate_check_cached_hit_after_miss(client, temp_base_dir, monkeypatch):
+def test_gate_check_cached_hit_after_miss(client, small_base_dir, monkeypatch):
     """
     Test that a cached hit right after a miss gets 200 without consuming the gate-check bucket.
     
@@ -587,7 +566,7 @@ def test_gate_check_cached_hit_after_miss(client, temp_base_dir, monkeypatch):
     # First call on T1 correct (miss)
     response1 = client.post(
         "/api/gate-check",
-        data={"run_id": "29c15f04407b"}
+        data={"run_id": small_base_dir.correct_id}
     )
     
     assert response1.status_code == 200
@@ -598,7 +577,7 @@ def test_gate_check_cached_hit_after_miss(client, temp_base_dir, monkeypatch):
     # This should return 200 without consuming the gate-check bucket
     response2 = client.post(
         "/api/gate-check",
-        data={"run_id": "29c15f04407b"}
+        data={"run_id": small_base_dir.correct_id}
     )
     
     assert response2.status_code == 200
@@ -610,7 +589,7 @@ def test_gate_check_cached_hit_after_miss(client, temp_base_dir, monkeypatch):
     # Should get 429 because the bucket was consumed by the first POST
     response3 = client.post(
         "/api/gate-check",
-        data={"run_id": "f584d5f35228"}
+        data={"run_id": small_base_dir.faulty_id}
     )
     
     assert response3.status_code == 429
@@ -662,7 +641,7 @@ def test_gate_check_replay_timeout_is_503_and_never_cached(client, temp_base_dir
     assert get_cached_gate_check(key) == response3.json()
 
 
-def test_gate_check_real_invalid_replay_is_cached(client, temp_base_dir, monkeypatch):
+def test_gate_check_real_invalid_replay_is_cached(client, small_base_dir, monkeypatch):
     """
     A certificate edited without its hash replays as INVALID for a real reason
     ("certificate content was modified"): that answer is cached and a second POST
@@ -672,12 +651,12 @@ def test_gate_check_real_invalid_replay_is_cached(client, temp_base_dir, monkeyp
     from coroner.ui.app import get_cached_gate_check
 
     monkeypatch.setenv("CORONER_GATE_CHECK_RATE_WINDOW", "3600")
-    run_id = "29c15f04407b"
-    cert_path = temp_base_dir / "runs" / run_id / "certificate.json"
+    run_id = small_base_dir.correct_id
+    cert_path = small_base_dir.base / "runs" / run_id / "certificate.json"
     cert_data = json.loads(cert_path.read_text())
     cert_data["status"] = "ZOMBIE"  # certificate_sha256 is left as it was
     cert_path.write_text(json.dumps(cert_data, indent=2, sort_keys=True) + "\n")
-    key = cert_file_sha256(temp_base_dir, run_id)
+    key = cert_file_sha256(small_base_dir.base, run_id)
     assert get_cached_gate_check(key) is None
 
     response1 = client.post("/api/gate-check", data={"run_id": run_id})

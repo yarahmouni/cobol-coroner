@@ -8,34 +8,40 @@ from pathlib import Path
 import pytest
 
 
+@pytest.fixture(scope="module")
+def t4_build(tmp_path_factory):
+    """A temporary build folder of this module for compiled programs and outputs (safe under pytest-xdist)."""
+    return tmp_path_factory.mktemp("t4_build")
+
+
 @pytest.fixture
 def t4_dir():
     """T4 trap directory."""
     return Path("samples/traps/T4-zoned-overpunch")
 
 
-def test_t4_cobol_compiles(t4_dir):
+def test_t4_cobol_compiles(t4_dir, t4_build):
     """T4 COBOL program compiles with -fsign=EBCDIC."""
     cobol_file = t4_dir / "ZONED-OVERPUNCH.cob"
     assert cobol_file.exists()
     
     result = subprocess.run(
-        ["cobc", "-x", "-Wall", "-fsign=EBCDIC", "-o", "build/test-t4-cobol", str(cobol_file)],
+        ["cobc", "-x", "-Wall", "-fsign=EBCDIC", "-o", str(t4_build / "test-t4-cobol"), str(cobol_file)],
         capture_output=True,
         text=True
     )
     assert result.returncode == 0, f"COBOL compilation failed: {result.stderr}"
 
 
-def test_t4_cobol_runs(t4_dir):
+def test_t4_cobol_runs(t4_dir, t4_build):
     """T4 COBOL program runs and produces output."""
     cobol_file = t4_dir / "ZONED-OVERPUNCH.cob"
     fixture_input = t4_dir / "fixtures/zoned-signs.csv"
-    test_output = Path("build/test-t4-cobol-output.csv")
+    test_output = t4_build / "test-t4-cobol-output.csv"
     
     # Compile
     subprocess.run(
-        ["cobc", "-x", "-Wall", "-fsign=EBCDIC", "-o", "build/test-t4-cobol", str(cobol_file)],
+        ["cobc", "-x", "-Wall", "-fsign=EBCDIC", "-o", str(t4_build / "test-t4-cobol"), str(cobol_file)],
         check=True,
         capture_output=True
     )
@@ -46,7 +52,7 @@ def test_t4_cobol_runs(t4_dir):
     env["OUTPUT_FILE"] = str(test_output)
     
     result = subprocess.run(
-        ["./build/test-t4-cobol"],
+        [str(t4_build / "test-t4-cobol")],
         env=env,
         capture_output=True,
         text=True
@@ -64,16 +70,16 @@ def test_t4_cobol_runs(t4_dir):
     assert lines[0].strip() == "CASE-ID,DECODED-VALUE"
 
 
-def test_t4_expected_equals_fresh_cobol_run(t4_dir):
+def test_t4_expected_equals_fresh_cobol_run(t4_dir, t4_build):
     """Expected output equals a fresh COBOL run."""
     cobol_file = t4_dir / "ZONED-OVERPUNCH.cob"
     fixture_input = t4_dir / "fixtures/zoned-signs.csv"
     expected_output = t4_dir / "fixtures/expected-output.csv"
-    test_output = Path("build/test-t4-expected.csv")
+    test_output = t4_build / "test-t4-expected.csv"
     
     # Compile and run COBOL
     subprocess.run(
-        ["cobc", "-x", "-Wall", "-fsign=EBCDIC", "-o", "build/test-t4-cobol", str(cobol_file)],
+        ["cobc", "-x", "-Wall", "-fsign=EBCDIC", "-o", str(t4_build / "test-t4-cobol"), str(cobol_file)],
         check=True,
         capture_output=True
     )
@@ -83,7 +89,7 @@ def test_t4_expected_equals_fresh_cobol_run(t4_dir):
     env["OUTPUT_FILE"] = str(test_output)
     
     subprocess.run(
-        ["./build/test-t4-cobol"],
+        [str(t4_build / "test-t4-cobol")],
         env=env,
         check=True,
         capture_output=True
@@ -98,19 +104,25 @@ def test_t4_expected_equals_fresh_cobol_run(t4_dir):
     assert actual == expected, "Fresh COBOL run differs from expected output"
 
 
-def test_t4_correct_java_matches_cobol(t4_dir):
+def test_t4_correct_java_matches_cobol(t4_dir, t4_build):
     """Correct Java output is byte-identical to COBOL output."""
     fixture_input = t4_dir / "fixtures/zoned-signs.csv"
-    cobol_output = Path("build/test-t4-cobol-output.csv")
-    java_output = Path("build/test-t4-correct-java-output.csv")
+    cobol_output = t4_build / "test-t4-cobol-output.csv"
+    java_output = t4_build / "test-t4-correct-java-output.csv"
     
-    # Run COBOL (already compiled in previous test)
+    # Compile and run COBOL (the build folder is private to this module and each test compiles what it runs)
+    subprocess.run(
+        ["cobc", "-x", "-Wall", "-fsign=EBCDIC", "-o", str(t4_build / "test-t4-cobol"), str(t4_dir / "ZONED-OVERPUNCH.cob")],
+        check=True,
+        capture_output=True
+    )
+
     env = os.environ.copy()
     env["INPUT_FILE"] = str(fixture_input)
     env["OUTPUT_FILE"] = str(cobol_output)
     
     subprocess.run(
-        ["./build/test-t4-cobol"],
+        [str(t4_build / "test-t4-cobol")],
         env=env,
         check=True,
         capture_output=True
@@ -119,14 +131,14 @@ def test_t4_correct_java_matches_cobol(t4_dir):
     # Compile and run correct Java
     java_file = t4_dir / "java/correct/ZonedOverpunch.java"
     subprocess.run(
-        ["javac", "-d", "build", str(java_file)],
+        ["javac", "-d", str(t4_build / "correct"), str(java_file)],
         check=True,
         capture_output=True
     )
     
     env["OUTPUT_FILE"] = str(java_output)
     subprocess.run(
-        ["java", "-cp", "build", "ZonedOverpunch"],
+        ["java", "-cp", str(t4_build / "correct"), "ZonedOverpunch"],
         env=env,
         check=True,
         capture_output=True
@@ -141,24 +153,24 @@ def test_t4_correct_java_matches_cobol(t4_dir):
     assert java_content == cobol_content, "Correct Java differs from COBOL"
 
 
-def test_t4_faulty_java_differs(t4_dir):
+def test_t4_faulty_java_differs(t4_dir, t4_build):
     """Faulty Java diverges on fixture rows with } (negative zero overpunch).
     
     The faulty port handles A-I and J-R correctly but treats { and } as unknown,
     defaulting to +0. So { (+0) matches by accident, but } (-0) diverges.
     """
     fixture_input = t4_dir / "fixtures/zoned-signs.csv"
-    cobol_output = Path("build/test-t4-cobol-output.csv")
-    java_output = Path("build/test-t4-faulty-java-output.csv")
+    cobol_output = t4_build / "test-t4-cobol-output.csv"
+    java_output = t4_build / "test-t4-faulty-java-output.csv"
     
     # Compile and run faulty Java
     java_file = t4_dir / "java/faulty/ZonedOverpunch.java"
     subprocess.run(
-        ["mkdir", "-p", "build/faulty"],
+        ["mkdir", "-p", str(t4_build / "faulty")],
         check=True
     )
     subprocess.run(
-        ["javac", "-d", "build/faulty", str(java_file)],
+        ["javac", "-d", str(t4_build / "faulty"), str(java_file)],
         check=True,
         capture_output=True
     )
@@ -167,7 +179,7 @@ def test_t4_faulty_java_differs(t4_dir):
     env["INPUT_FILE"] = str(fixture_input)
     env["OUTPUT_FILE"] = str(java_output)
     subprocess.run(
-        ["java", "-cp", "build/faulty", "ZonedOverpunch"],
+        ["java", "-cp", str(t4_build / "faulty"), "ZonedOverpunch"],
         env=env,
         check=True,
         capture_output=True

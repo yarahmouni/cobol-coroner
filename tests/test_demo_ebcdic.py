@@ -7,34 +7,40 @@ import sys
 from pathlib import Path
 
 
-@pytest.fixture(scope="module")
-def t1_faulty_run(tmp_path_factory):
-    """Module-scoped fixture: one faulty T1 run with 200 cases for all fast tests."""
-    from coroner.cli import run_verify
-    
-    tmp_dir = tmp_path_factory.mktemp("t1_faulty")
-    trap_dir = Path.cwd() / "samples" / "traps" / "T1-ebcdic-match-merge"
-    
-    verdict, run_dir = run_verify(
-        cobol_path=str(trap_dir / "MATCH-MERGE.cob"),
-        copybooks_dir=str(trap_dir / "copybooks"),
-        java_path=str(trap_dir / "java" / "faulty" / "MatchMerge.java"),
-        schema_path=str(trap_dir / "schema.json"),
-        num_cases=200,
-        seed=42,
-        base_dir=str(tmp_dir),
-        timings=False
-    )
-    
-    return run_dir
+@pytest.fixture
+def t1_faulty_run(t1_faulty_200):
+    """The shared T1 faulty run at 200 cases (session fixture of tests/conftest.py), read only: its run folder."""
+    return t1_faulty_200.run_dir
 
 
-def test_demo_step1_fails_on_alive():
+@pytest.fixture(autouse=True)
+def demo_without_base_dir(monkeypatch):
+    """The demo and its replay work in the current directory: no base directory from the environment."""
+    monkeypatch.delenv("CORONER_BASE_DIR", raising=False)
+
+
+def _demo_scratch(tmp_path):
+    """A scratch working directory for the demo, which works in the current directory.
+
+    The demo reads samples/ and build/junit/ and writes runs/ and build/ in the current directory.
+    The scratch folder links to the repository samples and JUnit folder, so the demo runs against the
+    real programs while the repository runs/ folder is never written.
+    """
+    repo = Path(__file__).resolve().parent.parent
+    scratch = tmp_path / "demo_cwd"
+    (scratch / "build").mkdir(parents=True)
+    (scratch / "samples").symlink_to(repo / "samples", target_is_directory=True)
+    (scratch / "build" / "junit").symlink_to(repo / "build" / "junit", target_is_directory=True)
+    return scratch
+
+
+def test_demo_step1_fails_on_alive(tmp_path, monkeypatch):
     """Test that demo exits 1 and reports step 1 failure when step 1 gives ALIVE."""
     from coroner.demo_ebcdic import main
     
     trap_dir = Path.cwd() / "samples" / "traps" / "T1-ebcdic-match-merge"
     correct_java = str(trap_dir / "java" / "correct" / "MatchMerge.java")
+    monkeypatch.chdir(_demo_scratch(tmp_path))
     
     try:
         main(faulty_java_override=correct_java, cases=200)
@@ -43,10 +49,16 @@ def test_demo_step1_fails_on_alive():
         assert e.code == 1, f"Expected exit code 1, got {e.code}"
 
 
-def test_no_absolute_paths_in_output(capsys):
-    """Test that no printed line contains the home directory path."""
+def test_no_absolute_paths_in_output(capsys, tmp_path, monkeypatch):
+    """Test that no printed line contains the home directory path.
+
+    The demo works in the current directory, so it runs in a scratch folder: the repository runs/
+    and build/ folders are never written.
+    """
     from coroner.demo_ebcdic import main
-    
+
+    monkeypatch.chdir(_demo_scratch(tmp_path))
+
     try:
         main(cases=200)
     except SystemExit:
@@ -55,6 +67,7 @@ def test_no_absolute_paths_in_output(capsys):
     captured = capsys.readouterr()
     home_dir = str(Path.home())
     all_output = captured.out + captured.err
+    assert "=== Step 1:" in all_output, f"the demo printed no step header, the check below would be empty:\n{all_output}"
     
     for line in all_output.split('\n'):
         if not line.strip():
@@ -145,7 +158,7 @@ def test_junit_assertion_parser(t1_faulty_run, tmp_path):
     assert actual_lines == java_output_lines, f"Actual lines should match Java output"
 
 
-def test_faulty_t1_assertions(t1_faulty_run):
+def test_faulty_t1_assertions(t1_faulty_run, tmp_path):
     """Test that the faulty T1 port at 200 cases gives ZOMBIE with expected properties."""
     import json
     
@@ -184,7 +197,8 @@ def test_faulty_t1_assertions(t1_faulty_run):
         ],
         capture_output=True,
         text=True,
-        timeout=60
+        timeout=60,
+        env={**os.environ, "CORONER_BASE_DIR": str(tmp_path)},
     )
     
     assert result.returncode == 1, f"Expected exit code 1 (ZOMBIE), got {result.returncode}"
@@ -207,7 +221,7 @@ def test_faulty_t1_assertions(t1_faulty_run):
     assert expected_run_id in stdout, f"Expected run directory {expected_run_id} in CLI output (deterministic run_id):\n{stdout}"
 
 
-def test_demo_step1_block_equals_cli(t1_faulty_run):
+def test_demo_step1_block_equals_cli(t1_faulty_run, tmp_path):
     """Test that demo step 1 verdict block equals the CLI output for the same run."""
     from coroner.cli import format_verdict_block
     import json
@@ -245,17 +259,27 @@ def test_demo_step1_block_equals_cli(t1_faulty_run):
     # Format verdict block as CLI would (use str for run_dir, not relative path)
     cli_block = format_verdict_block(verdict, coverage_data, str(run_dir), 0.0)
     
-    # Run demo with 200 cases and capture its output
+    # Run the demo at 200 cases (the documented `cases` parameter of coroner.demo_ebcdic.main; the
+    # command `python -m coroner.demo_ebcdic` runs it at the default 2000 cases) and capture its output.
+    # The demo works in the current directory (it reads samples/ and build/junit/ and writes runs/ and
+    # build/ there), so it runs in a scratch folder that links to the repository samples and JUnit jar:
+    # the repository runs/ folder is never written.
+    repo = Path.cwd()
+    scratch = _demo_scratch(tmp_path)
+    
     result = subprocess.run(
-        [sys.executable, "-m", "coroner.demo_ebcdic"],
-        env={**os.environ, "PYTHONPATH": str(Path.cwd())},
+        [sys.executable, "-c", "from coroner.demo_ebcdic import main; main(cases=200)"],
+        env={**os.environ, "PYTHONPATH": str(repo)},
         capture_output=True,
         text=True,
         timeout=120,
-        cwd=str(Path.cwd())
+        cwd=str(scratch)
     )
     
     demo_output = result.stdout
+    
+    # The demo ran at 200 cases: its step 1 header says so
+    assert "=== Step 1: Faulty T1 verify (200 cases, seed 42) ===" in demo_output
     
     # Extract step 1 block from demo output (between step 1 header and step 2 header)
     step1_start = demo_output.find("=== Step 1:")
@@ -285,9 +309,15 @@ def test_demo_step1_block_equals_cli(t1_faulty_run):
 
 @pytest.mark.slow
 def test_demo_ebcdic_integration(tmp_path):
-    """Slow integration test: runs make demo-ebcdic and asserts all steps pass."""
+    """Slow integration test: runs the make demo-ebcdic target (in a scratch folder) and asserts all steps pass."""
+    # The demo works in the current directory: it runs in a scratch folder (links to the repository
+    # samples and JUnit jar), so the repository runs/ and build/ folders are never written. The
+    # Makefile of the repository is used with `make -f`, and the interpreter and package path are given.
+    repo = Path(__file__).resolve().parent.parent
     result = subprocess.run(
-        ["make", "demo-ebcdic"],
+        ["make", "-f", str(repo / "Makefile"), "demo-ebcdic", f"PYTHON={sys.executable}"],
+        env={**os.environ, "PYTHONPATH": str(repo)},
+        cwd=str(_demo_scratch(tmp_path)),
         capture_output=True,
         text=True,
         timeout=600

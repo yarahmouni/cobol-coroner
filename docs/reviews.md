@@ -1150,6 +1150,22 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Results: agent: tests/test_static_page.py with slow 8 passed in 106.27 s; operator: fast tests 2 passed.
 - Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 2719.16 of 4000 used (1280.84 left).
 
+### R-169 2026-11-22: default test suite in parallel; 767 s to about 200 s, goal of 2 minutes not reached
+- Owner order (2026-11-21), task 8, bonus H. Owner rules given to Kiro: nothing stops being tested, no assertion weakened, run ids asserted stay asserted, nothing moved to slow.
+- Call p386 (sonnet-5.5): measurement and plan. Baseline `make test`: 802 passed, 315 deselected in 766.64 s.
+- Call p387 (sonnet-5.5), plan 1: shared session runs in tests/conftest.py (T1 faulty and correct at 2000 cases, seed 42; 200-case T1 runs; one catalog), copied per test where a test changes a run (gate check, tamper, verify, replay timeout); one run per port in test_branch_reconciliation.py; demo test fixed comment. Serial: 497.88 s.
+- Call p388 (sonnet-5.5), plan 2 and plan 1 closure:
+  - pytest-xdist 3.8.0 (MIT, with execnet 2.1.2, MIT) pinned in the dev and test extras, in README and THIRD_PARTY_NOTICES.md. `make test` runs `-n auto --dist loadfile`; `make test-serial` runs without xdist. CI commands unchanged: the parallel run has not been measured in the image.
+  - Parallel safety: fixed names under build/ moved to tmp_path or per-module folders. Writes found into the repository and fixed: runs/temp/generated_cases.csv (test_gen_regression.py, test_diag.py), the T2, T3 and T5 engine CLI tests and test_exposure_independent_verification (runs/), test_no_absolute_paths_in_output and test_demo_ebcdic_integration (runs/ and build/demo_junit_*), coroner/ui/static/test.txt (test_cache_control_static_files now requests the vendored htmx.min.js). An autouse fixture restores os.environ after each test, after a CORONER_BASE_DIR leak between tests made a parallel run fail.
+  - The 801/316 count of p387 did not reproduce: the tree collects 802 and deselects 315, and test_no_absolute_paths_in_output is in the default suite (passes, and now asserts the step 1 header so the path check cannot pass on empty output). Two assertions added: the first T1 sentence test of test_ui_sentences.py now compares the sentence with branch_reconciliation.json.
+  - test_ui_matrix.py now reads the session catalog (9 cases) instead of building one at 50 cases. Its assertions read every expected value from the catalog file. Loss noted: at 9 cases T3 detects 0, so the page is no longer checked rendering a non-zero T3 count.
+  - Subprocess timeouts: smallest margin 5.7 times the serial duration (demo step 1, 21.1 s of 120 s); none changed.
+  - filelock is not installed, so each worker builds its own copy of the session runs (story_runs about 29 s, gate_engine_runs about 20 s, t1_faulty_2000 about 16 s serial).
+- Rule finding: the agent's first slow run, before the fixes above, rewrote 7 existing local run folders in runs/ (92c502344514, c09b9fa3f943, 7e62df1e0f62, 38ae1c058b27, 10667315c56f, 20d699eb804a, 8b90b2fba6f0) and runs/temp/generated_cases.csv, through the T2, T3 and T5 CLI tests. Same run ids (content-derived); runs/ is git-ignored and still holds 153 entries. Operator: the 7 certificates and those of f584d5f35228 and 29c15f04407b replay VALID. The cause is fixed; the agent's second slow run wrote nothing.
+- Results: agent: `make test` 200.94 s, 199.04 s, 194.01 s, 802 passed each; `make test-serial` 802 passed, 315 deselected in 463.08 s; slow tests of every changed file 200 passed in 353.79 s. Operator: `make test` 802 passed in 214.08 s (user 770 s: CPU-bound); runs/ unchanged at 153 entries; no em dash and no local path in the diff.
+- Not reached: under 2 minutes. Slowest in parallel: setups that each worker repeats (matrix catalog 50.9 s, gate 42.7 s, corrections 34.4 s) and the demo test 49.2 s. Not run by the agent: test_hooks.py, test_precommit_fast.py, make acceptance.
+- Kiro balance (2026-11-22): plan 405.95 of 531 used; kiroween2026 2940.88 of 4000 used (1059.12 left).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.

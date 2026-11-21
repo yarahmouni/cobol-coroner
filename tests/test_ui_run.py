@@ -208,50 +208,12 @@ def test_index_lists_run(alive_run, monkeypatch):
 
 
 @pytest.fixture
-def t1_faulty_run(tmp_path):
-    """Create a real ZOMBIE run using T1 faulty port at 200 cases."""
-    # Set CORONER_BASE_DIR to tmp_path
-    original_base = os.environ.get("CORONER_BASE_DIR")
-    os.environ["CORONER_BASE_DIR"] = str(tmp_path)
-    
-    try:
-        # Run T1 with faulty Java
-        cobol_file = Path("samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob").resolve()
-        copybooks = Path("samples/traps/T1-ebcdic-match-merge/copybooks").resolve()
-        java_file = Path("samples/traps/T1-ebcdic-match-merge/java/faulty/MatchMerge.java").resolve()
-        schema_file = Path("samples/traps/T1-ebcdic-match-merge/schema.json").resolve()
-        
-        verdict, run_dir = run_verify(
-            cobol_path=str(cobol_file),
-            copybooks_dir=str(copybooks),
-            java_path=str(java_file),
-            schema_path=str(schema_file),
-            num_cases=200,
-            seed=42,
-            timings=False,
-            base_dir=str(tmp_path),
-        )
-        
-        run_id = run_dir.name
-        
-        run_dir = tmp_path / "runs" / run_id
-        
-        # Verify the run produced expected files
-        assert (run_dir / "verdict.json").exists()
-        assert (run_dir / "failure_report.json").exists()
-        
-        # Verify it's ZOMBIE
-        verdict = json.loads((run_dir / "verdict.json").read_text())
-        assert verdict["status"] == "ZOMBIE"
-        
-        yield run_id, tmp_path
-        
-    finally:
-        # Restore original CORONER_BASE_DIR
-        if original_base is not None:
-            os.environ["CORONER_BASE_DIR"] = original_base
-        elif "CORONER_BASE_DIR" in os.environ:
-            del os.environ["CORONER_BASE_DIR"]
+def t1_faulty_run(t1_faulty_200):
+    """The shared real ZOMBIE run of the T1 faulty port at 200 cases (tests/conftest.py), read only: (run id, base)."""
+    assert (t1_faulty_200.run_dir / "failure_report.json").exists()
+    verdict = json.loads((t1_faulty_200.run_dir / "verdict.json").read_text())
+    assert verdict["status"] == "ZOMBIE"
+    return t1_faulty_200.run_id, t1_faulty_200.base
 
 
 def test_t1_exhibit_4_and_divergence_count(t1_faulty_run, monkeypatch):

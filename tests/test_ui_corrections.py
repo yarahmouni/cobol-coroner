@@ -7,31 +7,11 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from coroner.cli import run_verify
 
-
-@pytest.fixture(scope="module")
-def t1_faulty_run_2000(tmp_path_factory):
-    """Create a real T1 faulty run at 2000 cases for testing."""
-    tmp_path = tmp_path_factory.mktemp("t1_faulty_2000")
-    
-    cobol_file = Path("samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob").resolve()
-    copybooks = Path("samples/traps/T1-ebcdic-match-merge/copybooks").resolve()
-    java_file = Path("samples/traps/T1-ebcdic-match-merge/java/faulty/MatchMerge.java").resolve()
-    schema_file = Path("samples/traps/T1-ebcdic-match-merge/schema.json").resolve()
-    
-    verdict, run_dir = run_verify(
-        cobol_path=str(cobol_file),
-        copybooks_dir=str(copybooks),
-        java_path=str(java_file),
-        schema_path=str(schema_file),
-        num_cases=2000,
-        seed=42,
-        timings=False,
-        base_dir=str(tmp_path),
-    )
-    
-    return tmp_path, run_dir.name
+@pytest.fixture
+def t1_faulty_run_2000(t1_faulty_2000):
+    """The shared real T1 faulty run at 2000 cases (tests/conftest.py), read only: (base directory, run id)."""
+    return t1_faulty_2000.base, t1_faulty_2000.run_id
 
 
 def test_no_currency_symbols(t1_faulty_run_2000, monkeypatch):

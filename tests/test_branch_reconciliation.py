@@ -7,40 +7,20 @@ from pathlib import Path
 import pytest
 
 
-def test_branch_reconciliation_written_for_t1_faulty(tmp_path):
-    """T1 faulty run writes branch_reconciliation.json."""
-    import subprocess
-    import os
-    
-    # Run T1 faulty at 200 cases
-    env = os.environ.copy()
-    env["CORONER_BASE_DIR"] = str(tmp_path)
-    
-    result = subprocess.run(
-        [
-            sys.executable, "-m", "coroner", "verify",
-            "--cobol", "samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob",
-            "--copybooks", "samples/traps/T1-ebcdic-match-merge/copybooks",
-            "--java", "samples/traps/T1-ebcdic-match-merge/java/faulty/MatchMerge.java",
-            "--schema", "samples/traps/T1-ebcdic-match-merge/schema.json",
-            "--cases", "200",
-            "--seed", "42"
-        ],
-        capture_output=True,
-        text=True,
-        timeout=30.0,
-        env=env
-    )
-    
-    assert result.returncode == 1  # ZOMBIE
-    
-    # Extract run directory from stdout
-    run_dir = None
-    for line in result.stdout.split('\n'):
+def _run_dir_from_output(run):
+    """The run directory printed on the "Run:" line of the CLI output of a shared run (None if absent)."""
+    for line in run.stdout.split('\n'):
         if line.startswith("Run: "):
-            run_dir_rel = line.split("Run: ", 1)[1].strip()
-            run_dir = tmp_path / run_dir_rel
-            break
+            return run.base / line.split("Run: ", 1)[1].strip()
+    return None
+
+
+def test_branch_reconciliation_written_for_t1_faulty(t1_faulty_200):
+    """T1 faulty run writes branch_reconciliation.json."""
+    # The shared fixture ran the CLI on T1 faulty at 200 cases (tests/conftest.py)
+    assert t1_faulty_200.returncode == 1  # ZOMBIE
+    
+    run_dir = _run_dir_from_output(t1_faulty_200)
     
     assert run_dir is not None, "Run directory not found in output"
     assert run_dir.exists()
@@ -79,43 +59,15 @@ def test_branch_reconciliation_written_for_t1_faulty(tmp_path):
     assert "java" in grand_total
 
 
-def test_branch_reconciliation_exposure_consistency(tmp_path):
+def test_branch_reconciliation_exposure_consistency(t1_faulty_200):
     """
     Sum and max of absolute differences in branch_reconciliation
     equal exposure_sum and exposure_max in verdict.
     """
-    import subprocess
-    import os
+    # The shared fixture ran the CLI on T1 faulty at 200 cases (tests/conftest.py)
+    assert t1_faulty_200.returncode == 1  # ZOMBIE
     
-    # Run T1 faulty at 200 cases
-    env = os.environ.copy()
-    env["CORONER_BASE_DIR"] = str(tmp_path)
-    
-    result = subprocess.run(
-        [
-            sys.executable, "-m", "coroner", "verify",
-            "--cobol", "samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob",
-            "--copybooks", "samples/traps/T1-ebcdic-match-merge/copybooks",
-            "--java", "samples/traps/T1-ebcdic-match-merge/java/faulty/MatchMerge.java",
-            "--schema", "samples/traps/T1-ebcdic-match-merge/schema.json",
-            "--cases", "200",
-            "--seed", "42"
-        ],
-        capture_output=True,
-        text=True,
-        timeout=30.0,
-        env=env
-    )
-    
-    assert result.returncode == 1  # ZOMBIE
-    
-    # Extract run directory from stdout
-    run_dir = None
-    for line in result.stdout.split('\n'):
-        if line.startswith("Run: "):
-            run_dir_rel = line.split("Run: ", 1)[1].strip()
-            run_dir = tmp_path / run_dir_rel
-            break
+    run_dir = _run_dir_from_output(t1_faulty_200)
     
     assert run_dir is not None, "Run directory not found in output"
     
@@ -152,43 +104,15 @@ def test_branch_reconciliation_exposure_consistency(tmp_path):
     assert mismatch_count == affected_branches, f"Affected branches mismatch: {mismatch_count} != {affected_branches}"
 
 
-def test_branch_reconciliation_not_written_for_credit_fees(tmp_path):
+def test_branch_reconciliation_not_written_for_credit_fees(credit_fees_alive_30):
     """
     Credit-fees does not have group_key/subtotal, so
     branch_reconciliation.json is not written.
     """
-    import subprocess
-    import os
+    # The shared fixture ran the CLI on credit-fees at 30 cases (tests/conftest.py)
+    assert credit_fees_alive_30.returncode == 0  # ALIVE
     
-    # Run credit-fees at 30 cases
-    env = os.environ.copy()
-    env["CORONER_BASE_DIR"] = str(tmp_path)
-    
-    result = subprocess.run(
-        [
-            sys.executable, "-m", "coroner", "verify",
-            "--cobol", "samples/credit-fees/CREDIT-FEES.cob",
-            "--copybooks", "samples/credit-fees/copybooks",
-            "--java", "samples/credit-fees/java/CreditFees.java",
-            "--schema", "samples/credit-fees/schema.json",
-            "--cases", "30",
-            "--seed", "42"
-        ],
-        capture_output=True,
-        text=True,
-        timeout=30.0,
-        env=env
-    )
-    
-    assert result.returncode == 0  # ALIVE
-    
-    # Extract run directory from stdout
-    run_dir = None
-    for line in result.stdout.split('\n'):
-        if line.startswith("Run: "):
-            run_dir_rel = line.split("Run: ", 1)[1].strip()
-            run_dir = tmp_path / run_dir_rel
-            break
+    run_dir = _run_dir_from_output(credit_fees_alive_30)
     
     assert run_dir is not None, "Run directory not found in output"
     
@@ -197,40 +121,12 @@ def test_branch_reconciliation_not_written_for_credit_fees(tmp_path):
     assert not reconciliation_file.exists()
 
 
-def test_branch_reconciliation_sorted_by_branch(tmp_path):
+def test_branch_reconciliation_sorted_by_branch(t1_faulty_200):
     """Branches are sorted alphabetically."""
-    import subprocess
-    import os
+    # The shared fixture ran the CLI on T1 faulty at 200 cases (tests/conftest.py)
+    assert t1_faulty_200.returncode == 1  # ZOMBIE
     
-    # Run T1 faulty
-    env = os.environ.copy()
-    env["CORONER_BASE_DIR"] = str(tmp_path)
-    
-    result = subprocess.run(
-        [
-            sys.executable, "-m", "coroner", "verify",
-            "--cobol", "samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob",
-            "--copybooks", "samples/traps/T1-ebcdic-match-merge/copybooks",
-            "--java", "samples/traps/T1-ebcdic-match-merge/java/faulty/MatchMerge.java",
-            "--schema", "samples/traps/T1-ebcdic-match-merge/schema.json",
-            "--cases", "200",
-            "--seed", "42"
-        ],
-        capture_output=True,
-        text=True,
-        timeout=30.0,
-        env=env
-    )
-    
-    assert result.returncode == 1  # ZOMBIE
-    
-    # Extract run directory from stdout
-    run_dir = None
-    for line in result.stdout.split('\n'):
-        if line.startswith("Run: "):
-            run_dir_rel = line.split("Run: ", 1)[1].strip()
-            run_dir = tmp_path / run_dir_rel
-            break
+    run_dir = _run_dir_from_output(t1_faulty_200)
     
     assert run_dir is not None, "Run directory not found in output"
     
@@ -245,7 +141,7 @@ def test_branch_reconciliation_sorted_by_branch(tmp_path):
     assert branch_codes == sorted(branch_codes)
 
 
-def test_branch_reconciliation_aggregates_across_cases(tmp_path):
+def test_branch_reconciliation_aggregates_across_cases(t1_faulty_200, tmp_path):
     """
     Branch reconciliation aggregates sums across all cases,
     matching independent computation by running COBOL and Java on the cases file.
@@ -254,35 +150,10 @@ def test_branch_reconciliation_aggregates_across_cases(tmp_path):
     import os
     from collections import defaultdict
     
-    # Run T1 faulty at 200 cases
-    env = os.environ.copy()
-    env["CORONER_BASE_DIR"] = str(tmp_path)
+    # The shared fixture ran the CLI on T1 faulty at 200 cases (tests/conftest.py)
+    assert t1_faulty_200.returncode == 1  # ZOMBIE
     
-    result = subprocess.run(
-        [
-            sys.executable, "-m", "coroner", "verify",
-            "--cobol", "samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob",
-            "--copybooks", "samples/traps/T1-ebcdic-match-merge/copybooks",
-            "--java", "samples/traps/T1-ebcdic-match-merge/java/faulty/MatchMerge.java",
-            "--schema", "samples/traps/T1-ebcdic-match-merge/schema.json",
-            "--cases", "200",
-            "--seed", "42"
-        ],
-        capture_output=True,
-        text=True,
-        timeout=30.0,
-        env=env
-    )
-    
-    assert result.returncode == 1  # ZOMBIE
-    
-    # Extract run directory from stdout
-    run_dir = None
-    for line in result.stdout.split('\n'):
-        if line.startswith("Run: "):
-            run_dir_rel = line.split("Run: ", 1)[1].strip()
-            run_dir = tmp_path / run_dir_rel
-            break
+    run_dir = _run_dir_from_output(t1_faulty_200)
     
     assert run_dir is not None, "Run directory not found in output"
     

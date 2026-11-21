@@ -9,30 +9,18 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from coroner.cli import run_verify
-
 
 @pytest.fixture
-def t1_faulty_run_with_cert(tmp_path):
-    """Create a real T1 faulty run with certificate at 30 cases."""
-    cobol_file = Path("samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob").resolve()
-    copybooks = Path("samples/traps/T1-ebcdic-match-merge/copybooks").resolve()
-    java_file = Path("samples/traps/T1-ebcdic-match-merge/java/faulty/MatchMerge.java").resolve()
-    schema_file = Path("samples/traps/T1-ebcdic-match-merge/schema.json").resolve()
-    
-    verdict, run_dir = run_verify(
-        cobol_path=str(cobol_file),
-        copybooks_dir=str(copybooks),
-        java_path=str(java_file),
-        schema_path=str(schema_file),
-        num_cases=30,
-        seed=42,
-        timings=False,
-        base_dir=str(tmp_path),
-    )
-    
-    run_id = run_dir.name
-    
+def t1_faulty_run_with_cert(t1_faulty_30, tmp_path, copy_runs):
+    """A real T1 faulty run with certificate at 30 cases, copied into this test's own folder.
+
+    The run is the session fixture t1_faulty_30 of tests/conftest.py (real engine audit); a test that
+    edits the certificate edits only its own copy.
+    """
+    run_id = t1_faulty_30.run_id
+    copy_runs(t1_faulty_30.base, tmp_path, run_id)
+    run_dir = tmp_path / "runs" / run_id
+
     # Verify the run produced certificate
     assert (run_dir / "certificate.json").exists()
     
@@ -381,26 +369,11 @@ def test_tamper_form_reads_rendered_values(t1_faulty_run_with_cert, monkeypatch)
 
 
 @pytest.mark.slow
-def test_tamper_alive_run(tmp_path, monkeypatch):
-    """Test tamper on an ALIVE run (real 30-case run)."""
-    # Create ALIVE run
-    cobol_file = Path("samples/credit-fees/CREDIT-FEES.cob").resolve()
-    copybooks = Path("samples/credit-fees/copybooks").resolve()
-    java_file = Path("samples/credit-fees/java/CreditFees.java").resolve()
-    schema_file = Path("samples/credit-fees/schema.json").resolve()
-    
-    verdict, run_dir = run_verify(
-        cobol_path=str(cobol_file),
-        copybooks_dir=str(copybooks),
-        java_path=str(java_file),
-        schema_path=str(schema_file),
-        num_cases=30,
-        seed=42,
-        timings=False,
-        base_dir=str(tmp_path),
-    )
-    
-    run_id = run_dir.name
+def test_tamper_alive_run(credit_fees_alive_30, tmp_path, monkeypatch, copy_runs):
+    """Test tamper on an ALIVE run (real 30-case run, copied into this test's own folder)."""
+    run_id = credit_fees_alive_30.run_id
+    copy_runs(credit_fees_alive_30.base, tmp_path, run_id)
+    assert json.loads((tmp_path / "runs" / run_id / "verdict.json").read_text())["status"] == "ALIVE"
     
     monkeypatch.setenv("CORONER_BASE_DIR", str(tmp_path))
     

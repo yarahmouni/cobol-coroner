@@ -14,8 +14,11 @@ BUILD_DIR = Path("build/traps/T1")
 
 
 @pytest.fixture(scope="module", autouse=True)
-def build_programs():
+def build_programs(tmp_path_factory):
     """Build COBOL and Java programs."""
+    # Every build output goes to a temporary folder of this module (safe under pytest-xdist)
+    global BUILD_DIR
+    BUILD_DIR = tmp_path_factory.mktemp("t1_build")
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
     
     # Compile COBOL
@@ -212,44 +215,23 @@ def test_coroner_faulty_java_zombie(tmp_path):
 
 
 @pytest.mark.slow
-def test_exposure_independent_verification():
+def test_exposure_independent_verification(t1_faulty_2000):
     """
     Independent verification: run COBOL and Java directly on a real run,
     aggregate per branch with trimmed codes, verify against verdict.json.
+
+    The run is the shared real T1 faulty run at 2000 cases, seed 42 (tests/conftest.py: the real
+    engine, exit 1, run id f584d5f35228 asserted), read only.
     """
     import json
     import re
     import sys
     from decimal import Decimal
     from collections import defaultdict
-    
-    # Create a run with the T1 faulty port at 2000 cases, seed 42
-    result = subprocess.run(
-        [
-            sys.executable, "-m", "coroner", "verify",
-            "--cobol", str(TRAP_DIR / "MATCH-MERGE.cob"),
-            "--copybooks", str(TRAP_DIR / "copybooks"),
-            "--java", str(TRAP_DIR / "java/faulty/MatchMerge.java"),
-            "--schema", str(TRAP_DIR / "schema.json"),
-            "--cases", "2000",
-            "--seed", "42"
-        ],
-        capture_output=True,
-        text=True,
-        timeout=120
-    )
-    
-    assert result.returncode == 1, f"Expected ZOMBIE (exit 1), got {result.returncode}"
-    
-    # Parse run_id from output
-    match = re.search(r'Run: runs/([a-f0-9]+)', result.stdout)
-    assert match, f"Could not find 'Run: runs/<id>' in output: {result.stdout}"
-    run_id = match.group(1)
-    
-    # Use exactly that run directory
-    run_dir = Path("runs") / run_id
+
+    run_dir = t1_faulty_2000.run_dir
     assert run_dir.exists(), f"Run directory {run_dir} not found"
-    
+
     # Read verdict
     with open(run_dir / "verdict.json") as f:
         verdict = json.load(f)
@@ -354,7 +336,7 @@ def test_exposure_independent_verification():
 
 
 
-def test_t1_amount_range_and_negative_share():
+def test_t1_amount_range_and_negative_share(tmp_path):
     """
     T1 generator with amount_range and negative_share produces realistic amounts.
     
@@ -378,7 +360,7 @@ def test_t1_amount_range_and_negative_share():
         seed=42,
         num_cases=2000,
         tie_share=0.0,
-        base_dir="build"
+        base_dir=str(tmp_path)
     )
     
     # Read generated cases

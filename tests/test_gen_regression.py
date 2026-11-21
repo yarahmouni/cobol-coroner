@@ -30,7 +30,7 @@ def test_generator_version_has_golden_hashes():
     )
 
 
-def test_credit_fees_seed_42_hash():
+def test_credit_fees_seed_42_hash(tmp_path):
     """
     Regression test: credit-fees with seed 42 must produce the same output
     as the golden hash for the current generator version.
@@ -45,7 +45,7 @@ def test_credit_fees_seed_42_hash():
         'samples/credit-fees/copybooks'
     )
     
-    output_path = generate_cases(schema, cobol_structure, seed=42, num_cases=2000, base_dir=".")
+    output_path = generate_cases(schema, cobol_structure, seed=42, num_cases=2000, base_dir=str(tmp_path))
     
     # Compute SHA-256 of the generated file
     with open(output_path, 'rb') as f:
@@ -61,7 +61,7 @@ def test_credit_fees_seed_42_hash():
     )
 
 
-def test_credit_fees_seed_123_hash():
+def test_credit_fees_seed_123_hash(tmp_path):
     """
     Regression test: credit-fees with seed 123 must produce the same output
     as the golden hash for the current generator version.
@@ -76,7 +76,7 @@ def test_credit_fees_seed_123_hash():
         'samples/credit-fees/copybooks'
     )
     
-    output_path = generate_cases(schema, cobol_structure, seed=123, num_cases=2000, base_dir=".")
+    output_path = generate_cases(schema, cobol_structure, seed=123, num_cases=2000, base_dir=str(tmp_path))
     
     # Compute SHA-256 of the generated file
     with open(output_path, 'rb') as f:

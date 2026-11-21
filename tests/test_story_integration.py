@@ -117,6 +117,19 @@ def _listing(folder: Path):
     return sorted((p.name, p.stat().st_mtime_ns) for p in folder.iterdir()) if folder.exists() else []
 
 
+# The only folder another test creates in the repository build/ folder while tests run in parallel:
+# tests/test_mcp_server.py makes one with a unique name (this prefix) because the MCP server refuses
+# a Java path outside the repository, and removes it at the end. Nothing else may appear there.
+OTHER_TESTS_BUILD_PREFIX = "mcp-test-variant-"
+
+
+def _build_listing():
+    build = REPO_ROOT / "build"
+    if not build.exists():
+        return []
+    return sorted(p.name for p in build.iterdir() if not p.name.startswith(OTHER_TESTS_BUILD_PREFIX))
+
+
 @pytest.mark.slow
 def test_story_and_fool_requests_leave_the_repository_root_and_runs_untouched(
     story_runs, story_client, fool_runs, tmp_path, monkeypatch
@@ -124,7 +137,7 @@ def test_story_and_fool_requests_leave_the_repository_root_and_runs_untouched(
     """Pages, fragments, a real gate check and a real Tamper: no new file at the root, runs/ unchanged."""
     root_before = sorted(p.name for p in REPO_ROOT.iterdir())
     runs_before = _listing(REPO_ROOT / "runs")
-    build_before = sorted(p.name for p in (REPO_ROOT / "build").iterdir()) if (REPO_ROOT / "build").exists() else []
+    build_before = _build_listing()
 
     exchange = tmp_path / "exchange"
     exchange.mkdir()
@@ -160,8 +173,7 @@ def test_story_and_fool_requests_leave_the_repository_root_and_runs_untouched(
 
     assert sorted(p.name for p in REPO_ROOT.iterdir()) == root_before, "a file was added to or removed from the root"
     assert _listing(REPO_ROOT / "runs") == runs_before, "the repository runs/ folder changed"
-    after_build = sorted(p.name for p in (REPO_ROOT / "build").iterdir()) if (REPO_ROOT / "build").exists() else []
-    assert after_build == build_before, "build/ changed"
+    assert _build_listing() == build_before, "build/ changed"
 
 
 def test_no_new_root_file_is_missing_from_the_layout_document():

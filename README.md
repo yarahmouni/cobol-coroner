@@ -143,7 +143,7 @@ make pbt  # jqwik properties of the Case 1 Java ports
 make serve  # starts the UI at http://127.0.0.1:8000
 ```
 
-The default `make test` runs fast tests in under 60 seconds. `make test-all` runs all tests including slow ones. `make acceptance` runs the 2,000-case acceptance tests (10 seeds, catalog, takes about 10 minutes).
+The default `make test` runs the tests that are not marked slow in parallel (pytest-xdist, one test file per worker); `make test-serial` runs the same tests in one process. Measured on the development Mac on 2026-11-21: about 3.3 minutes in parallel and 7.7 minutes serial, so the earlier 60 second target is not met. `make test-all` runs all tests including slow ones. `make acceptance` runs the 2,000-case acceptance tests (10 seeds, catalog, takes about 10 minutes).
 
 CLI form:
 
@@ -341,6 +341,7 @@ All COBOL programs and data in this repository are synthetic. No code or data fr
 - Jinja2 3.1.6 (BSD-3-Clause)
 - python-multipart 0.0.33 (Apache-2.0)
 - httpx 0.28.1 (BSD-3-Clause, tests only)
+- pytest-xdist 3.8.0 (MIT, tests only; runs the default suite in parallel, with execnet 2.1.2, MIT)
 - mcp 2.3.0 (MIT)
 - pytest 9.2.0 (MIT)
 - pyyaml 6.0.3 (MIT)

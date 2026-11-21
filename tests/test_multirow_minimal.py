@@ -6,26 +6,10 @@ from pathlib import Path
 from coroner.diag.junit import verify_junit_test
 
 
-@pytest.fixture(scope="module")
-def t1_faulty_junit_run(tmp_path_factory):
-    """Module-scoped fixture: one faulty T1 run with JUnit test for all tests."""
-    from coroner.cli import run_verify
-    
-    tmp_dir = tmp_path_factory.mktemp("t1_junit")
-    trap_dir = Path.cwd() / "samples" / "traps" / "T1-ebcdic-match-merge"
-    
-    verdict, run_dir = run_verify(
-        cobol_path=str(trap_dir / "MATCH-MERGE.cob"),
-        copybooks_dir=str(trap_dir / "copybooks"),
-        java_path=str(trap_dir / "java" / "faulty" / "MatchMerge.java"),
-        schema_path=str(trap_dir / "schema.json"),
-        num_cases=200,
-        seed=42,
-        base_dir=str(tmp_dir),
-        timings=False
-    )
-    
-    return run_dir
+@pytest.fixture
+def t1_faulty_junit_run(t1_faulty_200):
+    """The run folder of the shared T1 faulty run at 200 cases (tests/conftest.py), read only."""
+    return t1_faulty_200.run_dir
 
 
 def test_t1_junit_fails_on_faulty_passes_on_correct(t1_faulty_junit_run):

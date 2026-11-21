@@ -10,107 +10,62 @@ from decimal import Decimal
 import pytest
 
 
-def test_t1_sentence_from_real_run(tmp_path):
-    """T1 ZOMBIE sentence computed from real run files equals independent calculation."""
+def test_t1_sentence_from_real_run(t1_faulty_200):
+    """T1 ZOMBIE sentence computed from real run files equals independent calculation.
+
+    The run is the shared real T1 faulty run at 200 cases (tests/conftest.py), read only.
+    """
     from coroner.ui.sentences import generate_zombie_sentence
-    
-    # Run T1 faulty at 200 cases
-    env = os.environ.copy()
-    env["CORONER_BASE_DIR"] = str(tmp_path)
-    
-    result = subprocess.run(
-        [
-            sys.executable, "-m", "coroner", "verify",
-            "--cobol", "samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob",
-            "--copybooks", "samples/traps/T1-ebcdic-match-merge/copybooks",
-            "--java", "samples/traps/T1-ebcdic-match-merge/java/faulty/MatchMerge.java",
-            "--schema", "samples/traps/T1-ebcdic-match-merge/schema.json",
-            "--cases", "200",
-            "--seed", "42"
-        ],
-        capture_output=True,
-        text=True,
-        timeout=30.0,
-        env=env
-    )
-    
-    assert result.returncode == 1  # ZOMBIE
-    
-    # Extract run directory
-    run_dir = None
-    for line in result.stdout.split('\n'):
-        if line.startswith("Run: "):
-            run_dir_rel = line.split("Run: ", 1)[1].strip()
-            run_dir = tmp_path / run_dir_rel
-            break
-    
-    assert run_dir is not None
-    
-    # Generate sentence
+
+    run_dir = t1_faulty_200.run_dir
     sentence = generate_zombie_sentence("T1", run_dir)
-    
-    # Independently compute expected sentence
+
+    # Independently compute the expected sentence from the reconciliation file: the branches
+    # that do not reconcile (the suspense line is a separate entry, never counted as a branch)
+    reconciliation = json.loads((run_dir / "branch_reconciliation.json").read_text())
+    mismatched = [b for b in reconciliation["branches"] if b["status"] == "MISMATCH"]
+    expected = (
+        f"This Java migration is not safe to promote: {len(mismatched)} branch subtotals "
+        "do not reconcile with COBOL."
+    )
+    verdict = json.loads((run_dir / "verdict.json").read_text())
+    if verdict["grand_total_matches"]:
+        expected += " The grand total still balances, so the error is hidden in branch-level reporting."
+    assert sentence == expected
 
 
-def test_t1_zombie_sentence_in_ui_story(tmp_path, monkeypatch):
-    """Test that #story contains the ZOMBIE sentence returned by generate_zombie_sentence for T1 faulty run."""
+def test_t1_zombie_sentence_in_ui_story(t1_faulty_200, monkeypatch):
+    """Test that #story contains the ZOMBIE sentence returned by generate_zombie_sentence for T1 faulty run.
+
+    The run is the shared real T1 faulty run at 200 cases (tests/conftest.py), read only.
+    """
     from coroner.ui.sentences import generate_zombie_sentence
     from fastapi.testclient import TestClient
-    
-    # Run T1 faulty at 200 cases
-    env = os.environ.copy()
-    env["CORONER_BASE_DIR"] = str(tmp_path)
-    
-    result = subprocess.run(
-        [
-            sys.executable, "-m", "coroner", "verify",
-            "--cobol", "samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob",
-            "--copybooks", "samples/traps/T1-ebcdic-match-merge/copybooks",
-            "--java", "samples/traps/T1-ebcdic-match-merge/java/faulty/MatchMerge.java",
-            "--schema", "samples/traps/T1-ebcdic-match-merge/schema.json",
-            "--cases", "200",
-            "--seed", "42"
-        ],
-        capture_output=True,
-        text=True,
-        timeout=30.0,
-        env=env
-    )
-    
-    assert result.returncode == 1  # ZOMBIE
-    
-    # Extract run directory
-    run_dir = None
-    for line in result.stdout.split('\n'):
-        if line.startswith("Run: "):
-            run_dir_rel = line.split("Run: ", 1)[1].strip()
-            run_dir = tmp_path / run_dir_rel
-            break
-    
-    assert run_dir is not None
-    
+
+    run_dir = t1_faulty_200.run_dir
+
     # Generate sentence using the function
     expected_sentence = generate_zombie_sentence("T1", run_dir)
-    
-    # Set up test client with the tmp base using monkeypatch
-    monkeypatch.setenv("CORONER_BASE_DIR", str(tmp_path))
-    
+
+    # Set up test client with the shared base using monkeypatch
+    monkeypatch.setenv("CORONER_BASE_DIR", str(t1_faulty_200.base))
+
     # Get UI page
     from coroner.ui.app import app
     client = TestClient(app)
-    
+
     run_id = run_dir.name
     response = client.get(f"/run/{run_id}")
     assert response.status_code == 200
-    
+
     html = response.text
-    
+
     # Find #story section
-    story_start = html.find('id="story"')
+    story_start = html.find("id=\"story\"")
     assert story_start >= 0, "#story section not found"
-    story_end = html.find('</section>', story_start)
+    story_end = html.find("</section>", story_start)
     story_section = html[story_start:story_end] if story_end >= 0 else html[story_start:]
-    
+
     # Check the ZOMBIE sentence is in #story
     assert expected_sentence in story_section, f"ZOMBIE sentence not found in #story: {expected_sentence}"
 

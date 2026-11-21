@@ -71,15 +71,15 @@ public class Test {
             os.unlink(output_path)
 
 
-def test_credit_fees_variant_properties():
+def test_credit_fees_variant_properties(tmp_path):
     """Test CreditFees variant has same line count and differs only on replaced lines."""
     source_path = 'samples/credit-fees/java/CreditFees.java'
     if not os.path.exists(source_path):
         pytest.skip(f"Source file {source_path} not found")
     
     # Use a subdirectory for the variant
-    os.makedirs('build/variant', exist_ok=True)
-    output_path = 'build/variant/CreditFees.java'
+    os.makedirs(tmp_path / 'variant', exist_ok=True)
+    output_path = str(tmp_path / 'variant' / 'CreditFees.java')
     
     count = generate_half_even_variant(source_path, output_path)
     
@@ -116,7 +116,7 @@ def test_credit_fees_variant_properties():
         f"Expected {count} differing lines, got {diff_count}"
 
 
-def test_credit_fees_variant_compiles():
+def test_credit_fees_variant_compiles(tmp_path):
     """Test that the variant compiles with javac -Xlint:all."""
     source_path = 'samples/credit-fees/java/CreditFees.java'
     if not os.path.exists(source_path):
@@ -129,15 +129,15 @@ def test_credit_fees_variant_compiles():
         pytest.skip("javac not available")
     
     # Use a subdirectory for the variant
-    os.makedirs('build/variant', exist_ok=True)
-    output_path = 'build/variant/CreditFees.java'
+    os.makedirs(tmp_path / 'variant', exist_ok=True)
+    output_path = str(tmp_path / 'variant' / 'CreditFees.java')
     
     generate_half_even_variant(source_path, output_path)
     
     # Compile the variant to its own directory
-    os.makedirs('build/variant_classes', exist_ok=True)
+    os.makedirs(tmp_path / 'variant_classes', exist_ok=True)
     result = subprocess.run(
-        ['javac', '-Xlint:all', '-d', 'build/variant_classes', output_path],
+        ['javac', '-Xlint:all', '-d', str(tmp_path / 'variant_classes'), output_path],
         capture_output=True,
         text=True,
         timeout=60
@@ -171,7 +171,7 @@ def is_even_digit_tie(principal: Decimal, fee_rate: Decimal) -> bool:
     return second_decimal % 2 == 0
 
 
-def test_credit_fees_variant_diverges_on_even_ties():
+def test_credit_fees_variant_diverges_on_even_ties(tmp_path):
     """Test that HALF_EVEN variant diverges on exactly the even-digit tie rows."""
     source_path = 'samples/credit-fees/java/CreditFees.java'
     fixtures_dir = 'samples/credit-fees/fixtures'
@@ -199,14 +199,14 @@ def test_credit_fees_variant_diverges_on_even_ties():
         pytest.skip("javac or java not available")
     
     # Generate and compile the variant
-    os.makedirs('build/variant', exist_ok=True)
-    os.makedirs('build/variant_classes', exist_ok=True)
-    variant_path = 'build/variant/CreditFees.java'
+    os.makedirs(tmp_path / 'variant', exist_ok=True)
+    os.makedirs(tmp_path / 'variant_classes', exist_ok=True)
+    variant_path = str(tmp_path / 'variant' / 'CreditFees.java')
     generate_half_even_variant(source_path, variant_path)
     
     # Compile the variant
     compile_result = subprocess.run(
-        ['javac', '-Xlint:all', '-d', 'build/variant_classes', variant_path],
+        ['javac', '-Xlint:all', '-d', str(tmp_path / 'variant_classes'), variant_path],
         capture_output=True,
         text=True,
         timeout=60
@@ -215,13 +215,13 @@ def test_credit_fees_variant_diverges_on_even_ties():
         f"Variant compilation failed: {compile_result.stderr}"
     
     # Run the variant
-    variant_output = 'build/rounding-ties-variant.csv'
+    variant_output = str(tmp_path / 'rounding-ties-variant.csv')
     env = os.environ.copy()
     env['INPUT_FILE'] = ties_csv
     env['OUTPUT_FILE'] = variant_output
     
     run_result = subprocess.run(
-        ['java', '-cp', 'build/variant_classes', 'CreditFees'],
+        ['java', '-cp', str(tmp_path / 'variant_classes'), 'CreditFees'],
         env=env,
         capture_output=True,
         text=True,

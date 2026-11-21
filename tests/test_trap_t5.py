@@ -11,8 +11,11 @@ BUILD_DIR = Path("build/traps/T5")
 
 
 @pytest.fixture(scope="module", autouse=True)
-def build_programs():
+def build_programs(tmp_path_factory):
     """Build COBOL and Java programs."""
+    # Every build output goes to a temporary folder of this module (safe under pytest-xdist)
+    global BUILD_DIR
+    BUILD_DIR = tmp_path_factory.mktemp("t5_build")
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
     
     # Compile COBOL
@@ -147,7 +150,7 @@ def test_t5_faulty_java_differs_from_cobol_fixture():
 
 
 @pytest.mark.slow
-def test_t5_correct_java_alive_200_cases():
+def test_t5_correct_java_alive_200_cases(tmp_path):
     """T5 correct Java gives ALIVE on 200 generated cases."""
     result = subprocess.run(
         [sys.executable, '-m', 'coroner', 'verify',
@@ -159,7 +162,8 @@ def test_t5_correct_java_alive_200_cases():
          '--seed', '42'],
         capture_output=True,
         text=True,
-        timeout=60
+        timeout=60,
+        env={**os.environ, "CORONER_BASE_DIR": str(tmp_path)}
     )
     
     assert result.returncode == 0, f"Should be ALIVE: {result.stdout}\n{result.stderr}"
@@ -167,7 +171,7 @@ def test_t5_correct_java_alive_200_cases():
 
 
 @pytest.mark.slow
-def test_t5_faulty_java_zombie_200_cases():
+def test_t5_faulty_java_zombie_200_cases(tmp_path):
     """T5 faulty Java gives ZOMBIE on 200 generated cases."""
     result = subprocess.run(
         [sys.executable, '-m', 'coroner', 'verify',
@@ -179,7 +183,8 @@ def test_t5_faulty_java_zombie_200_cases():
          '--seed', '42'],
         capture_output=True,
         text=True,
-        timeout=60
+        timeout=60,
+        env={**os.environ, "CORONER_BASE_DIR": str(tmp_path)}
     )
     
     assert result.returncode == 1, f"Should be ZOMBIE: {result.stdout}\n{result.stderr}"
