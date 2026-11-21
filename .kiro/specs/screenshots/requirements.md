@@ -24,7 +24,7 @@ D-58: README screenshots like a product page: a 10 to 15 s GIF under 5 MB at the
 **Req 3.1**: docs/screenshots/t1-zombie-dark.png: T1 faulty run page, dark theme, full first screen only.
 **Req 3.2**: docs/screenshots/alive-light.png: T1 correct run page, light theme (via localStorage key coronerTheme), full first screen only.
 **Req 3.3**: docs/screenshots/matrix.png: Detection Matrix page, full first screen only.
-**Req 3.4**: docs/screenshots/verify-invalid.png: copy of T1 faulty certificate with one field changed (cases_divergent + 1), run page with Verify button clicked, "Certificate: INVALID", caption states "Verify on a copy of a real certificate with one field changed".
+**Req 3.4**: docs/screenshots/verify-invalid.png: the real Tamper flow on the T1 faulty run (same steps as video shot 14): /tamper?run_id=<run id>, Status set to ALIVE, Cases Divergent set to 0, "Verify Tampered Certificate" clicked, 1280x800 view showing the edited form and "Certificate: INVALID" with its reason; caption names the run id and the edited values.
 **Req 3.5**: docs/screenshots/commit-blocked.png: terminal screenshot showing blocked commit.
 **Req 3.6**: docs/screenshots/demo.gif: 10 to 15 s, under 5 MB, width 960, reduced palette, duplicate frames merged.
 **Req 3.7**: All PNGs saved with Pillow optimize=True.

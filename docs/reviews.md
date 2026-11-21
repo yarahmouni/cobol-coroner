@@ -1113,6 +1113,13 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Results: operator: test_docker_compose, test_deploy_check, the retired-name test and test_image_catalog 58 passed, 4 deselected in 4.59 s.
 - Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 2603.17 of 4000 used (1396.83 left).
 
+### R-164 2026-11-21: README screenshots and demo GIF retaken from real runs of current main
+- Owner order (2026-11-21), task 6. The images dated from 2026-11-18 (before the case names, the exposure line and the minimal-case card).
+- Call p381 (sonnet-5.5): scripts/make_screenshots.py checked against the current templates and run with SCREENSHOT_CHANNEL=chrome; it makes real runs in a temporary workspace and drives the real UI. Results: t1-zombie-dark.png (Case 1 The Missing Branch, run f584d5f35228, ZOMBIE, 682 cases, "6253.54 was posted to suspense instead of branch 001.", exposure 3995184.38, 2 branches, grand total balances yes), alive-light.png (run 29c15f04407b, ALIVE, 2000 cases, exposure 0.00), matrix.png (case names including "Case 3 The Phantom Minus", 682, 856, 429, 87 and 602 of 2000, Case 6 reserved), commit-blocked.png unchanged, demo.gif (home page with the seed line, ZOMBIE page, branch chart; 33 frames, 12.73 s, 0.83 MB). The first attempt made a 15.6 s GIF, over the 15 s limit; fixed in the script.
+- Operator review: verify-invalid.png showed a run page of a copied folder ("Run ID: 68960092aab7", "Divergences 683"), which reads as a real run. Call p382 (sonnet-5.5): the image now comes from the real Tamper page on run f584d5f35228 (Status edited to ALIVE, Cases Divergent to 0; "Certificate: INVALID", "replay mismatch (status: expected ALIVE, got ZOMBIE)"), the copied-folder path removed, a --only verify-invalid option, the screenshot server gets its own exchange folder (the tamper route writes there), .kiro/specs/screenshots Req 3.4 updated. README captions and alt texts describe what each image shows, with the case name. Operator: the five images and two GIF frames viewed; figures equal the run files; no path, user or host name.
+- Tests: tests/test_screenshots_static.py and the retired-name test 5 passed.
+- Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 2632.87 of 4000 used (1367.13 left).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.

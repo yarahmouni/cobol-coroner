@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Generate screenshots from real runs for README."""
+import getpass
+import html
 import io
 import json
 import os
@@ -32,29 +34,57 @@ def find_free_port():
     return port
 
 
-def sanitize_output(text, clone_path, venv_path):
-    """Replace clone path and venv path with 'repo' and check for home paths."""
-    text = text.replace(str(clone_path), "repo")
-    text = text.replace(str(venv_path), "repo/.venv")
-    
-    # Check for remaining home paths (built dynamically, never literal)
-    forbidden_patterns = [
+def private_markers():
+    """Strings that must never appear on an image (built at run time, never literal)."""
+    markers = [
         "/" + "Users" + "/",
         "/" + "home" + "/",
         "/" + "var" + "/" + "folders",
-        "/" + "tmp" + "/"
+        "/" + "private" + "/",
+        "/" + "tmp" + "/",
+        str(Path.home()),
+        getpass.getuser(),
+        socket.gethostname(),
+        socket.gethostname().split(".")[0],
     ]
-    for pattern in forbidden_patterns:
-        if pattern in text:
-            lines_with_pattern = [
-                line for line in text.split("\n") if pattern in line
-            ]
-            print(f"ERROR: Output contains {pattern}:", file=sys.stderr)
-            for line in lines_with_pattern:
-                print(f"  {line}", file=sys.stderr)
+    return [m for m in dict.fromkeys(markers) if len(m) >= 4]
+
+
+def check_private(text, label):
+    """Exit with the offending lines if text holds a home path, user name or host name."""
+    for marker in private_markers():
+        if marker.lower() in text.lower():
+            print(f"ERROR: {label} contains {marker!r}:", file=sys.stderr)
+            for line in text.split("\n"):
+                if marker.lower() in line.lower():
+                    print(f"  {line[:200]}", file=sys.stderr)
             sys.exit(1)
-    
+
+
+def sanitize_output(text, clone_path, venv_path):
+    """Replace clone path and venv path with 'repo', then check for private strings."""
+    # Resolved paths first: a macOS temporary folder is also reachable through /private.
+    for path in (Path(clone_path).resolve(), Path(clone_path)):
+        text = text.replace(str(path), "repo")
+    for path in (Path(venv_path).resolve(), Path(venv_path)):
+        text = text.replace(str(path), "repo/.venv")
+    check_private(text, "Terminal output")
     return text
+
+
+def check_page(page, label, expected):
+    """Check that a page shows every expected string and nothing private."""
+    body = page.inner_text("body")
+    missing = [s for s in expected if s not in body]
+    if missing:
+        print(f"ERROR: {label} does not show {missing}", file=sys.stderr)
+        sys.exit(1)
+    check_private(page.content() + "\n" + body, label)
+
+
+def read_run_json(base_dir, run_id, name):
+    """Read a JSON file of a run made by this script."""
+    return json.loads((Path(base_dir) / "runs" / run_id / name).read_text())
 
 
 def setup_temp_workspace():
@@ -63,8 +93,8 @@ def setup_temp_workspace():
     return Path(temp_dir)
 
 
-def produce_runs(base_dir):
-    """Produce real runs for screenshots."""
+def produce_runs(base_dir, only=None):
+    """Produce real runs for screenshots (only the T1 faulty run when only is set)."""
     print("Producing runs in a temporary directory")
     
     # T1 faulty
@@ -92,6 +122,8 @@ def produce_runs(base_dir):
         print(result.stderr, file=sys.stderr)
         sys.exit(1)
     t1_zombie_run_id = match.group(1)
+    if only:
+        return {"t1_zombie": t1_zombie_run_id, "t1_alive": None}
     
     # T1 correct
     print("  Running T1 correct...")
@@ -151,7 +183,8 @@ def start_ui_server(base_dir):
             "--port", str(port),
             "--log-level", "warning"
         ],
-        env={**os.environ, "CORONER_BASE_DIR": str(base_dir)},
+        env={**os.environ, "CORONER_BASE_DIR": str(base_dir),
+             "CORONER_EXCHANGE_DIR": str(Path(base_dir) / "exchange")},
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE
     )
@@ -175,39 +208,47 @@ def start_ui_server(base_dir):
     sys.exit(1)
 
 
-def tamper_certificate(base_dir, run_id):
-    """Copy run dir and modify certificate."""
-    import hashlib
-    
-    original_dir = Path(base_dir) / "runs" / run_id
-    
-    # Generate a 12-hex id from sha256 of "tampered:" + run_id
-    tampered_hash = hashlib.sha256(f"tampered:{run_id}".encode()).hexdigest()[:12]
-    
-    # Ensure it doesn't collide with existing runs
-    runs_dir = Path(base_dir) / "runs"
-    existing_runs = {d.name for d in runs_dir.iterdir() if d.is_dir()}
-    
-    tampered_run_id = tampered_hash
-    counter = 0
-    while tampered_run_id in existing_runs:
-        counter += 1
-        tampered_run_id = hashlib.sha256(f"tampered:{run_id}:{counter}".encode()).hexdigest()[:12]
-    
-    tampered_dir = runs_dir / tampered_run_id
-    
-    shutil.copytree(original_dir, tampered_dir)
-    
-    cert_path = tampered_dir / "certificate.json"
-    with open(cert_path) as f:
-        cert = json.load(f)
-    
-    cert["cases_divergent"] += 1
-    
-    with open(cert_path, "w") as f:
-        json.dump(cert, f, indent=2)
-    
-    return tampered_run_id
+def capture_verify_invalid(page, base_url, run_id, zombie_verdict):
+    """Real Tamper flow on the real T1 faulty run (same steps as video shot 14)."""
+    print("  verify-invalid.png...")
+    page.goto(f"{base_url}/tamper?run_id={run_id}")
+    status = page.get_by_label("Status", exact=True)
+    status.wait_for(state="visible")
+    if status.input_value() != zombie_verdict["status"]:
+        print(f"ERROR: the tamper form is prefilled with {status.input_value()!r}, "
+              f"expected {zombie_verdict['status']!r}", file=sys.stderr)
+        sys.exit(1)
+    status.fill("ALIVE")
+    divergent = page.get_by_label("Cases Divergent", exact=True)
+    divergent.fill("0")
+    page.get_by_role("button", name="Verify Tampered Certificate", exact=True).click()
+    page.get_by_text("Certificate: INVALID", exact=False).first.wait_for(
+        state="visible", timeout=90000)
+    time.sleep(0.5)
+    check_page(page, "Tamper page", ["Certificate: INVALID", "replay mismatch"])
+    if status.input_value() != "ALIVE" or divergent.input_value() != "0":
+        print("ERROR: the edited values are not on the page", file=sys.stderr)
+        sys.exit(1)
+
+    # Room below the result (screenshot only, no template change), then scroll so that the
+    # Status field and the whole result fit in the 1280x800 view.
+    page.add_style_tag(content="body { padding-bottom: 400px; }")
+    label_top = page.locator("label[for=status]").evaluate(
+        "el => el.getBoundingClientRect().top + window.scrollY")
+    page.evaluate(f"window.scrollTo(0, {max(int(label_top) - 24, 0)})")
+    time.sleep(0.3)
+    viewport_height = page.viewport_size["height"]
+    result_box = page.locator("#result").bounding_box()
+    status_box = status.bounding_box()
+    if status_box["y"] < 0 or result_box["y"] + result_box["height"] > viewport_height:
+        print(f"ERROR: the form and the result do not fit in the view "
+              f"(status top {status_box['y']:.0f}, result bottom "
+              f"{result_box['y'] + result_box['height']:.0f}, view {viewport_height})",
+              file=sys.stderr)
+        sys.exit(1)
+    page.screenshot(path="docs/screenshots/verify-invalid.png")
+    img = Image.open("docs/screenshots/verify-invalid.png")
+    img.save("docs/screenshots/verify-invalid.png", optimize=True)
 
 
 def launch_browser(playwright):
@@ -221,7 +262,7 @@ def launch_browser(playwright):
 
 def render_terminal_html(output):
     """Render terminal output as HTML."""
-    html = f"""<!DOCTYPE html>
+    page_html = f"""<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -247,12 +288,11 @@ body {{
 </head>
 <body>
 <div class="terminal"><span class="prompt">$ </span><span class="command">git commit -m "Port credit fees"</span>
-{output}</div>
+{html.escape(output)}</div>
 </body>
 </html>
 """
-    return html
-
+    return page_html
 
 def capture_commit_blocked():
     """Capture blocked commit screenshot."""
@@ -386,59 +426,56 @@ def images_equal(img1, img2):
 
 
 def capture_demo_gif(page, port, run_id):
-    """Capture demo GIF."""
+    """Capture demo GIF: home page, the ZOMBIE run page, its branch chart, back to the verdict."""
     print("Capturing demo GIF...")
     
     frames = []
     frame_times = []
-    start_time = time.monotonic()
-    
-    # Navigate from / to run page
-    page.goto(f"http://127.0.0.1:{port}/")
-    
-    # Capture frames during home page (reduced to 0.25s)
-    for _ in range(2):
+
+    def grab():
         frame_times.append(time.monotonic())
         frames.append(page.screenshot())
-        time.sleep(0.125)
+
+    def hold(count, pause=0.125):
+        for _ in range(count):
+            grab()
+            time.sleep(pause)
+
+    def smooth_scroll(target, step=60):
+        current = page.evaluate("window.scrollY")
+        while current != target:
+            if current < target:
+                current = min(current + step, target)
+            else:
+                current = max(current - step, target)
+            page.evaluate(f"window.scrollTo(0, {current})")
+            grab()
+            time.sleep(0.05)
+
+    # Home page
+    page.goto(f"http://127.0.0.1:{port}/")
+    page.wait_for_selector("#run-audit-form")
+    hold(8)
     
-    # Navigate to run page and start capturing immediately to catch animation
+    # Run page: capture continuously during the first second to catch the badge animation
     page.goto(f"http://127.0.0.1:{port}/run/{run_id}", wait_until="domcontentloaded")
-    
-    # Capture continuously during the first second to catch animation (300-500ms)
+    page.wait_for_selector(".verdict-badge")
     animation_start = time.monotonic()
     while time.monotonic() - animation_start < 1.0:
-        frame_times.append(time.monotonic())
-        frames.append(page.screenshot())
-        time.sleep(0.05)  # 20 fps during animation
+        grab()
+        time.sleep(0.05)
     
-    # Capture verdict and example at normal rate (reduced to 2.5s)
-    for _ in range(20):
-        frame_times.append(time.monotonic())
-        frames.append(page.screenshot())
-        time.sleep(0.125)
+    # Verdict, example and figures
+    hold(14)
     
-    # Find branch chart element and scroll to it smoothly
-    chart_element = page.locator("h3:has-text('Branch reconciliation')").first
-    chart_y = chart_element.bounding_box()["y"] if chart_element.count() > 0 else 800
+    # Scroll to the branch chart and hold
+    chart_y = page.locator("h3:has-text('Branch Reconciliation')").first.bounding_box()["y"]
+    smooth_scroll(int(chart_y))
+    hold(12)
     
-    # Smooth scroll in steps of 60px
-    current_scroll = 0
-    target_scroll = int(chart_y)
-    scroll_step = 60
-    
-    while current_scroll < target_scroll:
-        current_scroll = min(current_scroll + scroll_step, target_scroll)
-        page.evaluate(f"window.scrollTo(0, {current_scroll})")
-        frame_times.append(time.monotonic())
-        frames.append(page.screenshot())
-        time.sleep(0.05)  # Smooth scrolling
-    
-    # Capture on chart (reduced to 2s)
-    for _ in range(16):
-        frame_times.append(time.monotonic())
-        frames.append(page.screenshot())
-        time.sleep(0.125)
+    # Back to the verdict, which is the last thing the GIF shows
+    smooth_scroll(0)
+    hold(12)
     
     # Process frames
     pil_frames = []
@@ -478,21 +515,10 @@ def capture_demo_gif(page, port, run_id):
         print(f"ERROR: GIF duration {total_duration:.1f}s exceeds 15s", file=sys.stderr)
         sys.exit(1)
     
-    # Quantize to shared 128-color palette for size reduction
-    quantized_frames = []
-    # Build palette from all frames
-    all_pixels = []
-    for frame in unique_frames[:50]:  # Sample first 50 frames for palette
-        all_pixels.extend(list(frame.convert("RGB").get_flattened_data()))
-    
-    # Create a palette image
-    palette_img = Image.new("P", (1, 1))
-    palette_img.putpalette([i for i in range(256*3)])  # Default palette
-    
     # Quantize each frame to 128 colors
-    for frame in unique_frames:
-        quantized = frame.convert("RGB").quantize(colors=128, method=2)
-        quantized_frames.append(quantized)
+    quantized_frames = [
+        frame.convert("RGB").quantize(colors=128, method=2) for frame in unique_frames
+    ]
     
     # Save GIF with per-frame durations
     quantized_frames[0].save(
@@ -510,15 +536,28 @@ def capture_demo_gif(page, port, run_id):
         print(f"ERROR: demo.gif is {size_mb:.2f} MB, must be under 5 MB", file=sys.stderr)
         sys.exit(1)
     
-    print(f"  demo.gif: {total_duration:.1f}s, {size_mb:.2f} MB")
+    print(f"  demo.gif: {total_duration:.1f}s, {size_mb:.2f} MB, {len(unique_frames)} distinct frames")
 
 
-def capture_screenshots(port, run_ids, base_dir):
+def capture_screenshots(port, run_ids, base_dir, only=None):
     """Capture all screenshots."""
     print("Capturing screenshots...")
     
     # Ensure output directory exists
     Path("docs/screenshots").mkdir(parents=True, exist_ok=True)
+    base_url = f"http://127.0.0.1:{port}"
+    
+    # Expected page text comes from each run's own files, never typed here
+    zombie_verdict = read_run_json(base_dir, run_ids['t1_zombie'], "verdict.json")
+    if only == "verify-invalid":
+        with sync_playwright() as p:
+            browser = launch_browser(p)
+            context = browser.new_context(viewport={'width': 1280, 'height': 800}, device_scale_factor=1)
+            capture_verify_invalid(context.new_page(), base_url, run_ids['t1_zombie'], zombie_verdict)
+            browser.close()
+        return
+    alive_verdict = read_run_json(base_dir, run_ids['t1_alive'], "verdict.json")
+    registry = json.loads(Path("samples/traps/cases.json").read_text())
     
     with sync_playwright() as p:
         browser = launch_browser(p)
@@ -530,20 +569,35 @@ def capture_screenshots(port, run_ids, base_dir):
         
         # T1 zombie dark
         print("  t1-zombie-dark.png...")
-        page.goto(f"http://127.0.0.1:{port}/run/{run_ids['t1_zombie']}")
-        time.sleep(1)  # Let page fully load
-        screenshot_bytes = page.screenshot()
-        img = Image.open(io.BytesIO(screenshot_bytes))
+        page.goto(f"{base_url}/run/{run_ids['t1_zombie']}")
+        page.wait_for_selector(".verdict-badge")
+        time.sleep(1)  # Let the badge animation end
+        t1_name = registry["T1"]["name"]
+        check_page(page, "T1 zombie page", [
+            zombie_verdict["status"],
+            f"diverged on {zombie_verdict['cases_divergent']} cases",
+            str(zombie_verdict["exposure_sum"]),
+            run_ids['t1_zombie'],
+            f"Case 1 {t1_name}",
+        ])
+        page.screenshot(path="docs/screenshots/t1-zombie-dark.png")
+        img = Image.open("docs/screenshots/t1-zombie-dark.png")
         img.save("docs/screenshots/t1-zombie-dark.png", optimize=True)
         
         # T1 alive light
         print("  alive-light.png...")
         page.evaluate("localStorage.setItem('coronerTheme', 'light')")
-        page.goto(f"http://127.0.0.1:{port}/run/{run_ids['t1_alive']}")
+        page.goto(f"{base_url}/run/{run_ids['t1_alive']}")
         page.reload()
+        page.wait_for_selector(".verdict-badge")
         time.sleep(1)
-        screenshot_bytes = page.screenshot()
-        img = Image.open(io.BytesIO(screenshot_bytes))
+        check_page(page, "T1 alive page", [
+            alive_verdict["status"],
+            f"preserved on {alive_verdict['cases_total']} cases",
+            run_ids['t1_alive'],
+        ])
+        page.screenshot(path="docs/screenshots/alive-light.png")
+        img = Image.open("docs/screenshots/alive-light.png")
         img.save("docs/screenshots/alive-light.png", optimize=True)
         
         # Reset to dark for other screenshots
@@ -551,32 +605,21 @@ def capture_screenshots(port, run_ids, base_dir):
         
         # Detection matrix
         print("  matrix.png...")
-        page.goto(f"http://127.0.0.1:{port}/matrix")
+        page.goto(f"{base_url}/matrix")
+        page.wait_for_selector("table")
         time.sleep(1)
-        screenshot_bytes = page.screenshot()
-        img = Image.open(io.BytesIO(screenshot_bytes))
+        check_page(page, "Detection matrix", [
+            f"Case {entry['case']} {entry['name']}" if entry['name'] != "reserved" else "reserved"
+            for entry in registry.values()
+        ] + ["not measured"])
+        page.screenshot(path="docs/screenshots/matrix.png", full_page=True)
+        img = Image.open("docs/screenshots/matrix.png")
         img.save("docs/screenshots/matrix.png", optimize=True)
-        
-        # Tamper certificate and capture verify invalid
-        print("  verify-invalid.png...")
-        tampered_run_id = tamper_certificate(base_dir, run_ids['t1_zombie'])
-        page.goto(f"http://127.0.0.1:{port}/run/{tampered_run_id}")
-        time.sleep(0.5)
-        
-        # Scroll Verify button into view and click by role
-        page.locator("role=button[name='Verify']").scroll_into_view_if_needed()
-        page.click("role=button[name='Verify']")
-        
-        # Wait for INVALID status
-        page.wait_for_selector("text=Certificate: INVALID", timeout=10000)
-        time.sleep(0.5)
-        
-        screenshot_bytes = page.screenshot()
-        img = Image.open(io.BytesIO(screenshot_bytes))
-        img.save("docs/screenshots/verify-invalid.png", optimize=True)
         
         # Demo GIF
         capture_demo_gif(page, port, run_ids['t1_zombie'])
+        
+        capture_verify_invalid(page, base_url, run_ids['t1_zombie'], zombie_verdict)
         
         browser.close()
 
@@ -595,19 +638,29 @@ def report_results():
 
 
 def main():
-    """Main workflow."""
+    """Main workflow. `--only verify-invalid` regenerates that one image."""
+    only = None
+    if len(sys.argv) > 1:
+        if sys.argv[1:] != ["--only", "verify-invalid"]:
+            print("Usage: make_screenshots.py [--only verify-invalid]", file=sys.stderr)
+            sys.exit(2)
+        only = "verify-invalid"
     temp_dir = setup_temp_workspace()
     server_process = None
     
     try:
         # Produce runs
-        run_ids = produce_runs(temp_dir)
+        run_ids = produce_runs(temp_dir, only)
         
         # Start UI server
         server_process, port = start_ui_server(temp_dir)
         
         # Capture screenshots
-        capture_screenshots(port, run_ids, temp_dir)
+        capture_screenshots(port, run_ids, temp_dir, only)
+        
+        if only:
+            print(f"Run id of the T1 faulty run: {run_ids['t1_zombie']}")
+            return
         
         # Capture commit blocked (uses current repo)
         capture_commit_blocked()

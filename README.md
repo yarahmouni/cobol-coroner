@@ -4,7 +4,7 @@
 
 Live demo: https://coroner.iqoba.com (deployment check passed on 2026-11-21, all 10 checks, see [docs/deploy.md](docs/deploy.md))
 
-![Audit of Case 1, The Missing Branch: ZOMBIE on 682 of 2000 cases](docs/screenshots/demo.gif)
+![Case 1, The Missing Branch: the home page, then the ZOMBIE run page (682 of 2000 cases diverge, exposure 3995184.38), its branch chart, and back to the verdict](docs/screenshots/demo.gif)
 
 It checks whether a migration kept the business behavior on N generated cases, and shows exactly where it broke.
 
@@ -98,20 +98,20 @@ The same Case 1 audit (T1, 2000 cases, seed 42) was applied to Java ports from d
 
 All screenshots produced by `make screenshots` from real runs.
 
-![Case 1 ZOMBIE page with branch subtotal mismatch and grand total balance](docs/screenshots/t1-zombie-dark.png)
-*Case 1, The Missing Branch: ZOMBIE page*
+![Case 1, The Missing Branch, faulty port: ZOMBIE, migration rejected, 682 cases diverge, exposure 3995184.38 on 2 branches, grand total balances](docs/screenshots/t1-zombie-dark.png)
+*Case 1, The Missing Branch, faulty port: ZOMBIE on 682 of 2000 cases. 6253.54 is posted to suspense instead of branch 001, and the grand total still balances.*
 
-![T1 ALIVE page showing business behavior preserved](docs/screenshots/alive-light.png)
-*T1 ALIVE page showing business behavior preserved*
+![Case 1, The Missing Branch, correct port: ALIVE, migration certified, business behavior preserved on 2000 cases, exposure 0.00](docs/screenshots/alive-light.png)
+*Case 1, The Missing Branch, correct port: ALIVE, business behavior preserved on 2000 cases (light theme).*
 
-![Detection Matrix showing trap catalog with measured counts](docs/screenshots/matrix.png)
-*Detection Matrix showing trap catalog with measured counts*
+![Detection Matrix: Cases 1 to 5 measured with detected counts and rates, Case 6 reserved and not measured](docs/screenshots/matrix.png)
+*Detection Matrix: Cases 1 to 5 measured (detected cases of 2000, rate, correct port ALIVE), Case 6 reserved and not measured.*
 
-![Certificate verification on a tampered copy showing INVALID status](docs/screenshots/verify-invalid.png)
-*Certificate verification on a tampered copy showing INVALID status*
+![Tamper page for the Case 1 faulty run: Status edited to ALIVE and Cases Divergent to 0, result Certificate INVALID, replay mismatch (status: expected ALIVE, got ZOMBIE)](docs/screenshots/verify-invalid.png)
+*Tamper page: run f584d5f35228 (Case 1, faulty port) edited to ALIVE with 0 divergent cases; the replay gives Certificate: INVALID, replay mismatch (status: expected ALIVE, got ZOMBIE). The page does not print the run id; it is in the address of the page (/tamper?run_id=f584d5f35228).*
 
-![Git commit blocked by Coroner pre-commit hook on ZOMBIE verdict](docs/screenshots/commit-blocked.png)
-*Git commit blocked by Coroner pre-commit hook on ZOMBIE verdict*
+![Terminal: git commit of the HALF_EVEN credit-fees port blocked by Coroner, ZOMBIE on 21 cases](docs/screenshots/commit-blocked.png)
+*Git commit of the HALF_EVEN variant of the credit-fees port, blocked by the Coroner pre-commit hook: ZOMBIE on 21 cases (500-case check).*
 
 ## Quick start
 
