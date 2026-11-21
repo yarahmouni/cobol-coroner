@@ -341,7 +341,7 @@ Check that cloudflared connected:
 docker compose -f docker-compose.yml -f docker-compose.server.yml logs cloudflared
 ```
 
-Measured on the server, 2026-11-21 (owner's summary): four "Registered tunnel connection" lines, connIndex 0 to 3, location cdg. The check that counts is the one in the last section of this guide.
+Measured on the server, 2026-11-21 (owner's summary): four "Registered tunnel connection" lines, connIndex 0 to 3. The check that counts is the one in the last section of this guide.
 
 ## Day-to-day operations
 
@@ -514,6 +514,8 @@ PASS: Story step 5: Cause of death, positioning sentence and a branch table row
 PASS: Fool page: counter and three checkboxes
 Deployment check PASSED: all checks succeeded
 ```
+
+The run ids are the same as in the local measurements of this guide because a run id is derived from content, not from the machine or the time: it is the first 12 hex characters of a SHA-256 over the hashes of the COBOL source, the Java source, the schema and the copybooks, the seed, the case count, the cobc flags and the tool versions (cobc, javac, java, python, Coroner), plus the generator script hash when the schema has one; the timestamp is excluded (`compute_run_id` in `coroner/store.py`). The same image with the same seed and case count gives the same run id on any machine.
 
 The script prints one line per check. A healthy deployment prints these nine PASS lines (quoted from `scripts/deploy_check.py`; the run ids are filled in by the script), then the final line, and exits with code 0:
 
