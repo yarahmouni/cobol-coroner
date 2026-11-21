@@ -1,0 +1,14 @@
+CardDemo CBACT04C Adaptation for COBOL Coroner
+
+Source: https://github.com/aws-samples/aws-mainframe-modernization-carddemo
+Commit: 59cc6c2fd7ebd7ef7925cad552a01a4b8b6e4d5e (2025-10-16)
+
+Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+All changes from the upstream program are documented in CHANGES.md.
+The adaptation preserves the business logic under audit; it does not emulate z/OS VSAM.
+
+This adaptation is part of COBOL Coroner, an independent regression auditor for COBOL-to-Java migrations.
+COBOL Coroner is not affiliated with or endorsed by AWS.
+
+Licensed under Apache License 2.0. See LICENSE file.

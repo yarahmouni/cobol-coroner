@@ -1,0 +1,4 @@
+# Build products go under build/carddemo (parent .gitignore covers build/)
+# Keep only text outputs in probe/
+*.dat
+*.dat.*
