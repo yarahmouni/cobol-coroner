@@ -130,7 +130,9 @@ def run_catalog(seed: int = 42, cases: int = 2000, base_dir: str = ".") -> dict[
                 divergent_fields=failure_report_json["divergent_fields"],
                 cobol_return_code=failure_report_json.get("cobol_return_code", 0),
                 java_return_code=failure_report_json.get("java_return_code", 0),
-                executed_lines=failure_report_json.get("executed_lines", [])
+                executed_lines=failure_report_json.get("executed_lines", []),
+                original_case_rows=failure_report_json.get("original_case_rows"),
+                minimal_case_rows=failure_report_json.get("minimal_case_rows")
             )
             
             trap_result["minimal_case"] = failure_report_json
