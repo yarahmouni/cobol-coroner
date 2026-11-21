@@ -979,6 +979,13 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Results: agent: test_story_fool, test_story_a11y, test_story_nojs with slow tests 180 passed in 67.07 s; test_story_integration and test_deploy_check 13 passed in 154.99 s. Operator, on a real served page (127.0.0.1:8765, base of R-137): business and engineer views show "Case 1 The Missing Branch", "HALF_EVEN rounding, credit-fees sample (HALF_EVEN variant run)" and "Case 4 The Sign of Zero"; no "Case 2", "Vanishing Cent" or "T2" in the page; the counter there reads 2 of 3 because that base's credit-fees variant run came from the stale variant file (R-141); the composed stack of R-145 reads 3 of 3. No README or docs text describes this toggle as Case 2.
 - Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 2229.96 of 4000 used (1770.04 left, above the 500 warning threshold).
 
+### R-148 2026-11-21: live site checked, 10 of 10; judge guide switched to live
+- Owner (2026-11-21): coroner.iqoba.com deployed on the home server, compose server mode, image digest ...b0ebe1e8 (sha256:837503172e4d..., R-145), tunnel connected with 4 connections, home page and Recent Runs load.
+- Operator, Mac: `make deploy-check URL=https://coroner.iqoba.com` exit 0 in 1 min 32 s: clean-clone image build PASS (Docker build cache reused, so not a cold build time), then GET /, T1 faulty ZOMBIE f584d5f35228, T1 correct ALIVE 29c15f04407b, tamper INVALID, certificate VALID, no-store, 413 at 17 KB, story step 5, fool page: all PASS. The run ids are the same as on the local stack (R-145). Raw output kept outside the repository; build cache pruned and the check image removed afterwards (18 GB free).
+- Call p354 (haiku-5.5): docs/deploy.md "Check from anywhere" holds that output (clone path replaced by <temporary folder>) and says the cold build time is not measured; docs/judge-guide.md reads "Live demo: https://coroner.iqoba.com (deployment check passed on 2026-11-21, all 10 checks, see deploy.md)", owner marker removed. The other "Output: measured at deploy time" placeholders of docs/deploy.md need server outputs and stay until the owner provides them. The README has no live line or marker yet; it is added with the README work.
+- Checks (operator): diff read; no em dash, no local path.
+- Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 2241.80 of 4000 used (1758.20 left).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.

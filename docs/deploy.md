@@ -453,13 +453,37 @@ python3.12 -m venv .venv
 make deploy-check URL=https://coroner.iqoba.com
 ```
 
-`make deploy-check` first builds the Dockerfile from a clean `git clone` of the checkout on your computer (this proves the repository builds from a clean tree; the server itself never builds), then runs the checks against the URL. The cold build time is not measured yet (Output: measured at deploy time). To run only the checks against the live site:
+`make deploy-check` first builds the Dockerfile from a clean `git clone` of the checkout on your computer (this proves the repository builds from a clean tree; the server itself never builds), then runs the checks against the URL. The cold build time is not measured: the live check of 2026-11-21 reused the local Docker build cache. To run only the checks against the live site:
 
 ```bash
 .venv/bin/python scripts/deploy_check.py --url https://coroner.iqoba.com --skip-build
 ```
 
-Output: measured at deploy time. The script prints one line per check. A healthy deployment prints these nine PASS lines (quoted from `scripts/deploy_check.py`; the run ids are filled in by the script), then the final line, and exits with code 0:
+Measured against https://coroner.iqoba.com from the operator's Mac, 2026-11-21 (exit code 0, 1 min 32 s in total, build from the Docker cache):
+
+```
+.venv/bin/python scripts/deploy_check.py --url https://coroner.iqoba.com
+Building image from clean git clone...
+Current HEAD: d39ddb184f335f29595156d3eb130503d0b8ff31
+Cloning into <temporary folder>...
+Building Docker image (this may take a few minutes)...
+PASS: Image built successfully from clean checkout
+Running checks against https://coroner.iqoba.com...
+PASS: GET / returns 200 with Run audit form
+T1 faulty: job submitted, job_id=09f8167874a7
+PASS: T1 faulty: ZOMBIE verdict, run_id=f584d5f35228
+T1 correct: job submitted, job_id=e452d99a59d9
+PASS: T1 correct: ALIVE verdict, run_id=29c15f04407b
+PASS: Tamper: INVALID with replay mismatch, run_id=f584d5f35228
+PASS: Verify: certificate VALID, run_id=f584d5f35228
+PASS: Cache-Control: /api/* responses include no-store
+PASS: Body limit: 17 KB body rejected with 413
+PASS: Story step 5: Cause of death, positioning sentence and a branch table row
+PASS: Fool page: counter and three checkboxes
+Deployment check PASSED: all checks succeeded
+```
+
+The script prints one line per check. A healthy deployment prints these nine PASS lines (quoted from `scripts/deploy_check.py`; the run ids are filled in by the script), then the final line, and exits with code 0:
 
 ```
 PASS: GET / returns 200 with Run audit form

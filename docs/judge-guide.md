@@ -8,10 +8,9 @@ AWS Transform, Kiro, an LLM or a human migrates COBOL to Java. Coroner independe
 
 ## 2. Five minutes, no install
 
-Live demo: coming soon (https://coroner.iqoba.com)
-<!-- OWNER: switch to live when the deploy check passes -->
+Live demo: https://coroner.iqoba.com (deployment check passed on 2026-11-21, all 10 checks, see deploy.md)
 
-When the site is live, the home page has a Run audit form. Pick sample T1 and port Faulty, then Run Audit. Then pick T1 and port Correct. Open each run page. The run page has Verify and Tamper links.
+The home page has a Run audit form. Pick sample T1 and port Faulty, then Run Audit. Then pick T1 and port Correct. Open each run page. The run page has Verify and Tamper links.
 
 The deployment check that must pass before the site is announced is described in [`deploy.md`](deploy.md), section "Check from anywhere".
 
