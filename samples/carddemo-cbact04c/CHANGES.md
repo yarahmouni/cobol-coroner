@@ -15,5 +15,15 @@ ASSIGN clauses unchanged (TCATBALF, XREFFILE, ACCTFILE, DISCGRP, TRANSACT map fr
 3. LOAD-FILES.cob: Loads text fixtures into indexed files; inserts ACCT-ADDR-ZIP (10 bytes) omitted in upstream acctdata.txt
 4. DUMP-ACCT.cob: Account record dump utility
 5. Makefile, datasets
+6. HARNESS-CBACT04C.cob: the program Coroner compiles and runs. Reads one CSV row per case (157 columns: accounts, category balance slots, rate slots), writes the four text inputs in a unique work directory, runs LOAD-FILES, RUN-CBACT04C and DUMP-ACCT as separate processes, reads the TRANSACT file and the dumped balances, writes one output row (exit code, balances, transactions). It builds the helpers itself at start with `make -C <sample dir> BUILD_DIR=<work dir>/bin harness-helpers` and removes the work directory at the end. The Makefile `all` target no longer builds the harness (`make harness` does, by hand).
+7. tools/dataset_to_row.py: converts a dataset folder (the four fixed-width text files) into harness input rows, with `--repeat N` for N rows with distinct CASE-IDs. Upstream marks signs with an EBCDIC zoned overpunch ("{" is +0, "}" is -0, A to I are +1 to +9, J to R are -1 to -9); the converter decodes them with that meaning only, which is how the programs read them when compiled with `-fsign=EBCDIC` (see Build options). Cycle credit and cycle debit that cannot be decoded become 0.00 with a warning (CBACT04C never reads them).
+8. harness-check/: one-row inputs produced by dataset_to_row.py from datasets/probe-nonzero and datasets/missing-default (empty PARM-DATE, as in the probes).
+9. probe/sign-convention/SIGN-PROBE.cob and `make probe-sign`: a 42-line probe program compiled with and without `-fsign=EBCDIC`; its two recorded outputs are the evidence for the build option (PROBE.md).
+
+## Build options
+
+Every program of this sample is compiled with `cobc -fsign=EBCDIC` (Makefile variable `COBFLAGS`, applied to LOAD-FILES, CBACT04C, CEE3ABD, RUN-CBACT04C, DUMP-ACCT and the harness; the engine takes it from `cobc_flags` in the schema). It is a compiler option, not a source change. Reason, measured: under the default convention GnuCOBOL reads the upstream overpunch characters inconsistently (`0000010000{` displays +1000.00 but ADD gives -1000.11), see PROBE.md.
+
+Makefile: BUILD_DIR defaults to the absolute path build/carddemo under the repository root; targets harness, harness-helpers and probe-sign added; COBFLAGS added.
 
 All changes preserve the business logic under audit; it does not emulate z/OS VSAM.
