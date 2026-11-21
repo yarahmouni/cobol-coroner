@@ -140,8 +140,8 @@ All numbers shown on screen must come from real run files. Use these markers in 
 - `<!-- MEASURED: total cases, from runs/f584d5f35228/verdict.json -->`: From verdict.json, cases_total
 - `<!-- MEASURED: cases count, from runs/f584d5f35228/verdict.json -->`: From verdict.json, cases_total
 - `<!-- MEASURED: divergent cases, from runs/f584d5f35228/verdict.json -->`: From verdict.json, cases_divergent
-- `<!-- MEASURED: exposure sum, from runs/f584d5f35228/verdict.json -->`: From verdict.json, unreconciled_exposure.sum
-- `<!-- MEASURED: branches affected, from runs/f584d5f35228/verdict.json -->`: From verdict.json, unreconciled_exposure.branches_affected
+- `<!-- MEASURED: exposure sum, from runs/f584d5f35228/verdict.json -->`: From verdict.json, exposure_sum
+- `<!-- MEASURED: branches affected, from runs/f584d5f35228/verdict.json -->`: From verdict.json, affected_branches
 - `<!-- MEASURED: business_cause from samples/traps/T1-ebcdic-match-merge/trap.json -->`: From samples/traps/T1-ebcdic-match-merge/trap.json, business_cause
 - `<!-- MEASURED: business_fix from samples/traps/T1-ebcdic-match-merge/trap.json -->`: From samples/traps/T1-ebcdic-match-merge/trap.json, business_fix
 - `<!-- MEASURED: cases_total, from runs/29c15f04407b/verdict.json -->`: From the T1 correct run verdict.json, cases_total

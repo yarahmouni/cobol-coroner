@@ -908,6 +908,10 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Results: agent, Mac: new tests with slow 67 passed in 30.01 s; default suite 545 passed, 98 deselected in 720.76 s. Operator, CI image built from this tree: CI command 536 passed, 107 deselected in 465.04 s; the three story test files with slow tests 67 passed in 18.69 s.
 - Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
 
+### R-136 2026-11-21: video plan names the real verdict keys
+- Reported by the agents of p337 and p339. Call p340 (haiku-5.5), video worktree: docs/video-plan.md lines 143 and 144 named "unreconciled_exposure.sum" and "unreconciled_exposure.branches_affected"; the keys in verdict.json are exposure_sum and affected_branches (operator checked runs/f584d5f35228/verdict.json: affected_branches is the integer 2). No script or test used the wrong names (grep).
+- Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.
