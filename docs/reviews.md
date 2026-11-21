@@ -1136,6 +1136,12 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Results: agent: make pbt 3 tests successful in 18787 ms; property and download tests with slow 7 passed. Operator: make pbt 3 of 3 successful (19433 ms); the same tests plus the retired-name test with slow 9 passed in 25.64 s.
 - Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 2675.89 of 4000 used (1324.11 left).
 
+### R-167 2026-11-21: docs/ACCESSIBILITY.md built from the accessibility tests and the recorded browser checks
+- Owner order (2026-11-21), task 8, bonus E. Call p384 (haiku-5.5): docs/ACCESSIBILITY.md (linked from the README) lists, page by page, what the automated tests check (labels, focus, single live region per result, no-JavaScript text, 375 px layout, contrast ratios of the base, story, run page, error and chart colours, alt text of the README images), each row naming its test function; the checks made by hand in a browser with their entries (R-137, R-138, R-141, R-142, R-162) and the findings fixed; the limits (no screen reader session, no zoom, reduced-motion, print or non-Chrome check recorded; contrast tested on some pages only; the matrix and tamper pages have no accessibility test of their own). No conformance to any standard is claimed.
+- Operator check: the 45 test functions named in the file all exist in tests/; no conformance claim.
+- Results: agent: every cited test file with slow tests, SCREENSHOT_CHANNEL=chrome: 323 passed, 1 skipped in 146.21 s.
+- Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 2687.71 of 4000 used (1312.29 left).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.

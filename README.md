@@ -30,6 +30,7 @@ Coroner runs both programs on the same generated test cases, compares the output
 - [docs/judge-guide.md](docs/judge-guide.md): check every claim yourself, five minutes with no install, fifteen minutes with Docker.
 - [docs/KIRO_USAGE.md](docs/KIRO_USAGE.md): how Kiro was used, with links to the evidence.
 - [docs/architecture.md](docs/architecture.md): modules and repository layout.
+- [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md): accessibility checks the tests run, the manual browser checks, and their limits.
 - [docs/deploy.md](docs/deploy.md): the deployment guide, with measured outputs.
 - [samples/independence/TABLE.md](samples/independence/TABLE.md): the same audit on ports from different sources.
 - [samples/carddemo-cbact04c/README.md](samples/carddemo-cbact04c/README.md): the audit of one path of AWS's CardDemo sample.
