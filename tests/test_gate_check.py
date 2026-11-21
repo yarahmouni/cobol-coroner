@@ -27,40 +27,86 @@ def client():
     return TestClient(app)
 
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+T1_DIR = REPO_ROOT / "samples" / "traps" / "T1-ebcdic-match-merge"
+T1_FAULTY_ID = "f584d5f35228"
+T1_CORRECT_ID = "29c15f04407b"
+
+
+def _listing(folder: Path) -> list:
+    """Names and modification times of the entries of a folder (empty if it does not exist)."""
+    if not folder.exists():
+        return []
+    return sorted((p.name, p.stat().st_mtime_ns) for p in folder.iterdir())
+
+
+@pytest.fixture(scope="session")
+def engine_runs(tmp_path_factory):
+    """
+    Produce the two T1 runs the tests assert, once per session, with the real engine.
+
+    The same audits as the bundled runs (2000 cases, seed 42): T1 faulty (ZOMBIE, exit 1,
+    run f584d5f35228) and T1 correct (ALIVE, exit 0, run 29c15f04407b). They are written
+    into a session folder through CORONER_BASE_DIR. The repository runs/ folder is never
+    read and never written: its listing is checked before and after.
+    """
+    repo_runs = REPO_ROOT / "runs"
+    before = _listing(repo_runs)
+
+    base = tmp_path_factory.mktemp("gate_check_engine_runs")
+    env = {**os.environ, "CORONER_BASE_DIR": str(base)}
+    env.pop("CORONER_REPLAY_TIMEOUT", None)
+
+    for java_kind, expected_exit, run_id in (
+        ("faulty", 1, T1_FAULTY_ID),
+        ("correct", 0, T1_CORRECT_ID),
+    ):
+        proc = subprocess.run(
+            [
+                sys.executable, "-m", "coroner", "verify",
+                "--cobol", str(T1_DIR / "MATCH-MERGE.cob"),
+                "--copybooks", str(T1_DIR / "copybooks"),
+                "--java", str(T1_DIR / "java" / java_kind / "MatchMerge.java"),
+                "--schema", str(T1_DIR / "schema.json"),
+                "--cases", "2000", "--seed", "42",
+            ],
+            cwd=REPO_ROOT, env=env, capture_output=True, text=True, timeout=600,
+        )
+        assert proc.returncode == expected_exit, (
+            f"T1 {java_kind} audit exited {proc.returncode}, expected {expected_exit}\n"
+            f"{proc.stdout}\n{proc.stderr}"
+        )
+        assert (base / "runs" / run_id / "certificate.json").is_file(), (
+            f"T1 {java_kind} audit did not produce run {run_id}\n{proc.stdout}"
+        )
+
+    assert _listing(repo_runs) == before, "the engine runs touched the repository runs/ folder"
+    return base / "runs"
+
+
 @pytest.fixture
-def temp_base_dir(tmp_path, monkeypatch):
+def temp_base_dir(tmp_path, monkeypatch, engine_runs):
     """
-    Set up temporary base directory with bundled demo runs.
-    
-    Copies runs/f584d5f35228 (T1 faulty) and runs/29c15f04407b (T1 correct)
-    from the repository.
+    Temporary base directory holding the T1 faulty and T1 correct runs.
+
+    The runs come from the session fixture engine_runs (real engine audits) and are
+    copied into this test's own folder, so a test that edits a certificate cannot
+    affect another test.
     """
-    # Get repository root
-    repo_root = Path(__file__).parent.parent
-    
-    # Create runs directory in temp
+    repo_runs = REPO_ROOT / "runs"
+    before = _listing(repo_runs)
+
     runs_dir = tmp_path / "runs"
     runs_dir.mkdir()
-    
-    # Copy T1 faulty run
-    faulty_src = repo_root / "runs" / "f584d5f35228"
-    faulty_dst = runs_dir / "f584d5f35228"
-    if faulty_src.exists():
-        shutil.copytree(faulty_src, faulty_dst)
-    
-    # Copy T1 correct run
-    correct_src = repo_root / "runs" / "29c15f04407b"
-    correct_dst = runs_dir / "29c15f04407b"
-    if correct_src.exists():
-        shutil.copytree(correct_src, correct_dst)
-    
-    # Set CORONER_BASE_DIR
+    for run_id in (T1_FAULTY_ID, T1_CORRECT_ID):
+        shutil.copytree(engine_runs / run_id, runs_dir / run_id)
+
     monkeypatch.setenv("CORONER_BASE_DIR", str(tmp_path))
-    
-    # Reset rate limiter
     reset_rate_limiter()
-    
+
     yield tmp_path
+
+    assert _listing(repo_runs) == before, "the test touched the repository runs/ folder"
 
 
 def test_gate_decision_table():

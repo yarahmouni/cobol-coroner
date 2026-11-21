@@ -886,6 +886,11 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Checks (operator): read in full; in the CI image the 4.1 and 4.2 commands print what the guide quotes (T1 faulty "ZOMBIE: FAIL: business behavior diverged on 682 cases", the exposure line, run f584d5f35228; the replay "Certificate: VALID", cases 2000, divergences 682); coroner/catalog/legacy_variant.py exists for 4.3; run_table.py imports only the standard library. One sentence attributed a browser result to docs/deploy.md while R-106 records it: fixed in p336. No em dash.
 - Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
 
+### R-132 2026-11-21: gate-check tests make their own runs (no dependency on the local runs/ folder)
+- Gap measured in R-128: 13 slow tests of tests/test_gate_check.py failed in the image because they copied runs from the git-ignored runs/ folder. Fix (call p334, sonnet-5.5), tests/test_gate_check.py only: a session-scoped fixture engine_runs runs the real engine once per session (T1 faulty and T1 correct, 2000 cases, seed 42, exits 1 and 0 asserted) into a temporary base dir and asserts the run ids f584d5f35228 and 29c15f04407b; each test gets its own copy; both fixtures compare a listing of <repo>/runs before and after and fail if it was touched. All behavioural assertions kept.
+- Results: agent, on a copy of the code without any runs/ folder: 24 passed in 256.80 s. Operator, in the CI image with the new test file mounted (no runs/ there): 24 passed in 174.22 s (13 failed before the fix).
+- Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.
