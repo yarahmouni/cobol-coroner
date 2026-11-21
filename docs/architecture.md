@@ -45,6 +45,7 @@ COBOL + copybooks + Java 17 + schema.json
 - `.env.example`: example environment variables for Cloudflare tunnel (server only)
 - `.gitattributes`: Git attributes, line endings, byte-exact fixture, GitHub language statistics
 - `.gitignore`
+- `CHANGELOG.md`: changes grouped by date from the commit history and the review log
 - `CODE_OF_CONDUCT.md`
 - `CONTRIBUTING.md`
 - `cloudflared-config.yml`: Cloudflare tunnel ingress configuration

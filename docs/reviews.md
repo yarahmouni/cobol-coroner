@@ -891,6 +891,11 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Results: agent, on a copy of the code without any runs/ folder: 24 passed in 256.80 s. Operator, in the CI image with the new test file mounted (no runs/ there): 24 passed in 174.22 s (13 failed before the fix).
 - Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
 
+### R-133 2026-11-21: CHANGELOG.md
+- Call p338 (sonnet-5.5), docs worktree, from the full commit history (written to build/git-log.txt by the operator, since the agent cannot run git) and this log. Keep a Changelog layout by date (2026-11-15 to 2026-11-21: Added, Changed, Fixed, Security, with short hashes), and an Unreleased section listing what is not done yet (live site not announced, T6 placeholder, pending hand-written port, Kiro power not claimed, CardDemo run not bundled, guided story pages not built, default suite above its 60 s target). docs/architecture.md lists the new root file.
+- Checks (operator): read; hashes and claims match the history and the R entries; no em dash.
+- Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 1628.73 of 4000 used at the last reading (R-124).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.
