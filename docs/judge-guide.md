@@ -24,7 +24,7 @@ Start the services. The compose file pulls a prebuilt image pinned by digest. No
 docker compose up -d
 ```
 
-First start takes about one minute, because `coroner-init` generates the bundled demo runs. `docs/deploy.md` ("Try it locally first" and step 6) records 1 minute 19 seconds on the operator's Mac. When it ends, the last lines of `docker compose logs coroner-init` are:
+First start takes about one minute, because `coroner-init` generates the bundled demo runs. `docs/deploy.md` ("Try it locally first" and step 6) records 1 minute 11 seconds on the operator's Mac. When it ends, the last lines of `docker compose logs coroner-init` are:
 
 ```
 coroner-init-1  | Wrote /data/runs/trap_catalog.json

@@ -2,7 +2,9 @@
 
 **The independent regression auditor for COBOL-to-Java migrations.**
 
-![Audit demo showing T1 ZOMBIE verdict with branch subtotal mismatch](docs/screenshots/demo.gif)
+Live demo: https://coroner.iqoba.com (deployment check passed on 2026-11-21, all 10 checks, see [docs/deploy.md](docs/deploy.md))
+
+![Audit of Case 1, The Missing Branch: ZOMBIE on 682 of 2000 cases](docs/screenshots/demo.gif)
 
 It checks whether a migration kept the business behavior on N generated cases, and shows exactly where it broke.
 
@@ -10,24 +12,94 @@ COBOL Coroner does not just compare outputs. It detects the banking migration tr
 
 > AI accelerates. Coroner certifies.
 
-COBOL Coroner does not convert code. It verifies a migration that already exists, whoever produced it (AWS Transform, Kiro, Claude or a human).
+COBOL Coroner does not convert code. It verifies a migration that already exists, whoever produced it (an AI tool such as Kiro, another LLM, or a human).
 
 Give it:
 - a batch COBOL program and its copybooks,
 - its Java 17 version,
 - a `schema.json` describing input and output columns.
 
-Coroner runs both programs on the same generated test cases, compares the outputs field by field with no numeric tolerance, and returns a deterministic verdict:
+Coroner runs both programs on the same generated test cases, compares the outputs field by field with no numeric tolerance, and returns one of three results:
 
 - **ALIVE**: PASS: business behavior preserved on N cases (0 divergence found).
 - **ZOMBIE**: FAIL: business behavior diverged on M cases, with the failing case, the COBOL output, the Java output, the divergent field and the COBOL lines executed.
+- **ERROR**: the COBOL reference did not run. The Java port is never blamed for it, and no verdict or certificate is written.
+
+## Where to start
+
+- [docs/judge-guide.md](docs/judge-guide.md): check every claim yourself, five minutes with no install, fifteen minutes with Docker.
+- [docs/KIRO_USAGE.md](docs/KIRO_USAGE.md): how Kiro was used, with links to the evidence.
+- [docs/architecture.md](docs/architecture.md): modules and repository layout.
+- [docs/deploy.md](docs/deploy.md): the deployment guide, with measured outputs.
+- [samples/independence/TABLE.md](samples/independence/TABLE.md): the same audit on ports from different sources.
+- [samples/carddemo-cbact04c/README.md](samples/carddemo-cbact04c/README.md): the audit of one path of AWS's CardDemo sample.
+- [powers/coroner-audit/](powers/coroner-audit/): the Kiro power that exposes Coroner tools to a Kiro agent.
+- [docs/decisions.md](docs/decisions.md): the decision log.
+- [docs/reviews.md](docs/reviews.md): the dated review log, with every measurement.
+- [CHANGELOG.md](CHANGELOG.md): changes by date, and the open items.
+- [SECURITY.md](SECURITY.md): how to report a vulnerability, and the controls of the live demo.
+- [CONTRIBUTING.md](CONTRIBUTING.md): setup, tests and rules for changes.
+- [docs/PREEXISTING_CODE.md](docs/PREEXISTING_CODE.md): what was not written for this project, with its licences.
+
+## The cases
+
+Six banking migration traps that silently corrupt amounts, signs, ordering or control totals.
+
+Coroner prioritizes high-impact banking migration traps, such as EBCDIC collating sequence and control-break errors, and demonstrates their detection with executable differential tests: targeted regression traps within its supported COBOL subset.
+
+| Case | Trap | Description | Detected (faulty port) | Rate | Correct port |
+|------|------|-------------|------------------------|------|--------------|
+| Case 1: The Missing Branch | T1 | EBCDIC vs ASCII collating order breaks control-break subtotals | 682 of 2000 | 0.3410 | ALIVE |
+| Case 2: The Vanishing Cent | T2 | Truncation without ROUNDED, and ROUNDED ported as HALF_EVEN | 856 of 2000 | 0.4280 | ALIVE |
+| Case 3: The Phantom Minus | T3 | A positive amount read as negative. Packed-decimal sign nibble F interpreted as a minus sign by the Java port. COMP-3 sign nibble (C positive, D negative, F unsigned) | 429 of 2000 | 0.2145 | ALIVE |
+| Case 4: The Sign of Zero | T4 | Zoned sign overpunch in input files; reference compiled with -fsign=EBCDIC; the faulty port forgets the zero overpunch characters { and } | 87 of 2000 | 0.0435 | ALIVE |
+| Case 5: The Silent Zero | T5 | REDEFINES and invalid numeric data | 602 of 2000 | 0.3010 | ALIVE |
+| Case 6: reserved | T6 | placeholder, owner field trap pending | not measured | not measured | not measured |
+
+Run all traps:
+
+```bash
+make traps
+```
+
+T1 Unreconciled branch exposure (faulty port): sum 3995184.38, max 2025606.03, 2 branches affected, suspense difference 3995184.38, grand total matches: yes.
+
+The suspense line is not counted as a branch: the amount missing from branches 001 and 9ZZ appears in suspense, which is why the grand total still balances.
+
+Detection rates depend on the generator settings of each trap (schema.json domain_weights for T1, tie_share for T2, etc.) and are not real-world statistics.
+
+The branch-code mix of T1 is a generator setting (schema.json domain_weights), not a real-world statistic.
+
+## Real-world sample: CardDemo
+
+Coroner audits a Kiro-generated Java port of one bounded interest-calculation path in AWS's open-source CardDemo sample (program CBACT04C).
+
+Uses AWS's open-source CardDemo sample (Apache 2.0). Not affiliated with or endorsed by AWS.
+
+Result: ALIVE on 200 generated cases, seed 42 (run a5edaf1924a5), and the certificate replays VALID. No behavioral difference across the tested scenarios; not a certification for all inputs.
+
+Two findings from the audit:
+
+- The upstream data uses the EBCDIC sign convention, so every program of the sample is compiled with `-fsign=EBCDIC`.
+- CBACT04C never adds the interest of the last account of a run to that account's balance. The Java port keeps this behavior.
+
+Details, the adaptation and the licence are in [samples/carddemo-cbact04c/README.md](samples/carddemo-cbact04c/README.md).
+
+## Independence
+
+The same Case 1 audit (T1, 2000 cases, seed 42) was applied to Java ports from different sources. [samples/independence/TABLE.md](samples/independence/TABLE.md) lists each one:
+
+- a port by Claude Opus 5.5, run as a Claude Code subagent: ALIVE, 0 of 2000 cases divergent;
+- a port by a Kiro agent in session 1: ZOMBIE, 682 of 2000 cases divergent;
+- a port by a Kiro agent in a fresh, isolated session: ALIVE, 0 of 2000 cases divergent;
+- a hand-written port by the author: pending.
 
 ## Screenshots
 
 All screenshots produced by `make screenshots` from real runs.
 
-![T1 ZOMBIE page with branch subtotal mismatch and grand total balance](docs/screenshots/t1-zombie-dark.png)
-*T1 ZOMBIE page with branch subtotal mismatch and grand total balance*
+![Case 1 ZOMBIE page with branch subtotal mismatch and grand total balance](docs/screenshots/t1-zombie-dark.png)
+*Case 1, The Missing Branch: ZOMBIE page*
 
 ![T1 ALIVE page showing business behavior preserved](docs/screenshots/alive-light.png)
 *T1 ALIVE page showing business behavior preserved*
@@ -42,6 +114,18 @@ All screenshots produced by `make screenshots` from real runs.
 *Git commit blocked by Coroner pre-commit hook on ZOMBIE verdict*
 
 ## Quick start
+
+### With Docker (no COBOL or Java on your machine)
+
+You need Docker with Compose. The compose file pulls a prebuilt image pinned by digest, so no login is needed.
+
+```bash
+docker compose up -d
+```
+
+The first start takes about one minute, because the bundled demo runs are generated. The operator's Mac measured 1 minute 11 seconds ([docs/deploy.md](docs/deploy.md)). Then open http://127.0.0.1:8000. Stop with `docker compose down`.
+
+### On your machine (GnuCOBOL and JDK 17 installed)
 
 Prerequisites: GnuCOBOL 3.2, JDK 17, Python 3.12.
 
@@ -64,7 +148,9 @@ CLI form:
 python -m coroner verify --cobol COBOL_FILE --copybooks COPYBOOK_DIR --java JAVA_FILE --schema SCHEMA_JSON [--cases N] [--seed S] [--timings]
 ```
 
-Exit codes: 0 = ALIVE, 1 = ZOMBIE, 2 = error.
+Exit codes of `verify` in run mode: 0 = ALIVE, 1 = ZOMBIE, 2 = ERROR (the COBOL reference did not run, or an input was refused).
+
+Exit codes of a certificate replay (`python -m coroner verify <certificate.json>`): 0 = valid ALIVE, 1 = valid ZOMBIE, 3 = INVALID.
 
 ## What a run writes
 
@@ -78,7 +164,7 @@ Every run stores artifacts in `runs/<run_id>/`:
 - `failure_report.json`: (ZOMBIE only) minimal case details and executed lines
 - `ZombieRegressionTest.java`: (ZOMBIE only) JUnit 5 test that reproduces the divergence
 
-Example output from the dev machine with correct Java and 2,000 cases:
+Credit-fees sample, correct port, 2,000 cases (`make demo`):
 
 ```
 ALIVE: PASS: business behavior preserved on 2000 cases
@@ -87,7 +173,7 @@ Branch coverage (Coroner definition) 42/70
 Validated under GnuCOBOL 3.x
 ```
 
-With the HALF_EVEN variant (a rounding bug):
+Credit-fees sample, HALF_EVEN variant from make zombie (a rounding bug), 2,000 cases:
 
 ```
 ZOMBIE: FAIL: business behavior diverged on 86 cases
@@ -102,13 +188,21 @@ Note: Branch coverage counts only the branches reached by generated valid inputs
 
 > Kiro translates. Coroner certifies. Git and Jenkins enforce the verdict.
 
-A Kiro agent ports the COBOL program, Coroner audits the port through MCP, a Kiro Stop hook and a Git pre-commit hook block a ZOMBIE verdict, a Jenkins or GitHub Actions gate enforces it, and the replayable certificate records the result (in progress).
+A Kiro agent ports the COBOL program, and Coroner audits the port through MCP. The Kiro agent's preToolUse gate blocks `git commit`, `git push` and `git merge` unless the certificate of the migration replays as ALIVE. The Git pre-commit hook blocks a ZOMBIE commit. The CI gate (`.github/workflows/coroner-gate.yml`) enforces the same verdict in a pipeline, and the replayable certificate records the result.
 
 Coroner does not block the agent from writing code. It blocks a ZOMBIE migration from being committed or pushed.
 
-The stop hook re-prompts the agent up to 3 times (v2 engine) or once per turn (v3 engine); it does not prevent the agent from finishing.
+The stop hook re-prompts the agent up to 3 times (v2 engine) or once per turn (v3 engine). It does not keep the agent working until the verdict is ALIVE.
 
 The Git pre-commit hook runs a fast 500-case check on the demo sample staged content and blocks ZOMBIE commits. It audits exactly what will be committed, not the working tree. The `git commit --no-verify` bypass is available to the owner under their responsibility.
+
+The evidence for each hook is in [docs/KIRO_USAGE.md](docs/KIRO_USAGE.md), section 4.
+
+## Kiro power
+
+The coroner-audit power runs in the Kiro IDE 1.4.178 on Windows 10 x64. Through the installed power, Kiro called run_differential_check (run f584d5f35228, ZOMBIE on 682 of 2000 cases), get_verdict, get_failure_report and verify_certificate, and the certificate verified as valid.
+
+The evidence is in [docs/evidence/kiro-power-run.md](docs/evidence/kiro-power-run.md), and the power files are in [powers/coroner-audit/](powers/coroner-audit/).
 
 ## Kiro skills
 
@@ -116,35 +210,6 @@ Three skills guide the coroner-auditor agent:
 - `banking-trap-recognition`: Recognize the six banking migration traps in COBOL and Java (EBCDIC collation, rounding, COMP-3 sign, zoned overpunch, REDEFINES, reserved for owner trap).
 - `cobol-semantics-safety`: COBOL semantic rules a Java port must preserve (rounding to HALF_UP, truncation to DOWN, BigDecimal with explicit scale, sign handling, EBCDIC collating sequence).
 - `coroner-audit-workflow`: End-to-end workflow from run_differential_check to certificate verification.
-
-## Trap catalog
-
-Six banking migration traps that silently corrupt amounts, signs, ordering or control totals.
-
-Coroner prioritizes high-impact banking migration traps, such as EBCDIC collating sequence and control-break errors, and demonstrates their detection with executable differential tests: targeted regression traps within its supported COBOL subset.
-
-| Trap | Description | Detected (faulty port) | Rate | Correct port |
-|------|-------------|--------|------|---|
-| T1 | EBCDIC vs ASCII collating order breaks control-break subtotals | 682 of 2000 | 0.3410 | ALIVE |
-| T2 | Truncation without ROUNDED, and ROUNDED ported as HALF_EVEN | 856 of 2000 | 0.4280 | ALIVE |
-| T3 | COMP-3 sign nibble (C positive, D negative, F unsigned) | 429 of 2000 | 0.2145 | ALIVE |
-| T4 | Zoned sign overpunch in input files; reference compiled with -fsign=EBCDIC; the faulty port forgets the zero overpunch characters { and } | 87 of 2000 | 0.0435 | ALIVE |
-| T5 | REDEFINES and invalid numeric data | 602 of 2000 | 0.3010 | ALIVE |
-| T6 | placeholder, owner field trap pending | not measured | not measured | not measured |
-
-Run all traps:
-
-```bash
-make traps
-```
-
-T1 Unreconciled branch exposure (faulty port): sum 3995184.38, max 2025606.03, 2 branches affected, suspense difference 3995184.38, grand total matches: yes.
-
-The suspense line is not counted as a branch: the amount missing from branches 001 and 9ZZ appears in suspense, which is why the grand total still balances.
-
-Detection rates depend on the generator settings of each trap (schema.json domain_weights for T1, tie_share for T2, etc.) and are not real-world statistics.
-
-The branch-code mix of T1 is a generator setting (schema.json domain_weights), not a real-world statistic.
 
 ## Demo
 
@@ -225,7 +290,7 @@ Example from T1 schema:
 
 ## Status
 
-Work in progress for Kiroween 2026 (category: Resurrection). See `docs/sprints.md`.
+Built for Kiroween 2026 (category: Resurrection). Open items are listed in CHANGELOG.md.
 
 ## What Coroner is not
 
@@ -244,7 +309,9 @@ CICS, DB2, IMS, VSAM, JCL, EBCDIC-encoded data (the EBCDIC collating sequence tr
 
 ## How Kiro was used
 
-To be completed during the build: specs, steering, hooks and MCP server, see `/.kiro`.
+Specs, steering, skills, hooks, MCP server and agents are in [.kiro/](.kiro/).
+
+The full account with evidence is in [docs/KIRO_USAGE.md](docs/KIRO_USAGE.md).
 
 ## Data
 

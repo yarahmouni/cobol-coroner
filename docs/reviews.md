@@ -1061,6 +1061,14 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Tests: agent: test_case_name_retired and test_docker_compose 52 passed. Operator: default suite 766 passed, 300 deselected in 801.26 s.
 - Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 2409.79 of 4000 used (1590.21 left).
 
+### R-159 2026-11-21: README first screen, case names, live demo, CardDemo and independence; hook claims matched to the evidence
+- Owner order (2026-11-21): README first (task 1 of the autonomous order), applying ~/dev/lazarus-private/readme-notes.md N1 (CardDemo line allowed since R-126), the case-names row and the live demo line.
+- Call p369 (haiku-5.5), README.md only: live demo line with the judge guide's status words; GIF alt text names Case 1; positioning line without third-party product names ("an AI tool such as Kiro, another LLM, or a human"); ERROR added next to ALIVE and ZOMBIE; "Where to start" links (judge guide, KIRO_USAGE, architecture, deploy, independence table, CardDemo, power, decisions, review log, CHANGELOG, SECURITY, CONTRIBUTING, PREEXISTING_CODE); "The cases" table with the case names from samples/traps/cases.json in front of the measured columns (unchanged); CardDemo section in the D-62 wording with the R-126 result (ALIVE, 0 of 200, seed 42, run a5edaf1924a5, certificate VALID) and its two findings (R-121, R-126); Independence section from samples/independence/TABLE.md (hand-written row pending); Docker quick start; replay exit codes 0, 1, 3 read from coroner/cli.py; the credit-fees example blocks labelled as credit-fees runs; "The full chain" matched to docs/KIRO_USAGE.md section 4 (preToolUse gate on git commit, push and merge; pre-commit hook; CI gate; the stop hook does not keep the agent working until ALIVE; "(in progress)" removed); Kiro power section (R-158); "Work in progress" and "To be completed" removed (D-61).
+- Operator checks: ERROR writes no verdict and no certificate (coroner/cli.py line 235); `make demo` is the credit-fees correct port (Makefile); a5edaf1924a5 in R-126 and R-131. Two defects found: the cases table separator had 7 cells for 6 columns (not rendered on GitHub), and docs/judge-guide.md said the first start took 1 minute 19 seconds while docs/deploy.md measured 1 minute 11 seconds. Call p370 (haiku-5.5) fixed both.
+- Kept as is, noted by the agent: the tagline "Kiro translates. Coroner certifies. Git and Jenkins enforce the verdict." (D-49) and the screenshot alt texts; the screenshots themselves are retaken in task 6 of the order.
+- Tests: tests/test_case_name_retired.py 2 passed (agent).
+- Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 2417.83 of 4000 used (1582.17 left).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.
