@@ -570,3 +570,98 @@ def test_gate_check_cached_hit_after_miss(client, temp_base_dir, monkeypatch):
     assert response3.status_code == 429
     data3 = response3.json()
     assert "Rate limit exceeded for gate-check" in data3["detail"]
+
+
+def cert_file_sha256(base_dir: Path, run_id: str) -> str:
+    import hashlib
+    return hashlib.sha256((base_dir / "runs" / run_id / "certificate.json").read_bytes()).hexdigest()
+
+
+@pytest.mark.slow
+def test_gate_check_replay_timeout_is_503_and_never_cached(client, temp_base_dir, monkeypatch):
+    """
+    A real replay of a real certificate with a 1 s timeout cannot finish (it compiles
+    COBOL and Java and runs 2,000 cases): 503, nothing cached, the next POST starts a
+    new replay process, and once the timeout is lifted the real answer comes back.
+    """
+    from coroner.ui.app import get_cached_gate_check, get_last_replay_pgid
+
+    run_id = "29c15f04407b"
+    key = cert_file_sha256(temp_base_dir, run_id)
+    monkeypatch.setenv("CORONER_REPLAY_TIMEOUT", "1")
+
+    response1 = client.post("/api/gate-check", data={"run_id": run_id})
+    assert response1.status_code == 503
+    assert response1.json()["message"] == "Replay did not complete, try again"
+    assert int(response1.headers["Retry-After"]) > 0
+    assert "no-store" in response1.headers["cache-control"]
+    assert response1.json()["status"] == "unavailable"
+    assert get_cached_gate_check(key) is None
+    first_process = get_last_replay_pgid()
+    assert first_process is not None
+
+    # A second POST is not answered from a cache: a new replay process is started
+    reset_rate_limiter()
+    response2 = client.post("/api/gate-check", data={"run_id": run_id})
+    assert response2.status_code == 503
+    assert get_cached_gate_check(key) is None
+    assert get_last_replay_pgid() != first_process
+
+    # The failures did not poison the answer: with the normal timeout the replay gives the real verdict
+    monkeypatch.delenv("CORONER_REPLAY_TIMEOUT")
+    reset_rate_limiter()
+    response3 = client.post("/api/gate-check", data={"run_id": run_id})
+    assert response3.status_code == 200
+    assert response3.json()["status"] == "allowed"
+    assert get_cached_gate_check(key) == response3.json()
+
+
+def test_gate_check_real_invalid_replay_is_cached(client, temp_base_dir, monkeypatch):
+    """
+    A certificate edited without its hash replays as INVALID for a real reason
+    ("certificate content was modified"): that answer is cached and a second POST
+    gets it without a replay (the 1-per-window bucket is exhausted, so a replay
+    would have answered 429).
+    """
+    from coroner.ui.app import get_cached_gate_check
+
+    monkeypatch.setenv("CORONER_GATE_CHECK_RATE_WINDOW", "3600")
+    run_id = "29c15f04407b"
+    cert_path = temp_base_dir / "runs" / run_id / "certificate.json"
+    cert_data = json.loads(cert_path.read_text())
+    cert_data["status"] = "ZOMBIE"  # certificate_sha256 is left as it was
+    cert_path.write_text(json.dumps(cert_data, indent=2, sort_keys=True) + "\n")
+    key = cert_file_sha256(temp_base_dir, run_id)
+    assert get_cached_gate_check(key) is None
+
+    response1 = client.post("/api/gate-check", data={"run_id": run_id})
+    assert response1.status_code == 200
+    assert response1.json()["status"] == "blocked"
+    assert "Certificate invalid" in response1.json()["message"]
+    assert get_cached_gate_check(key) == response1.json()
+
+    response2 = client.post("/api/gate-check", data={"run_id": run_id})
+    assert response2.status_code == 200
+    assert response2.json() == response1.json()
+
+
+@pytest.mark.parametrize("reason, reached", [
+    ("replay timed out", False),
+    ("replay failed: (no stderr)", False),
+    ("replay error: boom", False),
+    ("reference did not run during replay: no output", False),
+    ("certificate content was modified", True),
+    ("COBOL file hash mismatch", True),
+    ("replay mismatch (status: expected ALIVE, got ZOMBIE)", True),
+])
+def test_replay_reached_verdict_tells_a_real_invalid_from_a_failed_replay(reason, reached):
+    from coroner.certificate import ReplayResult
+    from coroner.ui.app import replay_reached_verdict
+
+    result = ReplayResult(
+        valid=False, reason=reason, verdict=None, cases_total=0, cases_divergent=0,
+        paragraph_coverage_reached=0, paragraph_coverage_total=0,
+        branch_coverage_reached=0, branch_coverage_total=0, cases_file="", warnings=[],
+    )
+    assert replay_reached_verdict(result) is reached
+    assert replay_reached_verdict(ReplayResult(**{**result.__dict__, "valid": True, "reason": ""})) is True

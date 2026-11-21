@@ -1338,6 +1338,26 @@ def cache_gate_check(cert_sha256: str, response: dict):
         }
 
 
+# ReplayResult has no "completed" flag; the reason of a replay that did not reach a
+# verdict starts with one of these texts. Sources: replay_with_timeout in this file
+# ("replay timed out", "replay failed: ...") and replay_certificate in
+# coroner/certificate.py ("replay error: ..." for an unexpected exception,
+# "reference did not run during replay: ..." when the COBOL reference produced nothing).
+# Every other invalid reason (content modified, hash mismatch, "replay mismatch (...)")
+# comes from a replay that compared the certificate with the real files or a real re-run.
+_REPLAY_NOT_COMPLETED_PREFIXES = (
+    "replay timed out",
+    "replay failed:",
+    "replay error:",
+    "reference did not run during replay",
+)
+
+
+def replay_reached_verdict(result: ReplayResult) -> bool:
+    """True when the replay gave a real answer (VALID, or INVALID for a real mismatch)."""
+    return result.valid or not result.reason.startswith(_REPLAY_NOT_COMPLETED_PREFIXES)
+
+
 def clear_gate_check_cache():
     """Clear the gate check cache. Used only in tests."""
     with _gate_check_cache_lock:
@@ -1441,6 +1461,19 @@ async def gate_check(request: Request, run_id: str = Form(...)):
         str(base_dir),
         replay_timeout
     )
+    
+    # A replay that did not run to a verdict (timeout, kill, process error) says
+    # nothing about the certificate: answer 503 and cache nothing
+    if not replay_reached_verdict(result):
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unavailable",
+                "message": "Replay did not complete, try again",
+                "retry_after": gate_check_window,
+            },
+            headers={"Retry-After": str(gate_check_window)}
+        )
     
     # Get replay status
     replay = "VALID" if result.valid else "INVALID"

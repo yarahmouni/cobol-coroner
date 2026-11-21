@@ -528,3 +528,79 @@ def test_generator_script_without_generate_cases_is_an_error(tmp_path):
     schema = load_with_script(tmp_path, "x = 1\n")
     with pytest.raises(GeneratorScriptError, match="no generate_cases function"):
         generate_cases(schema, {}, 1, 2, 0.06, str(tmp_path / "base"))
+
+
+# Contract: the bytes that are executed are the bytes that are hashed and recorded
+
+SCRIPT_A = (
+    "def generate_cases(schema, rng, num_cases):\n"
+    "    return [{'CASE-ID': f'A{i}', 'AMOUNT': '1.00', 'COUNT': i} for i in range(num_cases)]\n"
+)
+SCRIPT_B = SCRIPT_A.replace("f'A{i}'", "f'B{i}'")
+
+
+def test_generator_script_read_holds_the_bytes_and_their_hash(tmp_path):
+    import hashlib
+    from coroner.gen import GeneratorScript
+
+    schema = load_with_script(tmp_path, SCRIPT_A)
+    script = GeneratorScript.read(schema)
+    assert script.source == SCRIPT_A.encode()
+    assert script.sha256 == hashlib.sha256(SCRIPT_A.encode()).hexdigest()
+
+
+def test_generator_script_executes_the_bytes_that_were_hashed(tmp_path):
+    """The file changes after the read: the cases still come from the bytes that were read."""
+    from coroner.gen import GeneratorScript
+
+    schema = load_with_script(tmp_path, SCRIPT_A)
+    script = GeneratorScript.read(schema)
+    (tmp_path / "gen.py").write_text(SCRIPT_B)
+
+    path = generate_cases(schema, {}, 1, 2, 0.06, str(tmp_path / "base"), script)
+    ids = [row["CASE-ID"] for row in csv.DictReader(Path(path).read_text().splitlines())]
+    assert ids == ["A0", "A1"]
+
+    # Without a script argument the file is read once at generation time
+    path = generate_cases(schema, {}, 1, 2, 0.06, str(tmp_path / "base2"))
+    ids = [row["CASE-ID"] for row in csv.DictReader(Path(path).read_text().splitlines())]
+    assert ids == ["B0", "B1"]
+
+
+def collect_inputs_for(tmp_path, schema_path, script_sha256):
+    from coroner.store import collect_inputs
+
+    (tmp_path / "p.cob").write_text("       IDENTIFICATION DIVISION.\n")
+    (tmp_path / "P.java").write_text("class P {}\n")
+    (tmp_path / "cpy").mkdir(exist_ok=True)
+    (tmp_path / "cases.csv").write_text("CASE-ID,AMOUNT,COUNT\nA0,1.00,0\n")
+    return collect_inputs(
+        str(tmp_path / "p.cob"), str(tmp_path / "cpy"), str(tmp_path / "P.java"),
+        str(schema_path), str(tmp_path / "cases.csv"), 1, 1, None, script_sha256,
+    )
+
+
+def test_collect_inputs_records_the_executed_hash_and_keeps_the_run_id(tmp_path):
+    from coroner.gen import GeneratorScript
+    from coroner.store import compute_run_id
+
+    schema = load_with_script(tmp_path, SCRIPT_A)
+    script = GeneratorScript.read(schema)
+    from_executed = collect_inputs_for(tmp_path, tmp_path / "schema.json", script.sha256)
+    from_disk = collect_inputs_for(tmp_path, tmp_path / "schema.json", None)
+
+    assert from_executed["generator_script_sha256"] == script.sha256
+    assert from_executed["generator_script"] == "gen.py"
+    # The run id of an unchanged script is what it was before this contract existed
+    assert compute_run_id(from_executed) == compute_run_id(from_disk)
+
+
+def test_collect_inputs_refuses_a_hash_the_disk_no_longer_has(tmp_path):
+    from coroner.gen import GeneratorScript
+
+    schema = load_with_script(tmp_path, SCRIPT_A)
+    script = GeneratorScript.read(schema)
+    (tmp_path / "gen.py").write_text(SCRIPT_B)
+
+    with pytest.raises(GeneratorScriptError, match="generator script changed during the run: gen.py"):
+        collect_inputs_for(tmp_path, tmp_path / "schema.json", script.sha256)

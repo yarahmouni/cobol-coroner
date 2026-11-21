@@ -11,7 +11,7 @@ import importlib.metadata
 
 from coroner.verdict import Verdict
 from coroner.compare import ComparisonResult
-from coroner.parse.schema import resolve_generator_script
+from coroner.parse.schema import GeneratorScriptError, resolve_generator_script
 from coroner.run import _build_subprocess_env
 
 
@@ -118,7 +118,8 @@ def collect_inputs(
     cases_file: str,
     seed: int,
     case_count: int,
-    cobc_flags: list[str] | None = None
+    cobc_flags: list[str] | None = None,
+    generator_script_sha256: str | None = None
 ) -> dict:
     """
     Collect all metadata for inputs.json.
@@ -128,6 +129,11 @@ def collect_inputs(
     cases_file_encoding, cases_file_line_ending, python_version,
     cobc_version, javac_version, java_version, coroner_version,
     comparison_engine_sha256, timestamp, and optionally cobc_flags.
+    
+    generator_script_sha256: SHA-256 of the generator script bytes that were
+    executed (GeneratorScript.sha256). It is recorded as is. If the script on
+    disk no longer has that hash, the run stops with a GeneratorScriptError
+    instead of recording a hash of bytes that were not executed.
     
     Args:
         cobol_source: Path to COBOL source file
@@ -239,7 +245,13 @@ def collect_inputs(
     # Schemas with a generator_script record the script and its hash
     script_info = generator_script_info(schema_path)
     if script_info:
-        result["generator_script"], result["generator_script_sha256"] = script_info
+        declared, disk_hash = script_info
+        if generator_script_sha256 is not None and generator_script_sha256 != disk_hash:
+            raise GeneratorScriptError(
+                f"generator script changed during the run: {declared}"
+            )
+        result["generator_script"] = declared
+        result["generator_script_sha256"] = generator_script_sha256 or disk_hash
     
     return result
 

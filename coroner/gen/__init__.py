@@ -1,7 +1,9 @@
 """Case generation module for Coroner."""
 
 import csv
+import hashlib
 import random
+from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 
@@ -541,14 +543,36 @@ def generate_dirty_numeric(
         return ''.join(char_list)
 
 
-def generate_cases_from_script(schema: Schema, rng: random.Random, num_cases: int, base_dir: str) -> str:
+@dataclass(frozen=True)
+class GeneratorScript:
+    """
+    The bytes of a generator script and their SHA-256, taken from one read.
+
+    The bytes that are executed and the hash that is recorded in inputs.json and
+    the certificate both come from this object, so they cannot differ.
+    """
+    source: bytes
+    sha256: str
+
+    @classmethod
+    def read(cls, schema: Schema) -> "GeneratorScript":
+        """Read the schema's resolved generator script once."""
+        source = Path(schema.generator_script_path).read_bytes()
+        return cls(source=source, sha256=hashlib.sha256(source).hexdigest())
+
+
+def generate_cases_from_script(
+    schema: Schema, rng: random.Random, num_cases: int, base_dir: str,
+    script: GeneratorScript | None = None
+) -> str:
     """
     Generate cases with the schema's generator_script and write generated_cases.csv.
 
     The script path was checked when the schema was loaded (inside the schema
-    folder, symlinks resolved). The file is read once, compiled from those
-    bytes and executed in a fresh namespace: no import machinery, no
-    __pycache__ written next to the script. It must define
+    folder, symlinks resolved). The bytes are compiled and executed in a fresh
+    namespace: no import machinery, no __pycache__ written next to the script.
+    Pass the GeneratorScript that was read for hashing so that exactly those bytes
+    run; when omitted, the file is read here (once). It must define
     generate_cases(schema, rng, num_cases) and return one dict per case with
     exactly the schema's input column names. str, int and Decimal values are
     accepted (Decimal is written at the column's scale); anything else is an error.
@@ -557,8 +581,10 @@ def generate_cases_from_script(schema: Schema, rng: random.Random, num_cases: in
         Path to generated_cases.csv (LF line endings, UTF-8)
     """
     script_path = Path(schema.generator_script_path)
+    if script is None:
+        script = GeneratorScript.read(schema)
     namespace = {"__name__": "coroner_generator_script", "__file__": str(script_path)}
-    exec(compile(script_path.read_bytes(), str(script_path), "exec"), namespace)
+    exec(compile(script.source, str(script_path), "exec"), namespace)
     script_fn = namespace.get("generate_cases")
     if not callable(script_fn):
         raise GeneratorScriptError(f"generator script has no generate_cases function: {schema.generator_script}")
@@ -601,7 +627,8 @@ def generate_cases(
     seed: int,
     num_cases: int,
     tie_share: float = 0.06,
-    base_dir: str = "."
+    base_dir: str = ".",
+    script: GeneratorScript | None = None
 ) -> str:
     """
     Generate test cases from schema and COBOL structure.
@@ -613,6 +640,7 @@ def generate_cases(
         num_cases: Total number of cases to generate
         tie_share: Fraction of cases that are rounding ties (default 0.06)
         base_dir: Base directory for runs/ (default current directory)
+        script: GeneratorScript read for hashing; the bytes it holds are the ones executed
         
     Returns:
         Path to generated_cases.csv
@@ -621,7 +649,7 @@ def generate_cases(
     
     # A schema with generator_script uses that script instead of the built-in generator
     if schema.generator_script_path:
-        return generate_cases_from_script(schema, rng, num_cases, base_dir)
+        return generate_cases_from_script(schema, rng, num_cases, base_dir, script)
     
     # Check if we are generating multiple rows per case
     if schema.case_rows:

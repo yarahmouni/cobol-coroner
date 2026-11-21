@@ -8,7 +8,7 @@ from pathlib import Path
 
 from coroner.parse.schema import load_schema, GeneratorScriptError
 from coroner.parse.copybook import parse_cobol_structure
-from coroner.gen import generate_cases
+from coroner.gen import GeneratorScript, generate_cases
 from coroner.run import compile_cobol, compile_java, run_cobol, run_java, run_cobol_instrumented
 from coroner.compare import compare_outputs
 from coroner.verdict import compute_verdict
@@ -163,14 +163,16 @@ def run_verify(
     
     # Step 3: Generate cases
     step_start = time.time()
-    cases_csv_path = generate_cases(schema_obj, cobol_structure, seed, num_cases, tie_share, base_dir)
+    script = GeneratorScript.read(schema_obj) if schema_obj.generator_script_path else None
+    cases_csv_path = generate_cases(schema_obj, cobol_structure, seed, num_cases, tie_share, base_dir, script)
     record_step(f"Generate {num_cases} cases", step_start)
     
     # Step 4: Collect inputs and compute run_id
     step_start = time.time()
     cobol_flags = schema_obj.cobc_flags or []
     inputs_data = collect_inputs(cobol_path, copybooks_dir, java_path, schema_path, 
-                                  cases_csv_path, seed, num_cases, cobol_flags)
+                                  cases_csv_path, seed, num_cases, cobol_flags,
+                                  script.sha256 if script else None)
     run_id = compute_run_id(inputs_data)
     run_dir = Path(base_dir) / "runs" / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
