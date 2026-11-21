@@ -1006,6 +1006,13 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Checks (operator): diff is exactly the two paragraphs; no powers/ folder in the repository or in .kiro/; the only other mention (CHANGELOG.md, "not in the repository and is not claimed") is accurate; no em dash. The draft stays in the private folder outside the repository.
 - Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 2261.54 of 4000 used (1738.46 left).
 
+### R-152 2026-11-21: deployment guide holds the server outputs; changelog says the site is live
+- Owner (2026-11-21): server outputs measured on the deployment server, with the tunnel id redacted as <TUNNEL_UUID> and no home path, user name, IP or host name: uname -m x86_64; Docker Engine 29.10.0; Compose 5.8.0; git 2.43.0; tunnel create and route dns lines; pull (Coroner image 17.4 s, cloudflared 0.8 s); merged config with four image lines, the three Coroner services on ...b0ebe1e8, and an empty `published` check; up -d (network, two volumes, coroner-init exited after 55.0 s, engine, api and cloudflared started); ps with all three Up; coroner-init logs ending "Bundled demo runs generated."; four "Registered tunnel connection" lines (connIndex 0 to 3, location cdg).
+- Call p359 (haiku-5.5): every "Output: measured at deploy time" placeholder of docs/deploy.md replaced (none left). Terminal lines given verbatim by the owner are in code blocks labelled "Measured on the server, 2026-11-21"; outputs given as a summary are sentences labelled "(owner's summary)", never shown as terminal output; the credentials folder in the tunnel create line is shown as <credentials folder>. The guide notes that the server runs Compose 5.8.0, newer than the tested 2.33.1, and that `!reset` works there (the `published` check printed nothing). The legend at the top explains the two labels.
+- Call p360 (haiku-5.5): CHANGELOG.md Unreleased says the site is online, with R-148 (fd81f52) for the 10 of 10 deploy check. No "OWNER: switch to live" marker or "coming soon" remains outside this log (the judge guide was switched in R-148; the README has no live line yet, added with the README work).
+- Checks (operator): both diffs read; no UUID, home path, user name, IP or host name added; no em dash; retired-name test 2 passed.
+- Kiro balance (2026-11-21): plan 405.95 of 531 used; kiroween2026 2278.47 of 4000 used (1721.53 left).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.

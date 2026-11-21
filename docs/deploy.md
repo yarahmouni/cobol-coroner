@@ -5,7 +5,7 @@ This guide deploys COBOL Coroner at https://coroner.iqoba.com on a Linux amd64 s
 How outputs are labelled in this guide:
 
 - "Measured on the operator's Mac, 2026-11-21": real output of the command on the operator's machine (Docker Desktop), copied verbatim. Container, volume and network names start with the name of the local project folder; on the server they start with the name of the folder you clone into.
-- "Output: measured at deploy time": the command can only be measured on the server. No output is shown, and the text says which line to look for.
+- "Measured on the server, 2026-11-21": measured by the owner on the deployment server; "(owner's summary)" marks outputs given as a summary rather than terminal lines.
 
 ## What you get
 
@@ -36,7 +36,11 @@ The compose files set `platform: linux/amd64`, so the server must be amd64.
 uname -m
 ```
 
-Output: measured at deploy time. The line must be `x86_64`.
+Measured on the server, 2026-11-21:
+
+```
+x86_64
+```
 
 ```bash
 docker version --format '{{.Server.Version}}'
@@ -48,7 +52,11 @@ Measured on the operator's Mac, 2026-11-21:
 28.0.1
 ```
 
-On the server the line is the Docker Engine version (Output: measured at deploy time).
+Measured on the server, 2026-11-21:
+
+```
+29.10.0
+```
 
 ```bash
 docker compose version --short
@@ -60,13 +68,23 @@ Measured on the operator's Mac, 2026-11-21:
 2.33.1-desktop.1
 ```
 
-The compose files were tested with Compose 2.33.1. The server override uses `!reset`, which older Compose versions do not support (see Troubleshooting). On the server the line is its own Compose version (Output: measured at deploy time).
+Measured on the server, 2026-11-21:
+
+```
+5.8.0
+```
+
+The compose files were tested with Compose 2.33.1. The server runs Compose 5.8.0, which is newer, and the `!reset` override works there: the `published` check of step 5 printed nothing on the server. Older Compose versions do not support `!reset` (see Troubleshooting).
 
 ```bash
 git --version
 ```
 
-Output: measured at deploy time. The line looks like `git version <x.y.z>`.
+Measured on the server, 2026-11-21:
+
+```
+git version 2.43.0
+```
 
 ## 2. Cloudflare tunnel
 
@@ -110,7 +128,13 @@ Create the tunnel. It writes `<CLOUDFLARED_HOME>/.cloudflared/<TUNNEL_UUID>.json
 docker run --rm -v <CLOUDFLARED_HOME>/.cloudflared:/home/nonroot/.cloudflared cloudflare/cloudflared:2026.10.7@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba tunnel create coroner
 ```
 
-Output: measured at deploy time. Look for the line that gives the tunnel UUID and the path of the credentials file. Note the UUID for `.env`.
+Measured on the server, 2026-11-21 (excerpt; the credentials folder and the UUID are redacted):
+
+```
+Tunnel credentials written to <credentials folder>/<TUNNEL_UUID>.json ... Created tunnel coroner with id <TUNNEL_UUID>
+```
+
+Note the UUID for `.env`.
 
 Route the hostname to the tunnel:
 
@@ -118,7 +142,13 @@ Route the hostname to the tunnel:
 docker run --rm -v <CLOUDFLARED_HOME>/.cloudflared:/home/nonroot/.cloudflared cloudflare/cloudflared:2026.10.7@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba tunnel route dns coroner coroner.iqoba.com
 ```
 
-Output: measured at deploy time. Look for a line that mentions coroner.iqoba.com. If the command reports an error instead, the route does not exist yet.
+Measured on the server, 2026-11-21:
+
+```
+INF Added CNAME coroner.iqoba.com which will route to this tunnel tunnelID=<TUNNEL_UUID>
+```
+
+If the command reports an error instead, the route does not exist yet.
 
 ### (c) Credentials file permissions
 
@@ -196,7 +226,7 @@ Measured on the operator's Mac, 2026-11-21 (`docker compose pull` with `docker-c
 docker compose pull  0.19s user 0.16s system 0% cpu 48.869 total
 ```
 
-The last line is the `time` output of the operator's shell: the pull took 48.9 seconds there. On the server the same command also pulls cloudflared (Output: measured at deploy time).
+The last line is the `time` output of the operator's shell: the pull took 48.9 seconds there. On the server the same command also pulls cloudflared. Measured on the server, 2026-11-21 (owner's summary): both images were pulled, the Coroner image in 17.4 s and cloudflared in 0.8 s.
 
 Read the digest back from the pulled image and compare it with the one in `docker-compose.yml`. They must match exactly:
 
@@ -236,13 +266,15 @@ docker compose -f docker-compose.yml -f docker-compose.server.yml config | grep 
 
 If it prints a line, the `ports: !reset []` override did not apply: your Compose is too old (see Troubleshooting).
 
+Measured on the server, 2026-11-21 (owner's summary): the image check printed four image lines (the three Coroner services on the digest ending in b0ebe1e8, and cloudflared), and the `published` check printed nothing.
+
 ## 6. Start
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.server.yml up -d
 ```
 
-Output: measured at deploy time. The Compose lines for the network, the volumes and the four containers, ending with the containers started and `coroner-init` exited. On the operator's Mac, the same command with `docker-compose.yml` only (no cloudflared) gave, on 2026-11-21:
+Measured on the server, 2026-11-21 (owner's summary): Compose created the network and the two volumes; `coroner-init` exited after 55.0 s; `coroner-engine`, `coroner-api` and `cloudflared` started. On the operator's Mac, the same command with `docker-compose.yml` only (no cloudflared) gave, on 2026-11-21:
 
 ```
  Network cobol-lazarus_default  Creating
@@ -276,7 +308,7 @@ List the running services:
 docker compose -f docker-compose.yml -f docker-compose.server.yml ps --format 'table {{.Service}}\t{{.Image}}\t{{.Status}}'
 ```
 
-Output: measured at deploy time. Look for `coroner-api`, `coroner-engine` and `cloudflared` with a status starting with `Up`. `coroner-init` is not listed because it has exited. On the operator's Mac (no cloudflared), 2026-11-21:
+Measured on the server, 2026-11-21 (owner's summary): `cloudflared`, `coroner-api` and `coroner-engine` all have a status starting with `Up`. Look for `coroner-api`, `coroner-engine` and `cloudflared` with a status starting with `Up`. `coroner-init` is not listed because it has exited. On the operator's Mac (no cloudflared), 2026-11-21:
 
 ```
 SERVICE          IMAGE                                                                                                      STATUS
@@ -301,7 +333,7 @@ coroner-init-1  | Wrote /data/runs/trap_catalog.txt
 coroner-init-1  | Bundled demo runs generated.
 ```
 
-On the server the service name prefix differs. The last line must be `Bundled demo runs generated.`
+On the server the service name prefix differs. The last line must be `Bundled demo runs generated.` On the server, 2026-11-21, the logs end with `Bundled demo runs generated.`
 
 Check that cloudflared connected:
 
@@ -309,7 +341,7 @@ Check that cloudflared connected:
 docker compose -f docker-compose.yml -f docker-compose.server.yml logs cloudflared
 ```
 
-Output: measured at deploy time. Look for a line that says a tunnel connection was registered. The check that counts is the one in the last section of this guide.
+Measured on the server, 2026-11-21 (owner's summary): four "Registered tunnel connection" lines, connIndex 0 to 3, location cdg. The check that counts is the one in the last section of this guide.
 
 ## Day-to-day operations
 

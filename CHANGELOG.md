@@ -6,7 +6,7 @@ All notable changes to COBOL Coroner. The format follows Keep a Changelog. Items
 
 State at 2026-11-21, from the review log (R-xxx) and the judge guide:
 
-- The live site at coroner.iqoba.com is not announced yet; the judge guide says "coming soon". The deployment guide and the deployment check exist (bda61df, 8f604e9).
+- The live site https://coroner.iqoba.com is online. The deployment check passed all 10 checks against it on 2026-11-21 (R-148, fd81f52); the judge guide links to it, and the deployment guide records the server outputs (R-152).
 - Trap T6 is a placeholder; the owner's field trap has not been received (Q1).
 - The independence table has one pending row for a port written by hand by the author. The row is removed if it has not arrived by 2026-11-26 (Q3).
 - The Kiro power `coroner-audit` is not in the repository and is not claimed (Q6).
