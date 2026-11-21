@@ -8,5 +8,32 @@
   "business_fix": "Make the Java migration sort and match branch codes in the same order as the mainframe.",
   "fix_sentence": "Use IBM1047 Charset or a custom Comparator for EBCDIC byte order.",
   "suspense_code": "SUSP",
-  "suspense_label": "suspense"
+  "suspense_label": "suspense",
+  "cobol_rule": "Branch codes are compared in EBCDIC order, which the program sets with its alphabet and collating sequence clauses.",
+  "listing": [
+    {
+      "id": "collation",
+      "label": "Collating sequence",
+      "start_pattern": "^\\s*SPECIAL-NAMES\\.",
+      "until_pattern": "^\\s*INPUT-OUTPUT\\s+SECTION"
+    },
+    {
+      "id": "table",
+      "label": "Branch table",
+      "start_pattern": "^\\s*MOVE\\s+\"[^\"]+\"\\s+TO\\s+TABLE-CODE\\(1\\)",
+      "until_pattern": "^\\s*MOVE\\s+SPACES\\s+TO\\s+TABLE-CODE\\(10\\)"
+    },
+    {
+      "id": "sort",
+      "label": "Sort of the transactions",
+      "start_pattern": "^\\s*SORT\\s+SORT-WORK",
+      "until_pattern": "^\\s*STOP\\s+RUN"
+    },
+    {
+      "id": "match",
+      "label": "Match of each transaction against the branch table",
+      "start_pattern": "^\\s*BALANCE-LINE\\.",
+      "until_pattern": "^\\s*WRITE-CASE-RESULTS\\."
+    }
+  ]
 }

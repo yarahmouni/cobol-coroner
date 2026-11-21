@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from coroner.cases import load_cases_registry
 from coroner.cli import run_verify
 from coroner.diag.card import generate_card
 from coroner.diag.report import FailureReport
@@ -27,9 +28,13 @@ def run_catalog(seed: int = 42, cases: int = 2000, base_dir: str = ".") -> dict[
         Catalog dict with results for all traps
     """
     results = []
+    registry = load_cases_registry()
     
     # T1 to T5
     for trap_id in ["T1", "T2", "T3", "T4", "T5"]:
+        if trap_id not in registry:
+            print(f"ERROR: Trap {trap_id} has no entry in the case registry", file=sys.stderr)
+            sys.exit(2)
         trap_dir = TRAPS_DIR / _trap_folder_name(trap_id)
         
         if not trap_dir.exists():
@@ -48,7 +53,9 @@ def run_catalog(seed: int = 42, cases: int = 2000, base_dir: str = ".") -> dict[
         trap_result = {
             "id": trap_id,
             "title": trap_metadata["title"],
-            "status": "measured"
+            "status": "measured",
+            "case_number": registry[trap_id]["case"],
+            "case_name": registry[trap_id]["name"],
         }
         
         # Find COBOL program
@@ -206,10 +213,15 @@ def run_catalog(seed: int = 42, cases: int = 2000, base_dir: str = ".") -> dict[
         results.append(trap_result)
     
     # T6 placeholder
+    if "T6" not in registry:
+        print("ERROR: Trap T6 has no entry in the case registry", file=sys.stderr)
+        sys.exit(2)
     results.append({
         "id": "T6",
         "title": "Reserved for owner field trap",
-        "status": "placeholder: owner field trap pending"
+        "status": "placeholder: owner field trap pending",
+        "case_number": registry["T6"]["case"],
+        "case_name": registry["T6"]["name"],
     })
     
     return {"traps": results}
@@ -252,7 +264,7 @@ def write_catalog_files(catalog: dict[str, Any], base_dir: str = ".") -> None:
         f.write("targeted regression traps within its supported COBOL subset.\n\n")
         
         for trap in catalog["traps"]:
-            f.write(f"== {trap['id']}: {trap['title']} ==\n")
+            f.write(f"== Case {trap['case_number']} {trap['case_name']} ({trap['id']}): {trap['title']} ==\n")
             f.write(f"Status: {trap['status']}\n")
             
             if trap["status"] == "measured":

@@ -19,6 +19,7 @@
         <thead>
             <tr style="background: #333333;">
                 <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #444;">Trap</th>
+                <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #444;">Case</th>
                 <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #444;">Description</th>
                 <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #444;">Detected</th>
                 <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #444;">Rate</th>
@@ -29,6 +30,7 @@
             {% for trap in traps %}
             <tr style="border-bottom: 1px solid #333;">
                 <td style="padding: 1rem;">{{ trap.id }}</td>
+                <td style="padding: 1rem;">{{ trap.case }}</td>
                 <td style="padding: 1rem;">{{ trap.description }}</td>
                 <td style="padding: 1rem;">{{ trap.detected }}</td>
                 <td style="padding: 1rem;">{{ trap.rate }}</td>

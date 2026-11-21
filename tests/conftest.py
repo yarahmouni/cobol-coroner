@@ -87,3 +87,52 @@ def t1_correct_run(tmp_path_factory):
     )
     
     return run_dir.name, tmp_path
+
+
+STORY_CASES = 9
+
+
+def _folder_listing(folder: Path) -> list:
+    """Names and modification times of the entries of a folder (empty if it does not exist)."""
+    if not folder.exists():
+        return []
+    return sorted((p.name, p.stat().st_mtime_ns) for p in folder.iterdir())
+
+
+@pytest.fixture(scope="session")
+def story_runs(tmp_path_factory):
+    """
+    The real trap catalog of the guided story tests, produced once per session.
+
+    run_catalog runs the faulty and the correct port of T1 to T5 with the real engine into a
+    temporary base directory and write_catalog_files writes runs/trap_catalog.json there. The
+    repository runs/ folder is never read or written: its listing is checked before and after.
+
+    Case count: 9, seed 42. It is the smallest count at which the faulty ports of T1, T2 and T4
+    are all ZOMBIE (measured with `run_verify`, seed 42, counts 1 to 9 and 10 to 28 on the
+    operator machine, GnuCOBOL 3.2.0): at 9 cases T1 diverges on 4, T2 on 7 and T4 on 1; at 8
+    cases T4 is ALIVE (0 divergent cases). The fixture asserts the three verdicts, so a
+    generator change that lowers one of them fails here and not in a later test.
+
+    Returns a namedtuple (base, cases, catalog): the base directory to give to the story data
+    layer, the case count, and the dict returned by run_catalog.
+    """
+    from collections import namedtuple
+
+    from coroner.traps import run_catalog, write_catalog_files
+
+    repo_runs = Path(__file__).resolve().parent.parent / "runs"
+    before = _folder_listing(repo_runs)
+
+    base = tmp_path_factory.mktemp("story_runs")
+    catalog = run_catalog(seed=42, cases=STORY_CASES, base_dir=str(base))
+    write_catalog_files(catalog, base_dir=str(base))
+
+    by_id = {trap["id"]: trap for trap in catalog["traps"]}
+    for trap_id in ("T1", "T2", "T4"):
+        assert by_id[trap_id]["cases_detected"] >= 1, (
+            f"{trap_id} faulty port is not ZOMBIE at {STORY_CASES} cases"
+        )
+    assert _folder_listing(repo_runs) == before, "the story catalog touched the repository runs/ folder"
+
+    return namedtuple("StoryRuns", "base cases catalog")(base, STORY_CASES, catalog)

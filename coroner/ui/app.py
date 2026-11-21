@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field, conint, field_validator
 from starlette.concurrency import run_in_threadpool
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from coroner.cases import auditable_trap_ids, case_label, load_cases_registry
 from coroner.certificate import replay_certificate, compute_certificate_sha256, ReplayResult
 from coroner.gate import certificate_matches_files, gate_decision
 from coroner.hooks import get_repo_root
@@ -203,8 +204,8 @@ def detect_trap_id(inputs_data: dict) -> str | None:
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
-# run_id validation: exactly 12 lowercase hexadecimal characters
-RUN_ID_PATTERN = re.compile(r"^[0-9a-f]{12}$")
+# run_id validation: exactly 12 lowercase hexadecimal characters (pattern shared with the story data layer)
+from coroner.ui.pages import RUN_ID_PATTERN  # noqa: E402
 
 
 def validate_run_id(run_id: str) -> str:
@@ -278,10 +279,15 @@ async def favicon():
 async def index(request: Request):
     """Index page."""
     runs = get_recent_runs(limit=10)
+    registry = load_cases_registry()
+    sample_cases = [
+        {"id": trap_id, "label": case_label(trap_id, registry)}
+        for trap_id in auditable_trap_ids(registry)
+    ]
     return templates.TemplateResponse(
         request=request,
         name="index.html",
-        context={"runs": runs}
+        context={"runs": runs, "sample_cases": sample_cases}
     )
 
 
@@ -421,7 +427,7 @@ async def render_error_page(request: Request, run_id: str, run_dir: Path):
 @app.get("/run/{run_id}", response_class=HTMLResponse)
 async def run_page(request: Request, run_id: str):
     """Run details page."""
-    from coroner.ui.pages import format_timestamp, compute_exhibit_data
+    from coroner.ui.pages import format_timestamp, compute_exhibit_data, parse_card
     from coroner.ui.sentences import generate_zombie_sentence
     
     validate_run_id(run_id)
@@ -771,62 +777,7 @@ async def run_page(request: Request, run_id: str):
         card_file = run_dir / "card.txt"
         if card_file.exists():
             try:
-                card_text = card_file.read_text().strip()
-                if card_text:
-                    # Parse card.txt format:
-                    # Given the following input rows:
-                    #   ...
-                    # When the COBOL reference and the Java port process this case
-                    # Then ...
-                    # COBOL lines involved: path:line statement; path:line statement; ...
-                    lines = card_text.split("\n")
-                    given_lines = []
-                    when_lines = []
-                    then_lines = []
-                    cobol_lines = []
-                    
-                    section = None
-                    for line in lines:
-                        if line.startswith("Given"):
-                            section = "given"
-                            given_lines.append(line)
-                        elif line.startswith("When"):
-                            section = "when"
-                            when_lines.append(line)
-                        elif line.startswith("Then"):
-                            section = "then"
-                            then_lines.append(line)
-                        elif line.startswith("COBOL lines involved:"):
-                            section = "cobol"
-                            # Extract lines after the colon
-                            rest = line[len("COBOL lines involved:"):].strip()
-                            if rest:
-                                # Split by "; " for inline format
-                                for part in rest.split("; "):
-                                    if part:
-                                        # Extract just filename:line statement
-                                        # part is like: "full/path/file.cob:123 STATEMENT TEXT"
-                                        # or "full/path/file.cob:123 STATEMENT TEXT."
-                                        # We want "file.cob:123 STATEMENT TEXT"
-                                        if ":" in part:
-                                            path_part, rest_part = part.split(":", 1)
-                                            filename = Path(path_part).name
-                                            cobol_lines.append(f"{filename}:{rest_part}")
-                                        else:
-                                            cobol_lines.append(part)
-                        elif section == "given" and line.strip():
-                            given_lines.append(line)
-                        elif section == "when" and line.strip():
-                            when_lines.append(line)
-                        elif section == "then" and line.strip():
-                            then_lines.append(line)
-                    
-                    card = {
-                        "given": "\n".join(given_lines),
-                        "when": "\n".join(when_lines),
-                        "then": "\n".join(then_lines),
-                        "cobol_lines": cobol_lines
-                    }
+                card = parse_card(card_file.read_text())
             except OSError:
                 pass
     
@@ -835,6 +786,7 @@ async def run_page(request: Request, run_id: str):
         name="run.html",
         context={
             "run_id": run_id,
+            "case_label": case_label(trap_id),
             "audit_datetime": audit_datetime,
             "coroner_version": coroner_version,
             "verdict_class": verdict_class,
@@ -1515,6 +1467,7 @@ async def gate_check(request: Request, run_id: str = Form(...)):
 async def matrix_page(request: Request):
     """Detection Matrix page."""
     catalog_file = get_base_dir() / "runs" / "trap_catalog.json"
+    registry = load_cases_registry()
     
     has_catalog = catalog_file.exists()
     traps = []
@@ -1531,6 +1484,7 @@ async def matrix_page(request: Request):
                 if trap_id == "T6":
                     traps.append({
                         "id": trap_id,
+                        "case": case_label(trap_id, registry) or "not recorded",
                         "description": trap_data.get("title", ""),
                         "detected": "not measured",
                         "rate": "not measured",
@@ -1549,6 +1503,7 @@ async def matrix_page(request: Request):
                     
                     traps.append({
                         "id": trap_id,
+                        "case": case_label(trap_id, registry) or "not recorded",
                         "description": trap_data.get("title", ""),
                         "detected": detected_text,
                         "rate": rate_text,

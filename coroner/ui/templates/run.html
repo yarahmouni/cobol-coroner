@@ -10,7 +10,7 @@
     </div>
     
     <div style="font-size: 0.875rem; color: var(--secondary-text); margin-bottom: 1rem;">
-        Audit {{ audit_datetime }} · Coroner {{ coroner_version }} · Run {{ run_id }}
+        {% if case_label %}<strong>{{ case_label }}</strong> · {% endif %}Audit {{ audit_datetime }} · Coroner {{ coroner_version }} · Run {{ run_id }}
     </div>
     
     <div class="banner" style="font-size: 0.75rem;">

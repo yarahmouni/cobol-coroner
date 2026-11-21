@@ -1,9 +1,71 @@
 """UI page rendering logic."""
 
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+
+# run_id validation: exactly 12 lowercase hexadecimal characters
+RUN_ID_PATTERN = re.compile(r"^[0-9a-f]{12}$")
+
+
+def parse_card(card_text: str) -> Optional[dict]:
+    """
+    Split the text of card.txt into its Given, When and Then parts and its COBOL lines.
+
+    Returns None for an empty card. Each COBOL line is "<file name>:<line number> <statement>".
+    """
+    card_text = card_text.strip()
+    if not card_text:
+        return None
+    # Card format:
+    # Given the following input rows:
+    #   ...
+    # When the COBOL reference and the Java port process this case
+    # Then ...
+    # COBOL lines involved: path:line statement; path:line statement; ...
+    given_lines = []
+    when_lines = []
+    then_lines = []
+    cobol_lines = []
+
+    section = None
+    for line in card_text.split("\n"):
+        if line.startswith("Given"):
+            section = "given"
+            given_lines.append(line)
+        elif line.startswith("When"):
+            section = "when"
+            when_lines.append(line)
+        elif line.startswith("Then"):
+            section = "then"
+            then_lines.append(line)
+        elif line.startswith("COBOL lines involved:"):
+            section = "cobol"
+            rest = line[len("COBOL lines involved:"):].strip()
+            if rest:
+                for part in rest.split("; "):
+                    if part:
+                        # part is "full/path/file.cob:123 STATEMENT TEXT": keep "file.cob:123 STATEMENT TEXT"
+                        if ":" in part:
+                            path_part, rest_part = part.split(":", 1)
+                            cobol_lines.append(f"{Path(path_part).name}:{rest_part}")
+                        else:
+                            cobol_lines.append(part)
+        elif section == "given" and line.strip():
+            given_lines.append(line)
+        elif section == "when" and line.strip():
+            when_lines.append(line)
+        elif section == "then" and line.strip():
+            then_lines.append(line)
+
+    return {
+        "given": "\n".join(given_lines),
+        "when": "\n".join(when_lines),
+        "then": "\n".join(then_lines),
+        "cobol_lines": cobol_lines,
+    }
 
 
 def format_timestamp(timestamp_str: str) -> str:

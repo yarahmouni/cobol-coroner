@@ -25,11 +25,9 @@
             <label for="sample" style="display: block; margin-bottom: 0.5rem;">Sample:</label>
             <select name="sample" id="sample" required style="width: 100%; padding: 0.5rem; background: #2a2a2a; border: 1px solid #444; border-radius: 4px; color: #e0e0e0;">
                 <option value="credit-fees">credit-fees</option>
-                <option value="T1">T1 (EBCDIC collation)</option>
-                <option value="T2">T2 (rounding)</option>
-                <option value="T3">T3 (COMP-3 sign)</option>
-                <option value="T4">T4 (zoned overpunch)</option>
-                <option value="T5">T5 (REDEFINES)</option>
+                {% for sample_case in sample_cases %}
+                <option value="{{ sample_case.id }}">{{ sample_case.label }} ({{ sample_case.id }})</option>
+                {% endfor %}
             </select>
         </div>
         
