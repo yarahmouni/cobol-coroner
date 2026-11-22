@@ -1198,6 +1198,15 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Results: agent: test_docker_compose.py and test_static_page.py with slow 61 passed; make test 815 passed. Operator: make test 815 passed in 229.63 s.
 - Kiro balance (2026-11-22): plan 405.95 of 531 used; kiroween2026 3054.92 of 4000 used.
 
+### R-174 2026-11-22: live check after the redeploy; a cached Run audit now shows the verdict box
+- Owner redeployed the image of eb4b915 (R-173). Operator: scripts/deploy_check.py --skip-build against https://coroner.iqoba.com: all 10 PASS (T1 faulty ZOMBIE f584d5f35228 and T1 correct ALIVE 29c15f04407b, both cache hits; Tamper INVALID; Verify VALID).
+- Owner report: Case 3 faulty, 200 cases, shows "ZOMBIE 44 of 200" on the home page and no exposure line. Cause: the line needs exposure_sum and affected_branches in verdict.json, which only Case 1 (branch control break) records; the T3 run 38ae1c058b27 has neither. Money figure for Cases 2 to 5: next entry.
+- Operator check in Chrome on the live home page: Case 1 faulty with a new seed (43, 200 cases) shows "ZOMBIE / 74 of 200 cases diverge. / Exposure: 418217.75 across 2 branches / Open the run". With the default values (seed 42, 200 or 2000 cases) it shows only "Cached result: c3e30bd6255d" (or f584d5f35228): no verdict, no count, no exposure. A visitor who keeps the defaults never saw the verdict on the home page.
+- Call p395 (sonnet-5.5): one helper run_result_summary(run_dir) in coroner/ui/pages.py reads verdict.json; the cache-hit response of POST /api/run and the done branch of the job status both use it (cache hit for f584d5f35228: verdict ZOMBIE, 682 of 2000, "Exposure: 3995184.38 across 2 branches"). index.html: one renderResult for both paths, built with createElement and textContent, plus "Same inputs as an existing run: result reused." on a cache hit; without verdict.json the old "Cached result" line. Side effect: an ALIVE result now also carries its counts. tests/test_ui_run_audit_cache_hit.py: real runs in a temporary base (ZOMBIE, ALIVE, missing and unreadable verdict.json, done job equal to cache hit), a template test, and a Chrome test submitting the form defaults (ZOMBIE box, count, exposure, note, link; then ALIVE, no exposure).
+- Operator: with the old index.html the template test and the Chrome test fail (2 failed, 5 passed); restored, 7 passed.
+- Results: agent: changed and related UI files with slow, SCREENSHOT_CHANNEL=chrome: 56 passed; make test 821 passed in 201.43 s. Ships in the next image; the live site keeps the "Cached result" line until then.
+- Kiro balance (2026-11-22): plan 405.95 of 531 used; kiroween2026 3074.39 of 4000 used.
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.

@@ -28,6 +28,28 @@ def exposure_line(verdict_data: dict) -> Optional[str]:
     return f"Exposure: {exposure_sum} across {affected} {noun}"
 
 
+def run_result_summary(run_dir: Path) -> dict:
+    """
+    The result fields of the Run audit box, read from <run_dir>/verdict.json.
+
+    Returns verdict (the recorded status), cases_divergent and cases_total (each only when the file
+    records it) and exposure_line (None when the run has no exposure). Used by the job status when a
+    job is done and by the cache-hit answer of POST /api/run, so both paths give the same fields.
+    Returns an empty dict when verdict.json is missing or unreadable.
+    """
+    try:
+        verdict_data = json.loads((Path(run_dir) / "verdict.json").read_text())
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(verdict_data, dict):
+        return {}
+    summary = {"verdict": verdict_data.get("status"), "exposure_line": exposure_line(verdict_data)}
+    for key in ("cases_divergent", "cases_total"):
+        if key in verdict_data:
+            summary[key] = verdict_data[key]
+    return summary
+
+
 def parse_card(card_text: str) -> Optional[dict]:
     """
     Split the text of card.txt into its Given, When and Then parts and its COBOL lines.

@@ -81,6 +81,64 @@ function showExposure(resultDiv, exposureLine) {
     badge.insertBefore(line, badge.querySelector('a'));
 }
 
+// One rendering for a finished job and for a cache hit (reused is true for a cache hit).
+// All run data goes in with textContent or href, never innerHTML.
+function renderResult(resultDiv, data, reused) {
+    resultDiv.replaceChildren();
+    const runId = data.run_id;
+    const link = document.createElement('a');
+    link.href = '/run/' + encodeURIComponent(runId);
+
+    if (data.verdict !== 'ZOMBIE' && data.verdict !== 'ALIVE') {
+        // No verdict recorded for this run: show the run id with the link
+        const paragraph = document.createElement('p');
+        paragraph.style.color = '#4ade80';
+        paragraph.style.fontWeight = 'bold';
+        paragraph.appendChild(document.createTextNode(reused ? 'Cached result: ' : 'Audit complete: '));
+        link.style.color = '#ff6b35';
+        link.textContent = runId;
+        paragraph.appendChild(link);
+        resultDiv.appendChild(paragraph);
+        return;
+    }
+
+    const isZombie = data.verdict === 'ZOMBIE';
+    const badge = document.createElement('div');
+    badge.className = 'verdict-badge ' + (isZombie ? 'zombie' : 'alive');
+    badge.style.padding = '1rem';
+    badge.style.margin = '0.5rem 0';
+
+    const title = document.createElement('div');
+    title.style.fontSize = '1.5rem';
+    title.style.fontWeight = 'bold';
+    title.style.marginBottom = '0.5rem';
+    title.textContent = isZombie ? '\u25A0 ZOMBIE' : '\u25CF ALIVE';
+    badge.appendChild(title);
+
+    if (typeof data.cases_divergent === 'number' && typeof data.cases_total === 'number') {
+        const divergentText = document.createElement('div');
+        divergentText.id = 'divergent-text';
+        divergentText.style.marginBottom = '0.5rem';
+        divergentText.textContent = data.cases_divergent + ' of ' + data.cases_total + ' cases diverge.';
+        badge.appendChild(divergentText);
+    }
+
+    if (reused) {
+        const note = document.createElement('div');
+        note.id = 'reused-note';
+        note.style.marginBottom = '0.5rem';
+        note.textContent = 'Same inputs as an existing run: result reused.';
+        badge.appendChild(note);
+    }
+
+    link.style.color = 'currentColor';
+    link.style.textDecoration = 'underline';
+    link.textContent = 'Open the run';
+    badge.appendChild(link);
+    resultDiv.appendChild(badge);
+    showExposure(resultDiv, data.exposure_line);
+}
+
 document.body.addEventListener('htmx:afterRequest', function(event) {
     if (event.detail.target.id === 'audit-result') {
         const xhr = event.detail.xhr;
@@ -99,42 +157,7 @@ document.body.addEventListener('htmx:afterRequest', function(event) {
                     .then(data => {
                         if (data.status === 'done') {
                             clearInterval(pollInterval);
-                            
-                            // Show verdict with appropriate styling
-                            const verdict = data.verdict;
-                            const runId = data.run_id;
-                            
-                            let html = '';
-                            if (verdict === 'ZOMBIE') {
-                                const divergent = data.cases_divergent || 0;
-                                const total = data.cases_total || 0;
-                                const divergentText = document.createElement('span');
-                                divergentText.textContent = divergent + ' of ' + total + ' cases diverge.';
-                                
-                                html = '<div class="verdict-badge zombie" style="padding: 1rem; margin: 0.5rem 0;">' +
-                                       '<div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 0.5rem;">&#9632; ZOMBIE</div>' +
-                                       '<div style="margin-bottom: 0.5rem;" id="divergent-text"></div>' +
-                                       '<a href="/run/' + runId + '" style="color: currentColor; text-decoration: underline;">Open the run</a>' +
-                                       '</div>';
-                                resultDiv.innerHTML = html;
-                                document.getElementById('divergent-text').appendChild(divergentText);
-                                showExposure(resultDiv, data.exposure_line);
-                            } else if (verdict === 'ALIVE') {
-                                html = '<div class="verdict-badge alive" style="padding: 1rem; margin: 0.5rem 0;">' +
-                                       '<div style="font-size: 1.5rem; font-weight: bold; margin-bottom: 0.5rem;">&#9679; ALIVE</div>' +
-                                       '<a href="/run/' + runId + '" style="color: currentColor; text-decoration: underline;">Open the run</a>' +
-                                       '</div>';
-                                resultDiv.innerHTML = html;
-                                showExposure(resultDiv, data.exposure_line);
-                            } else {
-                                // Fallback for unknown verdict
-                                const runIdText = document.createElement('span');
-                                runIdText.textContent = runId;
-                                
-                                html = '<p style="color: #4ade80; font-weight: bold;">Audit complete: <a href="/run/' + runId + '" style="color: #ff6b35;"></a></p>';
-                                resultDiv.innerHTML = html;
-                                resultDiv.querySelector('a').appendChild(runIdText);
-                            }
+                            renderResult(resultDiv, data, false);
                         } else if (data.status === 'error') {
                             clearInterval(pollInterval);
                             
@@ -164,16 +187,10 @@ document.body.addEventListener('htmx:afterRequest', function(event) {
                     });
             }, 2000);
         } else if (xhr.status === 200) {
-            // Cache hit
+            // Cache hit: the answer carries the same result fields as a finished job
             const response = JSON.parse(xhr.responseText);
-            const runId = response.run_id;
             const resultDiv = document.getElementById('audit-result');
-            
-            const runIdText = document.createElement('span');
-            runIdText.textContent = runId;
-            
-            resultDiv.innerHTML = '<p style="color: #4ade80; font-weight: bold;">Cached result: <a href="/run/' + runId + '" style="color: #ff6b35;"></a></p>';
-            resultDiv.querySelector('a').appendChild(runIdText);
+            renderResult(resultDiv, response, true);
         } else if (xhr.status === 429) {
             // Rate limited
             const response = JSON.parse(xhr.responseText);

@@ -2017,11 +2017,12 @@ async def run_audit(
     )
     
     if cached_run_id:
-        # Cache hit, return existing run
-        return JSONResponse(
-            status_code=200,
-            content={"run_id": cached_run_id, "cached": True}
-        )
+        # Cache hit, return existing run with the same result fields as a finished job
+        from coroner.ui.pages import run_result_summary
+
+        content = {"run_id": cached_run_id, "cached": True}
+        content.update(run_result_summary(get_base_dir() / "runs" / cached_run_id))
+        return JSONResponse(status_code=200, content=content)
     
     # Create job
     job_id = generate_job_id()
@@ -2135,22 +2136,11 @@ async def job_status(job_id: str):
                 # Copy the run directory
                 shutil.copytree(job_run_dir, run_dir)
         
-        # Read verdict from the run in CORONER_BASE_DIR
-        verdict_file = run_dir / "verdict.json"
-        response_content["exposure_line"] = None
-        if verdict_file.exists():
-            try:
-                from coroner.ui.pages import exposure_line
+        # Read the verdict, counts and exposure line from the run in CORONER_BASE_DIR
+        from coroner.ui.pages import run_result_summary
 
-                verdict_data = json.loads(verdict_file.read_text())
-                response_content["verdict"] = verdict_data.get("status")
-                response_content["exposure_line"] = exposure_line(verdict_data)
-                # For ZOMBIE, also include divergence counts
-                if verdict_data.get("status") == "ZOMBIE":
-                    response_content["cases_divergent"] = verdict_data.get("cases_divergent")
-                    response_content["cases_total"] = verdict_data.get("cases_total")
-            except (json.JSONDecodeError, OSError):
-                pass
+        response_content["exposure_line"] = None
+        response_content.update(run_result_summary(run_dir))
         
         # Update run index (always, whether bundled or not)
         request_file = job_dir / "request.json"
