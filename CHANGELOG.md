@@ -7,7 +7,7 @@ All notable changes to COBOL Coroner. The format follows Keep a Changelog. Items
 State at 2026-11-21, from the review log (R-xxx) and the judge guide:
 
 - The live site https://coroner.iqoba.com is online. The deployment check passed all 10 checks against it on 2026-11-21 (R-148, fd81f52); the judge guide links to it, and the deployment guide records the server outputs (R-152).
-- The image of commit eb4b915 (digest ...67511ba3, publish run 44976586677) is published and pinned; it adds restart policies for the server stack, the recovery of jobs left running by a stopped engine, and the real gate block message. The local deployment check passed all 10 checks on it on 2026-11-22. The live site runs the previous image until the owner redeploys.
+- The image of commit 2c2a11b (digest ...efc7211, publish run 45029885381) is published and pinned; it adds the verdict box for reused runs and the amount difference figure for Cases 2 to 5. The local upgrade check passed on 2026-11-22. The live site runs the previous image until the owner redeploys.
 - Trap T6 is a placeholder; the owner's field trap has not been received (Q1).
 - The independence table has one pending row for a port written by hand by the author. The row is removed if it has not arrived by 2026-11-26 (Q3).
 - The Kiro power `coroner-audit` is in `powers/coroner-audit/` and was run in the Kiro IDE 1.4.178 on Windows (evidence [`docs/evidence/kiro-power-run.md`](docs/evidence/kiro-power-run.md), Q6).

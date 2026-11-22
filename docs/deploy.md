@@ -7,14 +7,16 @@ How outputs are labelled in this guide:
 - "Measured on the operator's Mac, 2026-11-21": real output of the command on the operator's machine (Docker Desktop), copied verbatim. Container, volume and network names start with the name of the local project folder; on the server they start with the name of the folder you clone into.
 - "Measured on the server, 2026-11-21": measured by the owner on the deployment server; "(owner's summary)" marks outputs given as a summary rather than terminal lines.
 
-Image change on 2026-11-22: the image pinned in this guide is the one published by `publish-image.yml` run 44976586677 from commit eb4b915 (805 tests passed in the image). It replaces the image of commit c3358ed (sha256:0ca88a1f...501a4ad4, run 44943106518), which was never deployed, and it adds the reboot fix (restart policies and recovery of stale running jobs, R-170) and the gate message fix (R-172). The outputs labelled "Measured on the operator's Mac" below were recorded with the image of commit c3358ed. Where a block shows the image digest, the digest was replaced by the new one; the other lines, the times and the run ids are as recorded. Local check of the new image (operator, 2026-11-22): the deployment check passed every check, with run ids f584d5f35228 and 29c15f04407b; with the engine stopped, three Run audit jobs stayed running and the API answered 429; after the engine restarted it logged "Recovered 3 stale running job(s)" and Run audit was accepted. Outputs labelled "Measured on the server" were measured on the previous image (sha256:837503172e4d...b0ebe1e8) and stay as recorded until the owner redeploys.
+Image change on 2026-11-22 (second image): the image pinned in this guide is the one published by `publish-image.yml` run 45029885381 from commit 2c2a11b (901 tests passed in the image). It replaces the image of commit eb4b915 (sha256:3f57cae7...67511ba3, run 44976586677), which is the image the live site runs until the owner redeploys. It adds the verdict box for a reused Run audit result (R-174) and the amount difference figure for Cases 2 to 5, kept in a derived file that coroner-init adds for existing runs (R-175, R-177). Local upgrade check (operator, 2026-11-22): a stack on the previous image with a Case 3 run was switched to the new image on the same volumes; coroner-init wrote amount_difference.json for 6 runs ("written 6, already present 0, not applicable 7, no figure 0, errors 0"), the 141 existing run files were byte-identical, the Case 3 certificate replays VALID, the cached Case 3 result shows "44 amounts affected" and "Largest single difference: 19962848.06", and the deployment check passed all 10 checks.
+
+Image change on 2026-11-22 (first image): the image of commit eb4b915 (805 tests passed in the image) replaced the image of commit c3358ed (sha256:0ca88a1f...501a4ad4, run 44943106518), which was never deployed, and added the reboot fix (restart policies and recovery of stale running jobs, R-170) and the gate message fix (R-172). The outputs labelled "Measured on the operator's Mac" below were recorded with the image of commit c3358ed. Where a block shows the image digest, the digest was replaced by the new one; the other lines, the times and the run ids are as recorded. Local check of the eb4b915 image (operator, 2026-11-22): the deployment check passed every check, with run ids f584d5f35228 and 29c15f04407b; with the engine stopped, three Run audit jobs stayed running and the API answered 429; after the engine restarted it logged "Recovered 3 stale running job(s)" and Run audit was accepted. Outputs labelled "Measured on the server" were measured on the previous image (sha256:837503172e4d...b0ebe1e8) and stay as recorded until the owner redeploys.
 
 ## What you get
 
 Three Coroner services plus cloudflared. All three Coroner services run the same prebuilt image from GitHub Container Registry, pinned by digest:
 
 ```
-ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3
+ghcr.io/yarahmouni/cobol-coroner@sha256:7bc88f3cd371903865c3303af2e9ca6285edc18b23b42874fe812f1d4efc7211
 ```
 
 The package is public, so pulling needs no login. The image is published by `.github/workflows/publish-image.yml` and is the image the CI tests run. The server never builds anything.
@@ -214,15 +216,15 @@ On the server the same command also pulls cloudflared. Measured on the server, 2
 Read the digest back from the pulled image and compare it with the one in `docker-compose.yml`. They must match exactly:
 
 ```bash
-docker image inspect --format '{{index .RepoDigests 0}}' ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3
+docker image inspect --format '{{index .RepoDigests 0}}' ghcr.io/yarahmouni/cobol-coroner@sha256:7bc88f3cd371903865c3303af2e9ca6285edc18b23b42874fe812f1d4efc7211
 ```
 
 The output of this command was not recorded for the new image. What was measured on the operator's Mac, 2026-11-21, with the image of commit c3358ed, is `docker compose config --images` in the same separate compose project, which lists the digest for the three Coroner services (the digest shown is the new one, see "Image change on 2026-11-22" at the top):
 
 ```
-ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3
-ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3
-ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3
+ghcr.io/yarahmouni/cobol-coroner@sha256:7bc88f3cd371903865c3303af2e9ca6285edc18b23b42874fe812f1d4efc7211
+ghcr.io/yarahmouni/cobol-coroner@sha256:7bc88f3cd371903865c3303af2e9ca6285edc18b23b42874fe812f1d4efc7211
+ghcr.io/yarahmouni/cobol-coroner@sha256:7bc88f3cd371903865c3303af2e9ca6285edc18b23b42874fe812f1d4efc7211
 ```
 
 ## 5. Check the merged configuration
@@ -237,10 +239,10 @@ Measured on the operator's Mac, 2026-11-21 (with `TUNNEL_ID` and `TUNNEL_CREDENT
 
 ```
 23:    image: cloudflare/cloudflared:2026.10.7@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba
-75:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3
-118:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3
-154:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3
-183:x-coroner-image: ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3
+75:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:7bc88f3cd371903865c3303af2e9ca6285edc18b23b42874fe812f1d4efc7211
+118:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:7bc88f3cd371903865c3303af2e9ca6285edc18b23b42874fe812f1d4efc7211
+154:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:7bc88f3cd371903865c3303af2e9ca6285edc18b23b42874fe812f1d4efc7211
+183:x-coroner-image: ghcr.io/yarahmouni/cobol-coroner@sha256:7bc88f3cd371903865c3303af2e9ca6285edc18b23b42874fe812f1d4efc7211
 ```
 
 All three Coroner services must show the same digest, and none of them may have a `build` key. The API must not publish a port on the server. This command must print nothing:
@@ -275,9 +277,9 @@ Measured on the server, 2026-11-21 (owner's summary): `cloudflared`, `coroner-ap
 
 ```
 SERVICE          IMAGE                                                                                                      STATUS
-coroner-api      ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3   Up 5 minutes
-coroner-engine   ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3   Up 6 minutes
-coroner-init     ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3   Exited (0) 5 minutes ago
+coroner-api      ghcr.io/yarahmouni/cobol-coroner@sha256:7bc88f3cd371903865c3303af2e9ca6285edc18b23b42874fe812f1d4efc7211   Up 5 minutes
+coroner-engine   ghcr.io/yarahmouni/cobol-coroner@sha256:7bc88f3cd371903865c3303af2e9ca6285edc18b23b42874fe812f1d4efc7211   Up 6 minutes
+coroner-init     ghcr.io/yarahmouni/cobol-coroner@sha256:7bc88f3cd371903865c3303af2e9ca6285edc18b23b42874fe812f1d4efc7211   Exited (0) 5 minutes ago
 ```
 
 Check the restart policy of each running container. The command lists the running containers of this compose project and prints the policy the Docker daemon applies to each:
@@ -364,6 +366,8 @@ docker compose -f docker-compose.yml -f docker-compose.server.yml up -d
 ```
 
 What a redeploy does to the data volume: `coroner-init` runs again on every `up -d`. It never reruns an audit for an existing run id and never changes a file inside a run folder, so Verify keeps working on runs made before the redeploy, including visitor runs. It always rebuilds the two derived files `runs/trap_catalog.json` and `runs/trap_catalog.txt` from the runs on disk (`python -m coroner traps --from-runs`), so the new image's card and case names appear without regenerating anything. A bundled run is generated only if its folder is missing, in a scratch folder under `build/` and moved into `runs/` only when no folder with that run id exists. If the catalog finds a run folder that exists but whose `inputs.json` does not match a trap port, the rebuild stops with exit code 2 and writes nothing. This never keeps the site down: `coroner-init` prints the rebuild output, then one line, `WARNING: catalog rebuild failed (exit <rc>); the previous catalog files are kept and the site starts with them.` (or, when no `runs/trap_catalog.json` exists yet, `WARNING: catalog rebuild failed (exit <rc>); no catalog file exists yet, the Detection Matrix has no data until a rebuild succeeds.`), exits 0 and ends with `Bundled demo runs generated.`, so `coroner-api` starts and serves every existing run with the previous catalog files, which stay byte for byte unchanged. A failure while generating a bundled run still exits 2. After fixing the cause, rebuild the catalog by hand: `docker compose -f docker-compose.yml -f docker-compose.server.yml run --rm coroner-init`.
+
+After the upgrade, `docker compose -f docker-compose.yml -f docker-compose.server.yml logs coroner-init | grep "Amount difference"` shows the derivation summary.
 
 ## After a host reboot
 

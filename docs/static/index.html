@@ -27,13 +27,13 @@ COBOL lines involved: samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob:201 BA
 cp certificate-29c15f04407b.json replay/
 cp cases-a1ad67c683af.csv replay/runs/29c15f04407b/generated_cases.csv
 docker run --rm --init -v &quot;$PWD/replay:/replay:ro&quot; -e CORONER_BASE_DIR=/replay \
-  ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3 \
+  ghcr.io/yarahmouni/cobol-coroner@sha256:7bc88f3cd371903865c3303af2e9ca6285edc18b23b42874fe812f1d4efc7211 \
   python3 -m coroner verify /replay/certificate-29c15f04407b.json
 mkdir -p replay/runs/f584d5f35228
 cp certificate-f584d5f35228.json replay/
 cp cases-a1ad67c683af.csv replay/runs/f584d5f35228/generated_cases.csv
 docker run --rm --init -v &quot;$PWD/replay:/replay:ro&quot; -e CORONER_BASE_DIR=/replay \
-  ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3 \
+  ghcr.io/yarahmouni/cobol-coroner@sha256:7bc88f3cd371903865c3303af2e9ca6285edc18b23b42874fe812f1d4efc7211 \
   python3 -m coroner verify /replay/certificate-f584d5f35228.json</pre><p>Expected first line of the output: <code>Certificate: VALID</code>. The exit code is 0 for an ALIVE certificate and 1 for a ZOMBIE certificate.</p><h3>T1 correct port: replay run during the build</h3><pre>Certificate: VALID
 ALIVE: PASS: business behavior preserved on 2000 cases
 Cases: 2000
@@ -92,4 +92,4 @@ exit code: 1</pre><p class="muted">The replays above were run during the build w
   &quot;tie_share&quot;: null,
   &quot;timestamp&quot;: &quot;2026-11-21T20:54:21Z&quot;,
   &quot;title&quot;: &quot;Coroner Certificate&quot;
-}</pre></section></main><footer><p class="muted">Built from commit eb4b915 on 2026-11-22.</p></footer></body></html>
+}</pre></section></main><footer><p class="muted">Built from commit 2c2a11b on 2026-11-22.</p></footer></body></html>
