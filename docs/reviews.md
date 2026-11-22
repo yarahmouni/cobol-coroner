@@ -1190,6 +1190,14 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Results: agent: test_hooks.py 15 passed (CORONER_NO_SKIP=1); test_mcp_server.py with slow 10 passed; affected files with slow 51 passed. Operator: make test 815 passed in 210.12 s; runs/ unchanged (153 entries).
 - Kiro balance (2026-11-22): plan 405.95 of 531 used; kiroween2026 3031.81 of 4000 used.
 
+### R-173 2026-11-22: image of eb4b915 published, checked locally and pinned
+- Publish run 44976586677 (workflow_dispatch on eb4b915): 805 passed, 325 deselected in the image; digest sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3. The run 44973574951 on aecedd2 had failed on the two hook tests (R-171); its image is not used.
+- Operator local check, Mac, project coroner-newimg (docker-compose.yml with the three services on the new digest), first start 46 s: scripts/deploy_check.py (clean-clone build, then checks on http://127.0.0.1:8000) all 10 PASS, T1 faulty ZOMBIE f584d5f35228, T1 correct ALIVE 29c15f04407b, Tamper INVALID, Verify VALID. Stale jobs in the real image: engine container stopped, three job folders written with status running, POST /api/run answered 429; engine started: "Recovered stale running job" for each, "Recovered 3 stale running job(s)", the job status reads error with "The engine stopped while this audit was running. Run the audit again.", POST /api/run answered 200. The image holds runs/trap_catalog.json (6 traps) without a volume.
+- Call p393 (sonnet-5.5): the new digest in docker-compose.yml (comment: run 44976586677, commit eb4b915), tests/test_docker_compose.py, the three power files (Testing paragraph: the c3358ed measurements stated as such; for the new image only the local check; no power run claimed on it), docs/deploy.md (12 digest lines; an "Image change on 2026-11-22" note; server outputs still marked as measured on the previous image; one untrue sentence about a server re-measure replaced). docs/static/index.html rebuilt with COMMIT=eb4b915 from a base holding the committed certificates: only the two image lines and the footer changed; certificates and cases file byte-identical; both replays VALID. Call p394 (haiku-5.5): the CHANGELOG state line.
+- Operator: no old digest left outside docs/reviews.md and docs/evidence (history); no dash, no local path in the diff.
+- Results: agent: test_docker_compose.py and test_static_page.py with slow 61 passed; make test 815 passed. Operator: make test 815 passed in 229.63 s.
+- Kiro balance (2026-11-22): plan 405.95 of 531 used; kiroween2026 3054.92 of 4000 used.
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.

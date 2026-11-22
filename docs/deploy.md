@@ -7,12 +7,14 @@ How outputs are labelled in this guide:
 - "Measured on the operator's Mac, 2026-11-21": real output of the command on the operator's machine (Docker Desktop), copied verbatim. Container, volume and network names start with the name of the local project folder; on the server they start with the name of the folder you clone into.
 - "Measured on the server, 2026-11-21": measured by the owner on the deployment server; "(owner's summary)" marks outputs given as a summary rather than terminal lines.
 
+Image change on 2026-11-22: the image pinned in this guide is the one published by `publish-image.yml` run 44976586677 from commit eb4b915 (805 tests passed in the image). It replaces the image of commit c3358ed (sha256:0ca88a1f...501a4ad4, run 44943106518), which was never deployed, and it adds the reboot fix (restart policies and recovery of stale running jobs, R-170) and the gate message fix (R-172). The outputs labelled "Measured on the operator's Mac" below were recorded with the image of commit c3358ed. Where a block shows the image digest, the digest was replaced by the new one; the other lines, the times and the run ids are as recorded. Local check of the new image (operator, 2026-11-22): the deployment check passed every check, with run ids f584d5f35228 and 29c15f04407b; with the engine stopped, three Run audit jobs stayed running and the API answered 429; after the engine restarted it logged "Recovered 3 stale running job(s)" and Run audit was accepted. Outputs labelled "Measured on the server" were measured on the previous image (sha256:837503172e4d...b0ebe1e8) and stay as recorded until the owner redeploys.
+
 ## What you get
 
 Three Coroner services plus cloudflared. All three Coroner services run the same prebuilt image from GitHub Container Registry, pinned by digest:
 
 ```
-ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4
+ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3
 ```
 
 The package is public, so pulling needs no login. The image is published by `.github/workflows/publish-image.yml` and is the image the CI tests run. The server never builds anything.
@@ -36,7 +38,7 @@ The compose files set `platform: linux/amd64`, so the server must be amd64.
 uname -m
 ```
 
-Measured on the server with the previous image (...b0ebe1e8); measured again after the redeploy with the batched image.
+Measured on the server with the previous image (...b0ebe1e8). Not measured again on the server with the new image; the owner has not redeployed yet.
 
 Measured on the server, 2026-11-21:
 
@@ -212,15 +214,15 @@ On the server the same command also pulls cloudflared. Measured on the server, 2
 Read the digest back from the pulled image and compare it with the one in `docker-compose.yml`. They must match exactly:
 
 ```bash
-docker image inspect --format '{{index .RepoDigests 0}}' ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4
+docker image inspect --format '{{index .RepoDigests 0}}' ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3
 ```
 
-The output of this command was not recorded for the new image. What was measured on the operator's Mac, 2026-11-21, is `docker compose config --images` in the same separate compose project, which lists the digest for the three Coroner services:
+The output of this command was not recorded for the new image. What was measured on the operator's Mac, 2026-11-21, with the image of commit c3358ed, is `docker compose config --images` in the same separate compose project, which lists the digest for the three Coroner services (the digest shown is the new one, see "Image change on 2026-11-22" at the top):
 
 ```
-ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4
-ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4
-ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4
+ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3
+ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3
+ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3
 ```
 
 ## 5. Check the merged configuration
@@ -235,10 +237,10 @@ Measured on the operator's Mac, 2026-11-21 (with `TUNNEL_ID` and `TUNNEL_CREDENT
 
 ```
 23:    image: cloudflare/cloudflared:2026.10.7@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba
-75:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4
-118:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4
-154:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4
-183:x-coroner-image: ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4
+75:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3
+118:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3
+154:    image: ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3
+183:x-coroner-image: ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3
 ```
 
 All three Coroner services must show the same digest, and none of them may have a `build` key. The API must not publish a port on the server. This command must print nothing:
@@ -273,9 +275,9 @@ Measured on the server, 2026-11-21 (owner's summary): `cloudflared`, `coroner-ap
 
 ```
 SERVICE          IMAGE                                                                                                      STATUS
-coroner-api      ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4   Up 5 minutes
-coroner-engine   ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4   Up 6 minutes
-coroner-init     ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4   Exited (0) 5 minutes ago
+coroner-api      ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3   Up 5 minutes
+coroner-engine   ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3   Up 6 minutes
+coroner-init     ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3   Exited (0) 5 minutes ago
 ```
 
 Check the restart policy of each running container. The command lists the running containers of this compose project and prints the policy the Docker daemon applies to each:
@@ -431,7 +433,7 @@ Run the deployment check against it (needs the project virtual environment, see 
 make deploy-check
 ```
 
-Measured on the operator's Mac, 2026-11-21 (`make deploy-check URL=http://127.0.0.1:8000`, exit code 0, 242 seconds wall time; the first line is the command `make` runs with `PYTHON` pointing to the project environment):
+Measured on the operator's Mac, 2026-11-21 (`make deploy-check URL=http://127.0.0.1:8000`, exit code 0, 242 seconds wall time; the first line is the command `make` runs with `PYTHON` pointing to the project environment). This run was made on the image of commit c3358ed. The image then changed for the reboot fix (R-170) and the gate message (R-172), and the local check of the new image passed on 2026-11-22 (every check PASS, run ids f584d5f35228 and 29c15f04407b; the output of that run was not recorded here):
 
 ```
 .venv/bin/python scripts/deploy_check.py --url http://127.0.0.1:8000

@@ -4,8 +4,8 @@
 # The UI opens at http://127.0.0.1:8000 with bundled demo runs.
 #
 # All three services run one prebuilt image from GitHub Container Registry,
-# pinned by digest (published by .github/workflows/publish-image.yml, commit
-# 57a60f2). Nothing is built on the tester's machine: Docker pulls the image
+# pinned by digest (published by .github/workflows/publish-image.yml run
+# 44976586677, commit eb4b915). Nothing is built on the tester's machine: Docker pulls the image
 # when it is missing. The reference is a YAML anchor in this file and not an
 # environment variable, so a stray variable in a shell cannot change which
 # image runs.
@@ -13,7 +13,7 @@
 # To build from the Dockerfile instead (developers):
 #   docker compose -f docker-compose.yml -f docker-compose.build.yml up --build
 
-x-coroner-image: &coroner-image ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4
+x-coroner-image: &coroner-image ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3
 
 services:
   # Init service: generates bundled demo runs at first start

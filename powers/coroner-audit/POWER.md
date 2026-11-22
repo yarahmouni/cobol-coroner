@@ -38,7 +38,7 @@ Docker Desktop is the only prerequisite on the host. No GnuCOBOL, no JDK and no 
 The MCP server starts from the published image over stdio:
 
 ```
-docker run --rm -i --init ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4 python -m coroner.mcp
+docker run --rm -i --init ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3 python -m coroner.mcp
 ```
 
 - The image is linux/amd64, so it needs an x86-64 machine.

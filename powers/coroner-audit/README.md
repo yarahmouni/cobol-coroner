@@ -13,7 +13,7 @@ Docker Desktop is the only prerequisite on the host. No GnuCOBOL, no JDK and no 
 The MCP server starts from the published image over stdio:
 
 ```
-docker run --rm -i --init ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4 python -m coroner.mcp
+docker run --rm -i --init ghcr.io/yarahmouni/cobol-coroner@sha256:3f57cae7b3fb059acee66c76bf77f75a675dfe2a7d47dde05756741467511ba3 python -m coroner.mcp
 ```
 
 - The image is linux/amd64, so it needs an x86-64 machine.
@@ -51,7 +51,7 @@ Runs the COBOL program and its Java port on the same test cases, compares output
 
 ## Testing
 
-Tested 2026-11-21 in the Kiro IDE 1.4.178 on Windows 10 x64 with Docker 29.9.2. Through the installed power, Kiro called run_differential_check (run f584d5f35228, ZOMBIE, 682 of 2000), get_verdict, get_failure_report (GEN-001525) and verify_certificate (valid true). Evidence: docs/evidence/kiro-power-run.md. The Windows run used the previous image (sha256:837503172e4d...b0ebe1e8). The power now pins the image published on 2026-11-21 from commit c3358ed; in it the same Case 1 audit gives the same run id (f584d5f35228), and get_detection_matrix works with no volume.
+Tested 2026-11-21 in the Kiro IDE 1.4.178 on Windows 10 x64 with Docker 29.9.2. Through the installed power, Kiro called run_differential_check (run f584d5f35228, ZOMBIE, 682 of 2000), get_verdict, get_failure_report (GEN-001525) and verify_certificate (valid true). Evidence: docs/evidence/kiro-power-run.md. The Windows run used the previous image (sha256:837503172e4d...b0ebe1e8). The power now pins the image published on 2026-11-22 from commit eb4b915 (publish-image.yml run 44976586677). The statements that the same Case 1 audit gives the same run id (f584d5f35228) and that get_detection_matrix works with no volume were measured on the image of commit c3358ed (R-163); on the new image the operator's local deployment check (2026-11-22) gave the run ids f584d5f35228 and 29c15f04407b.
 
 ## License
 
