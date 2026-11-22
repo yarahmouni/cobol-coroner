@@ -51,7 +51,7 @@ Local stack for every live page: `docker compose -f docker-compose.yml -f docker
 | 15 | 2:14 | 2:20 | 6 s | Still image: docs/screenshots/commit-blocked.png (a real git commit of the HALF_EVEN variant in a temporary clone, made by make screenshots). Check the image for a home path before use (section 7). | Commit blocked by Coroner: ZOMBIE: FAIL: business behavior diverged on 21 cases. | The Git pre-commit hook refuses a ZOMBIE commit. | docs/evidence/git-precommit-block-then-allow.md (500-case check, seed 42, count 21 as recorded there). |
 | 16 | 2:20 | 2:33 | 13 s | Text card: full chain (section 3.1, card 4). | Kiro's preToolUse gate blocks git commit, push and merge when the certificate is ZOMBIE, missing or invalid. The Git pre-commit hook blocks a ZOMBIE commit. The CI gate enforces the same verdict. | Kiro's preToolUse gate blocks git commit, push and merge when the certificate is ZOMBIE, missing or invalid. The Git pre-commit hook blocks a ZOMBIE commit. The CI gate enforces the same verdict. | docs/KIRO_USAGE.md section 4 (the three enforcement points and the evidence files). No number. |
 | 17 | 2:33 | 2:41 | 8 s | Live page: http://127.0.0.1:8000/matrix. Action: scroll to the table, wait 2 s, keep the T1 row and the T6 row visible. | Five banking traps are measured, each with a faulty port and a correct port. Case 6 is reserved. | Five banking traps are measured, each with a faulty port and a correct port. Case 6 is reserved. | samples/traps/cases.json (T1 to T5 measured, T6 reserved). Per-trap counts shown on the page come from runs/trap_catalog.json (rebuilt by coroner-init). No count is spoken. |
-| 18 | 2:41 | 2:49 | 8 s | Text card: final card (section 3.1, card 5, with the placeholder note). Recorded again after the redeploy (section 5). | Try it live: coroner.iqoba.com. Open source: github.com/yarahmouni/cobol-coroner. AI accelerates. Coroner certifies. | Try it live at coroner dot iqoba dot com. Open source on GitHub. AI accelerates. Coroner certifies. | Live URL: docs/deploy.md. Repository name: README.md. No measured number. |
+| 18 | 2:41 | 2:49 | 8 s | Text card: final card (section 3.1, card 5, with the placeholder note). Recorded after the redeploy on 2026-11-22 (section 5). | Try it live: coroner.iqoba.com. Open source: github.com/yarahmouni/cobol-coroner. AI accelerates. Coroner certifies. | Try it live at coroner dot iqoba dot com. Open source on GitHub. AI accelerates. Coroner certifies. | Live URL: docs/deploy.md. Repository name: README.md. No measured number. |
 
 Totals: 18 shots, sum of durations 169 s (2:49). Text cards: shots 1, 2, 11, 16 and 18 (five). Live pages: shots 3 to 10, 12, 13, 14 and 17 (twelve). Still image: shot 15. Shot 11 is a placeholder until the owner records the clip.
 
@@ -122,6 +122,16 @@ Check every frame before export. If one frame shows a rule-breaking item, record
 3. `make deploy-check URL=https://coroner.iqoba.com` exits 0 and every check prints PASS, with the batched image.
 
 If the check fails, the final card waits. The first cut is not published with the old site as its ending.
+
+**Command (the operator runs it; the card needs no running stack):**
+
+```
+.venv/bin/python scripts/record_demo.py --shots 18 --final-card --out-dir <folder outside the repository> --ffmpeg <path of ffmpeg>
+```
+
+With `--final-card`, the card line that starts with "Placeholder" is left out of the rendered card. Without the option nothing changes.
+
+Final card recorded on 2026-11-22 after the live check passed (R-176).
 
 ## 6. Voice-over sheet for the owner
 

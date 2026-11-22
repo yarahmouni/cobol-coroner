@@ -345,12 +345,35 @@ def clip_from_image(ffmpeg, image, duration, out):
 # Cards
 # ---------------------------------------------------------------------------
 
-def render_card(lines, path):
+URL_LINE = re.compile(r"https?://|github\.com/|[\w-]+\.[A-Za-z]{2,}/")
+CARD_TEXT_WIDTH = 1100  # max-width of a card paragraph (1280 px frame, 90 px side padding)
+SERIF_EM_PER_CHAR = 0.5  # conservative width estimate for Georgia
+
+
+def card_size_for_url_lines(size, longest):
+    """Lower the font size by steps of 2 px until the longest URL line fits the card text width."""
+    while size > 20 and longest * SERIF_EM_PER_CHAR * size > CARD_TEXT_WIDTH:
+        size -= 2
+    return size
+
+
+def render_card(lines, path, final_card=False):
+    """Write a card page. With final_card, lines starting with "Placeholder" are left out."""
     body = [line for line in lines if not line.startswith("Placeholder")]
     chars = sum(len(line) for line in body)
     size = 72 if chars <= 60 else 52 if chars <= 130 else 40 if chars <= 230 else 34
-    paragraphs = "\n".join(
-        f'<p class="{"note" if line.startswith("Placeholder") else "text"}">{html.escape(line)}</p>' for line in lines)
+    url_lines = [line for line in body if URL_LINE.search(line)]
+    if url_lines:
+        size = card_size_for_url_lines(size, max(len(line) for line in url_lines))
+    shown = body if final_card else lines
+
+    def css_class(line):
+        if line.startswith("Placeholder"):
+            return "note"
+        return "text nowrap" if line in url_lines else "text"
+
+    paragraphs = "\n".join(f'<p class="{css_class(line)}">{html.escape(line)}</p>' for line in shown)
+    nowrap_rule = "p.nowrap { white-space: nowrap; }\n" if url_lines else ""
     path.write_text(f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>Card</title>
 <style>
@@ -359,7 +382,7 @@ body {{ display: flex; flex-direction: column; align-items: center; justify-cont
   padding: 0 90px {BAND_HEIGHT}px; box-sizing: border-box; text-align: center; font-family: Georgia, 'Times New Roman', serif; }}
 p {{ margin: 0; max-width: 1100px; line-height: 1.3; }}
 p.text {{ font-size: {size}px; }}
-p.note {{ font-size: 26px; color: #a3a3a3; font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; }}
+{nowrap_rule}p.note {{ font-size: 26px; color: #a3a3a3; font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; }}
 </style></head><body>
 {paragraphs}
 </body></html>
@@ -385,12 +408,12 @@ def launch_browser(playwright):
                               f"({str(first).splitlines()[0]})") from first
 
 
-def record_page_shot(context, plan_shot, base_url, cards_dir, raw_dir, actions):
+def record_page_shot(context, plan_shot, base_url, cards_dir, raw_dir, actions, final_card=False):
     """Record one browser shot to raw/shot-NN.webm and return its trim data."""
     shot = plan_shot.shot
     if plan_shot.kind == "card":
         card_file = cards_dir / f"card-{plan_shot.card}.html"
-        render_card(plan_shot.card_lines, card_file)
+        render_card(plan_shot.card_lines, card_file, final_card)
         target = card_file.resolve().as_uri()
     else:
         target = base_url.rstrip("/") + plan_shot.path
@@ -476,7 +499,8 @@ def record_all(selected, args, out_dir, actions):
                 print(f"Recording shot {plan_shot.shot.number} ({plan_shot.kind}) ...", flush=True)
                 try:
                     trims[plan_shot.shot.number] = record_page_shot(contexts[plan_shot.kind], plan_shot, args.url,
-                                                                    cards_dir, raw_dir, actions)
+                                                                    cards_dir, raw_dir, actions,
+                                                                    getattr(args, "final_card", False))
                 except RecordError:
                     raise
                 except Exception as error:
@@ -570,6 +594,8 @@ def main(argv=None):
     parser.add_argument("--out-dir", required=True, help="output folder, outside the repository")
     parser.add_argument("--ffmpeg", help="path of the ffmpeg binary (required to assemble)")
     parser.add_argument("--shots", help="record only these shots, for example 3,6,12")
+    parser.add_argument("--final-card", action="store_true",
+                        help="leave the card lines that start with 'Placeholder' out of the rendered cards")
     parser.add_argument("--dry-run", action="store_true", help="parse the plan and print the shots, record nothing")
     parser.add_argument("--min-free-gb", type=float, default=5.0, help="refuse when less than this would stay free (default: 5)")
     parser.add_argument("--plan", default=str(make_srt.DEFAULT_PLAN), help="video plan (default: docs/video-plan.md)")

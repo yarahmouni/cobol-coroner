@@ -255,6 +255,104 @@ def test_card_page_leaves_the_band_free(tmp_path):
     assert "padding: 0 90px 120px" in css
 
 
+def shot_18_card_lines():
+    plan_shots = record_demo.parse_plan(PLAN.read_text(encoding="utf-8"))
+    shot = next(p for p in plan_shots if p.shot.number == 18)
+    assert shot.kind == "card"
+    return shot.card_lines
+
+
+def paragraphs(page):
+    return re.findall(r"<p class=\"(?:text|note)(?: nowrap)?\">(.*?)</p>", page.read_text(encoding="utf-8"))
+
+
+def old_card_html(lines, final_card=False):
+    """The card HTML as render_card wrote it before the URL rule (copy of that logic)."""
+    import html as html_module
+    body = [line for line in lines if not line.startswith("Placeholder")]
+    chars = sum(len(line) for line in body)
+    size = 72 if chars <= 60 else 52 if chars <= 130 else 40 if chars <= 230 else 34
+    shown = body if final_card else lines
+    paragraphs = "\n".join(
+        f'<p class="{"note" if line.startswith("Placeholder") else "text"}">{html_module.escape(line)}</p>' for line in shown)
+    return f"""<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Card</title>
+<style>
+html, body {{ margin: 0; width: {record_demo.WIDTH}px; height: {record_demo.HEIGHT}px; background: #0a0a0a; color: #e5e5e5; overflow: hidden; }}
+body {{ display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px;
+  padding: 0 90px {record_demo.BAND_HEIGHT}px; box-sizing: border-box; text-align: center; font-family: Georgia, 'Times New Roman', serif; }}
+p {{ margin: 0; max-width: 1100px; line-height: 1.3; }}
+p.text {{ font-size: {size}px; }}
+p.note {{ font-size: 26px; color: #a3a3a3; font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; }}
+</style></head><body>
+{paragraphs}
+</body></html>
+"""
+
+
+def test_final_card_url_lines_never_wrap_and_fit_the_text_width(tmp_path):
+    lines = shot_18_card_lines()
+    page = tmp_path / "final.html"
+    record_demo.render_card(lines, page, final_card=True)
+    text = page.read_text(encoding="utf-8")
+    url_lines = [line for line in lines if record_demo.URL_LINE.search(line) and not line.startswith("Placeholder")]
+    assert any("github.com/yarahmouni/cobol-coroner" in line for line in url_lines)
+    for line in url_lines:
+        assert f'<p class="text nowrap">{line}</p>' in text
+    assert "p.nowrap { white-space: nowrap; }" in text
+    size = int(re.search(r"p\.text \{ font-size: (\d+)px; \}", text).group(1))
+    longest = max(len(line) for line in url_lines)
+    assert longest * 0.5 * size <= 1100
+    assert size < 52  # the size of the old rule for this card, which did not fit
+    # lines without a URL are not marked nowrap
+    assert '<p class="text">AI accelerates. Coroner certifies.</p>' in text
+
+
+def test_every_card_without_a_url_line_is_byte_identical_to_the_old_html(tmp_path):
+    cards = [p for p in record_demo.parse_plan(PLAN.read_text(encoding="utf-8")) if p.kind == "card"]
+    assert len(cards) == 5
+    unchanged = 0
+    for planned in cards:
+        lines = planned.card_lines
+        if any(record_demo.URL_LINE.search(line) for line in lines if not line.startswith("Placeholder")):
+            assert planned.shot.number == 18
+            continue
+        for final in (False, True):
+            page = tmp_path / f"card-{planned.shot.number}-{final}.html"
+            record_demo.render_card(lines, page, final_card=final)
+            assert page.read_text(encoding="utf-8") == old_card_html(lines, final), planned.shot.number
+        unchanged += 1
+    assert unchanged == 4
+
+
+def test_final_card_option_leaves_out_the_placeholder_note_only(tmp_path):
+    lines = shot_18_card_lines()
+    placeholders = [line for line in lines if line.startswith("Placeholder")]
+    others = [line for line in lines if not line.startswith("Placeholder")]
+    assert placeholders and others
+    default_page, final_page = tmp_path / "default.html", tmp_path / "final.html"
+    record_demo.render_card(lines, default_page)
+    record_demo.render_card(lines, final_page, final_card=True)
+    default_text, final_text = paragraphs(default_page), paragraphs(final_page)
+    assert any(text.startswith("Placeholder") for text in default_text)
+    assert not any("Placeholder" in text for text in final_text)
+    assert [t for t in default_text if not t.startswith("Placeholder")] == final_text
+    assert len(final_text) == len(others)
+
+
+def test_final_card_option_changes_nothing_without_a_placeholder_line(tmp_path):
+    plain, final = tmp_path / "plain.html", tmp_path / "final.html"
+    record_demo.render_card(["Line one", "Line two"], plain)
+    record_demo.render_card(["Line one", "Line two"], final, final_card=True)
+    assert plain.read_text(encoding="utf-8") == final.read_text(encoding="utf-8")
+
+
+def test_record_demo_dry_run_accepts_final_card(tmp_path):
+    result = run_script("record_demo.py", "--dry-run", "--shots", "18", "--final-card", "--out-dir", tmp_path / "cut")
+    assert result.returncode == 0, result.stderr
+    assert "Total: 1 shots, 8 s" in result.stdout
+
+
 def test_subtitles_sit_inside_the_band_and_are_white_with_at_most_two_lines():
     assert record_demo.subtitle_top_px(lines=2) >= record_demo.PAGE_HEIGHT
     style = record_demo.SUBTITLE_STYLE

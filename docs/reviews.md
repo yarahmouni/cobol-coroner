@@ -1233,6 +1233,14 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Live check (operator, 2026-11-22, the image of eb4b915 redeployed by the owner): make deploy-check URL=https://coroner.iqoba.com exit 0; clean-clone build of 7b47f7b PASS; then PASS: GET / 200 with the Run audit form; T1 faulty ZOMBIE f584d5f35228; T1 correct ALIVE 29c15f04407b; Tamper INVALID with replay mismatch; Verify VALID; Cache-Control no-store; 17 KB body rejected with 413; Story step 5; Fool page. "Deployment check PASSED: all checks succeeded". Full output kept outside the repository.
 - Kiro balance (2026-11-22): plan 405.95 of 531 used; kiroween2026 3114.09 of 4000 used.
 
+### R-176 2026-11-22: video final card (shot 18) recorded after the live check
+- Precondition of docs/video-plan.md section 5 met: the image of eb4b915 is pinned and runs on the server (owner redeploy), and make deploy-check URL=https://coroner.iqoba.com exited 0 with every check PASS (R-175).
+- Call p397 (sonnet-5.5): record_demo.py --final-card leaves out the card lines starting with "Placeholder" (default unchanged); tests on card 5 with and without the option; video-plan.md shot 18 row and section 5 (command, recorded date).
+- Operator recording: --shots 18 --final-card, out-dir outside the repository. The first take split "github.com/yarahmouni/cobol-coroner" at the hyphen. Call p398 (sonnet-5.5): a card line holding a URL or domain path does not wrap and the card size is lowered until the longest such line fits (0.5 em per character estimate); every other card renders byte-identical (test). Second take checked on a frame: three lines, the repository URL on one line, no placeholder note.
+- Second cut: the clips of the first cut with shot 18 replaced, 169.00 s (2:49), outside the repository. Shot 11 (the owner's Kiro IDE clip) is still the placeholder card.
+- Results: agent: test_video_tools.py 31 passed, 1 skipped (ffmpeg assembly test without CORONER_FFMPEG); test_case_name_retired.py 2 passed.
+- Kiro balance (2026-11-22): plan 405.95 of 531 used; kiroween2026 3129.76 of 4000 used.
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.
