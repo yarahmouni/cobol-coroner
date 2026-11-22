@@ -1174,6 +1174,14 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Results: agent: new tests 6 passed in 1.90 s; test_engine_worker.py, test_ui_run_audit.py, test_ui_rate_limits.py with slow 55 passed; test_docker_compose.py 52 passed. Operator: `make test` 810 passed in 217.65 s (802 plus 8 new); test_engine_stale_jobs.py and test_docker_compose.py with slow 59 passed; runs/ unchanged (153 entries).
 - Kiro balance (2026-11-22): plan 405.95 of 531 used; kiroween2026 2972.38 of 4000 used (1027.62 left).
 
+### R-171 2026-11-22: CI red since 35d2d2c: two hook gate tests depended on certificates left in runs/ by other tests
+- Found by the image publish run 44973574951 (aecedd2), then in "Test and Security" for 35d2d2c and aecedd2: CORONER_NO_SKIP=1 turned two skips into failures, test_gate_blocks_zombie_certificate ("No ZOMBIE certificates found") and test_gate_allows_alive_certificate ("No ALIVE certificate found"). Both read the repository runs/, which other tests filled until R-169 stopped them writing there; in the image runs/ is empty. Locally they passed because the local runs/ is full: the operator's R-169 check did not cover this. The image of that run was not used.
+- Call p391 (sonnet-5.5), tests/test_hooks.py only: each test builds a workspace in tmp_path (copy of the T1 sample, a scope file, a copy of a shared session run under runs/, git init) and runs the real gate with a git commit command. ZOMBIE (T1 faulty): exit 2, decision block, reason starting "ZOMBIE:" with the exposure line and the fix instruction, same text on stderr; also blocks git push and git merge. ALIVE (T1 correct): exit 0, no output. New: a certificate of other files does not match the scope, the gate allows. The old ZOMBIE test only asserted that a ZOMBIE certificate existed; it never ran the gate.
+- Agent findings, not fixed here: (a) coroner/hooks.py build_block_message reads verdict and divergences, keys real certificates do not have (sub_label, cases_divergent), so a real block message lacks the divergence count; the exposure line looks for a key certificates do not carry. (b) the slow test tests/test_mcp_server.py::test_server_from_temp_directory writes a run into the repository runs/ by design. Both to follow.
+- Agent's "empty runs/" claim corrected: its file search skips git-ignored folders; the local runs/ holds 153 entries. Operator check instead: a clean worktree of HEAD (no runs/ folder) with the new test file: CORONER_NO_SKIP=1 tests/test_hooks.py with slow 12 passed in 26.81 s.
+- Results: agent: test_hooks.py 12 passed; make test 811 passed in 205.97 s.
+- Kiro balance (2026-11-22): plan 405.95 of 531 used; kiroween2026 2988.02 of 4000 used.
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.

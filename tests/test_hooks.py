@@ -113,78 +113,114 @@ def test_gate_ignores_non_git_commands(tmp_path):
         assert result.stdout == ""
 
 
-def test_gate_blocks_zombie_certificate():
-    """Test that gate blocks git commit when certificate is ZOMBIE."""
-    # This test verifies the blocking logic, but requires a ZOMBIE certificate
-    # that matches the current scope. For now, we test the logic with a simpler case.
-    # A real end-to-end test will be done manually.
-    
-    # Skip if no zombie certificates at all
-    if not Path("runs").exists():
-        pytest.skip("No runs directory")
-    
-    zombie_found = False
-    for run_dir in Path("runs").iterdir():
-        if not run_dir.is_dir():
-            continue
-        cert_path = run_dir / "certificate.json"
-        if cert_path.exists():
-            with open(cert_path) as f:
-                cert_data = json.load(f)
-            if cert_data.get("status") == "ZOMBIE":
-                zombie_found = True
-                break
-    
-    if not zombie_found:
-        pytest.skip("No ZOMBIE certificates found")
-    
-    # The actual blocking is tested in the missing certificate test
-    # This test just confirms that ZOMBIE certificates exist in the system
-    assert zombie_found
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_T1_SAMPLE = "samples/traps/T1-ebcdic-match-merge"
 
 
-def test_gate_allows_alive_certificate():
-    """Test that gate allows git commit when certificate is ALIVE."""
-    # Skip if no runs directory with certificates
-    if not Path("runs").exists():
-        pytest.skip("No runs directory")
-    
-    # Find an ALIVE certificate
-    alive_cert = None
-    for run_dir in Path("runs").iterdir():
-        if not run_dir.is_dir():
-            continue
-        cert_path = run_dir / "certificate.json"
-        if cert_path.exists():
-            with open(cert_path) as f:
-                cert_data = json.load(f)
-            if cert_data.get("status") == "ALIVE":
-                alive_cert = cert_path
-                break
-    
-    if not alive_cert:
-        pytest.skip("No ALIVE certificate found")
-    
-    # Get absolute path to python
-    python_path = Path(sys.executable).absolute()
-    repo_root = Path.cwd()
-    
+def _gate_workspace(tmp_path, copy_runs, run, port):
+    """A small repository of its own for the gate: the T1 sample, a scope file and one real run.
+
+    The gate looks for the certificate in <repository root>/runs, where the root is the git top
+    level of its working directory, and matches it by the SHA-256 of the files named in
+    .kiro/coroner-scope.json. So the workspace holds a copy of the T1 sample (the certificate of
+    the shared session run records these relative paths), the scope of `port` ("faulty" or
+    "correct"), and a copy of the shared run under runs/. The repository runs/ folder is never read.
+    """
+    root = tmp_path / "repo"
+    root.mkdir()
+    shutil.copytree(_REPO_ROOT / _T1_SAMPLE, root / _T1_SAMPLE)
+    scope = root / ".kiro" / "coroner-scope.json"
+    scope.parent.mkdir()
+    scope.write_text(json.dumps({
+        "cobol": f"{_T1_SAMPLE}/MATCH-MERGE.cob",
+        "copybooks": f"{_T1_SAMPLE}/copybooks",
+        "java": f"{_T1_SAMPLE}/java/{port}/MatchMerge.java",
+        "schema": f"{_T1_SAMPLE}/schema.json",
+    }))
+    copy_runs(run.base, root, run.run_id)
+    subprocess.run(["git", "init"], cwd=root, check=True, capture_output=True)
+    return root
+
+
+def _run_gate(root, command):
+    """Run `python -m coroner.hooks gate` in `root` with a preToolUse input for `command`."""
+    env = {k: v for k, v in os.environ.items() if k not in ("CORONER_BASE_DIR", "CORONER_REPLAY_TIMEOUT")}
     hook_input = {
         "hook_event_name": "preToolUse",
         "tool_name": "shell",
-        "tool_input": {"command": "git commit -m test"}
+        "tool_input": {"command": command},
     }
-    
-    result = subprocess.run(
-        [str(python_path), "-m", "coroner.hooks", "gate"],
+    return subprocess.run(
+        [str(Path(sys.executable).absolute()), "-m", "coroner.hooks", "gate"],
         input=json.dumps(hook_input),
         capture_output=True,
         text=True,
-        cwd=repo_root
+        cwd=root,
+        env=env,
+        timeout=300,
     )
-    
-    # Should allow with exit 0
-    assert result.returncode == 0
+
+
+def test_gate_blocks_zombie_certificate(tmp_path, copy_runs, t1_faulty_30):
+    """The gate blocks git commit when the certificate of the files in scope is ZOMBIE.
+
+    The certificate is a real one (T1 faulty port, 30 cases, seed 42, made by the engine). The
+    gate finds it by file hashes, replays it with `python -m coroner verify` (exit 1) and blocks.
+    """
+    root = _gate_workspace(tmp_path, copy_runs, t1_faulty_30, "faulty")
+    cert = json.loads((root / "runs" / t1_faulty_30.run_id / "certificate.json").read_text())
+    assert cert["status"] == "ZOMBIE"
+    assert cert["cases_divergent"] > 0
+
+    result = _run_gate(root, "git commit -m test")
+
+    # Block: exit status 2, the decision as JSON on stdout, the same message on stderr
+    assert result.returncode == 2, f"stdout: {result.stdout}\nstderr: {result.stderr}"
+    output = json.loads(result.stdout)
+    assert output["decision"] == "block"
+    reason = output["reason"]
+    assert reason.startswith("ZOMBIE:")
+    assert "Unreconciled branch exposure:" in reason
+    assert "Run get_failure_report and export_junit_test, fix the Java port, then run run_differential_check again." in reason
+    assert reason in result.stderr
+
+    # The same ZOMBIE certificate also blocks git push and git merge
+    for command in ("git push origin main", "git merge feature"):
+        other = _run_gate(root, command)
+        assert other.returncode == 2, f"{command}: {other.stdout}\n{other.stderr}"
+        assert json.loads(other.stdout)["decision"] == "block"
+
+
+def test_gate_allows_alive_certificate(tmp_path, copy_runs, t1_correct_200):
+    """The gate allows git commit when the certificate of the files in scope is ALIVE.
+
+    The certificate is a real one (T1 correct port, 200 cases, seed 42, made by the engine). The
+    gate finds it by file hashes, replays it (exit 0) and allows silently.
+    """
+    root = _gate_workspace(tmp_path, copy_runs, t1_correct_200, "correct")
+    cert = json.loads((root / "runs" / t1_correct_200.run_id / "certificate.json").read_text())
+    assert cert["status"] == "ALIVE"
+    assert cert["cases_divergent"] == 0
+
+    result = _run_gate(root, "git commit -m test")
+
+    assert result.returncode == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
+    assert result.stdout == ""
+
+
+def test_gate_does_not_match_a_certificate_of_other_files(tmp_path, copy_runs, t1_faulty_30):
+    """A ZOMBIE certificate of the faulty port does not block a commit whose scope is the correct port.
+
+    The gate matches certificates by the hashes of the files in scope. With the correct Java in
+    scope and only the faulty port's certificate in runs/, no certificate matches: nothing audited
+    is staged, so the commit is allowed. This shows the two tests above block and allow because of
+    the certificate they found, not for another reason.
+    """
+    root = _gate_workspace(tmp_path, copy_runs, t1_faulty_30, "correct")
+
+    result = _run_gate(root, "git commit -m test")
+
+    assert result.returncode == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
     assert result.stdout == ""
 
 
