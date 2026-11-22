@@ -56,9 +56,9 @@ Implement:
 _Requirements: 2.9_
 
 Implement:
-- `build_block_message(cert_data: dict) -> str`: construct the message from the certificate verdict line, divergences count, exposure (check if the schema has a group key, if yes and the exposure exists use the measured value, otherwise "not applicable"), and the fix instruction.
+- `build_block_message(cert_data: dict, verdict_data: Optional[dict] = None, replay_line: str = "") -> str`: construct the message from the certificate's `status` and `sub_label` (the divergence count is in the sub label), the exposure line the CLI prints for the run (`coroner.verdict.exposure_text` on the run's `verdict.json`, otherwise "not applicable"), and the fix instruction. Real certificates have no `verdict` or `divergences` key.
 
-**Done when**: unit test shows the correct message for a ZOMBIE certificate with and without a group key.
+**Done when**: unit tests use the certificate and `verdict.json` of real engine runs (never hand-made keys) and show the correct message for a ZOMBIE run with and without a group key.
 
 ## Task 7: Gate command
 _Requirements: 2.1 to 2.10_

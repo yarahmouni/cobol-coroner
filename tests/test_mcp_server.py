@@ -293,22 +293,71 @@ def test_get_detection_matrix_with_catalog(tmp_path):
     asyncio.run(run_mcp_session(check, base_dir=tmp_path))
 
 
+def _server_env(**extra):
+    """Environment of a server started to resolve its default base directory: no CORONER_BASE_DIR."""
+    env = {k: v for k, v in os.environ.items() if k != "CORONER_BASE_DIR"}
+    env.update(extra)
+    return env
+
+
+def _server_dirs(cwd, env):
+    """BASE_DIR and REPO_ROOT as the server module computes them in a fresh process started in `cwd`.
+
+    Only imports coroner.mcp.server and prints two constants; nothing is run or written.
+    """
+    out = subprocess.run(
+        [sys.executable, "-c",
+         "import coroner.mcp.server as s; print(s.BASE_DIR); print(s.REPO_ROOT)"],
+        cwd=cwd, env=env, capture_output=True, text=True, timeout=60, check=True,
+    ).stdout.split("\n")
+    return Path(out[0]), Path(out[1])
+
+
+def test_default_base_dir_is_the_repository_not_the_working_directory(tmp_path):
+    """Without CORONER_BASE_DIR the server's base is the repository root, whatever its working directory.
+
+    Read only: a fresh process started in an empty temporary directory imports the server module and
+    reports its BASE_DIR. No audit is run, so nothing is written to the repository runs/ folder.
+    """
+    repo_root = Path(__file__).resolve().parent.parent
+
+    base_dir, server_repo_root = _server_dirs(tmp_path, _server_env())
+
+    assert base_dir == repo_root
+    assert server_repo_root == repo_root
+    assert base_dir != tmp_path.resolve()
+    assert not (tmp_path / "runs").exists()
+
+
 @pytest.mark.slow
-def test_server_from_temp_directory():
+def test_server_from_temp_directory(tmp_path):
+    """A server with no CORONER_BASE_DIR writes runs/ next to its own code, not into its working directory.
+
+    The server runs from a copy of the repository (the coroner package and the credit-fees sample,
+    code imported through PYTHONPATH), with the copy as working directory because the certificate
+    records its paths relative to it. The run must land in the copy's runs/ folder. The real
+    repository runs/ folder is listed before and after (names and modification times) and must be
+    unchanged. A first, read only step checks that the copy's code is the code that gets imported,
+    so the audit cannot write to the real repository.
     """
-    Server started from /tmp should write runs/ inside the repository.
-    
-    This test verifies the fix for the bug where the MCP server wrote
-    runs/ relative to its cwd instead of the repository root.
-    """
-    import tempfile
-    import os
-    
+    repo_root = Path(__file__).resolve().parent.parent
+    copy = tmp_path / "repo_copy"
+    shutil.copytree(repo_root / "coroner", copy / "coroner",
+                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+    shutil.copytree(repo_root / "samples" / "credit-fees", copy / "samples" / "credit-fees",
+                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.class"))
+    env = _server_env(PYTHONPATH=str(copy))
+
+    # Safety check before any audit: the copy's code is the one that is imported, so the run
+    # cannot be written to the real repository
+    base_dir, server_repo_root = _server_dirs(copy, env)
+    assert server_repo_root == copy.resolve(), f"server code is imported from {server_repo_root}"
+    assert base_dir == copy.resolve()
+
+    real_runs = repo_root / "runs"
+    listing_before = sorted((p.name, p.stat().st_mtime_ns) for p in real_runs.iterdir()) if real_runs.exists() else []
+
     async def check(session):
-        # Get the repository root
-        repo_root = Path(__file__).parent.parent
-        
-        # Run differential check (should write to repo_root/runs/, not /tmp/runs/)
         result = await session.call_tool("run_differential_check", arguments={
             "cobol": "samples/credit-fees/CREDIT-FEES.cob",
             "copybooks": "samples/credit-fees/copybooks",
@@ -317,51 +366,37 @@ def test_server_from_temp_directory():
             "cases": 30,
             "seed": 42
         })
-        
-        assert result.is_error is False
-        
-        import json
+        assert result.is_error is False, result.content[0].text if result.content else ""
         content = json.loads(result.content[0].text)
         run_id = content["run_id"]
         cert_path = content["certificate_path"]
-        
-        # Verify run directory is inside the repository
-        run_dir = repo_root / "runs" / run_id
+
+        # The run directory is in the copy, next to the server code
+        run_dir = copy / "runs" / run_id
         assert run_dir.exists(), f"Run directory not found at {run_dir}"
         assert (run_dir / "verdict.json").exists(), "verdict.json not found"
         assert (run_dir / "certificate.json").exists(), "certificate.json not found"
-        
-        # Verify certificate path is inside repository
-        full_cert_path = repo_root / cert_path
-        assert full_cert_path.exists(), f"Certificate not found at {full_cert_path}"
-        
-        # Verify certificate can be replayed
+        assert (copy / cert_path).exists(), f"Certificate not found at {copy / cert_path}"
+
+        # The certificate can be replayed through the same server
         cert_result = await session.call_tool("verify_certificate", arguments={"path": cert_path})
         assert cert_result.is_error is False
-        
         cert_data = json.loads(cert_result.content[0].text)
         assert cert_data["valid"] is True, "Certificate should be valid"
         assert cert_data["status"] == "ALIVE"
-        
         return run_id
-    
-    # Start server with cwd set to a temporary directory
-    with tempfile.TemporaryDirectory() as tmpdir:
-        repo_root = Path(__file__).parent.parent
-        
-        async def run_from_tmp():
-            server_params = StdioServerParameters(
-                command=sys.executable,
-                args=["-m", "coroner.mcp"],
-                cwd=tmpdir  # Start from /tmp, not from repo root
-            )
-            async with stdio_client(server_params) as (read, write):
-                async with ClientSession(read, write) as session:
-                    await session.initialize()
-                    return await check(session)
-        
-        run_id = asyncio.run(run_from_tmp())
-        
-        # Verify no runs/ directory was created in /tmp
-        tmp_runs = Path(tmpdir) / "runs"
-        assert not tmp_runs.exists(), f"Server should not write to {tmp_runs}"
+
+    async def run_from_copy():
+        server_params = StdioServerParameters(
+            command=sys.executable, args=["-m", "coroner.mcp"], cwd=copy, env=env,
+        )
+        async with stdio_client(server_params) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                return await check(session)
+
+    asyncio.run(run_from_copy())
+
+    listing_after = sorted((p.name, p.stat().st_mtime_ns) for p in real_runs.iterdir()) if real_runs.exists() else []
+    assert listing_after == listing_before, "the server wrote to the repository runs/ folder"
+

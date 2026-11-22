@@ -8,7 +8,6 @@ import shutil
 import sys
 import tempfile
 from dataclasses import dataclass
-from decimal import Decimal
 from pathlib import Path
 from typing import Any, Callable
 
@@ -18,8 +17,7 @@ from coroner.diag.card import generate_card
 from coroner.diag.report import FailureReport
 from coroner.parse.schema import load_schema
 from coroner.store import copybook_file_hashes
-from coroner.verdict import Verdict
-
+from coroner.verdict import Verdict, verdict_from_dict
 
 TRAPS_DIR = Path("samples/traps")
 RUNS_DIR = Path("runs")
@@ -317,25 +315,7 @@ def _inputs_match(inputs: dict, cobol_sha: str, java_sha: str, schema_sha: str,
 
 def _verdict_from_run(run_dir: Path) -> Verdict:
     """The Verdict stored in a run's verdict.json."""
-    data = json.loads((run_dir / "verdict.json").read_text(encoding="utf-8"))
-
-    def decimal(key: str) -> Decimal | None:
-        value = data.get(key)
-        return Decimal(value) if value is not None else None
-
-    return Verdict(
-        status=data["status"],
-        sub_label=data["sub_label"],
-        cases_total=data["cases_total"],
-        cases_divergent=data["cases_divergent"],
-        run_return_codes=tuple(data["run_return_codes"]),
-        validation_notice=data.get("validation_notice", "Validated under GnuCOBOL 3.x"),
-        exposure_sum=decimal("exposure_sum"),
-        exposure_max=decimal("exposure_max"),
-        affected_branches=data.get("affected_branches"),
-        suspense_difference=decimal("suspense_difference"),
-        grand_total_matches=data.get("grand_total_matches"),
-    )
+    return verdict_from_dict(json.loads((run_dir / "verdict.json").read_text(encoding="utf-8")))
 
 
 def _generate_missing_run(kind: str, setup: TrapSetup, java_file: Path, seed: int,

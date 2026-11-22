@@ -29,7 +29,8 @@ stdin (hook JSON) -> parse -> gate or stop command
 - `is_git_commit_push_merge(command: str) -> bool`: parse command words, return True if the command is `git commit`, `git push` or `git merge`.
 - `get_staged_files() -> list[str]`: run `git diff --cached --name-only`, return the list.
 - `is_audited_file_staged(scope: dict, staged: list[str]) -> bool`: check if COBOL or Java from the scope is staged.
-- `build_block_message(cert_data: dict) -> str`: construct the block message with verdict, divergences, exposure and fix instruction.
+- `read_run_verdict(cert_path: str) -> Optional[dict]`: the `verdict.json` that sits next to a `certificate.json`, or None when it cannot be read.
+- `build_block_message(cert_data: dict, verdict_data: Optional[dict] = None, replay_line: str = "") -> str`: construct the block message. The first line is `<status>: <sub_label>` from the certificate (the sub label already holds the divergence count), or the replay line when the replay said `Certificate: INVALID`. The exposure line is the CLI's own line (`coroner.verdict.exposure_text`) built from the run's `verdict.json`, which records the exposure only when the schema declares a group key, a subtotal and a grand total key; otherwise "not applicable". The last line is the fix instruction.
 - `gate_command(hook_input: dict) -> None`: preToolUse hook logic, exit 0 or exit 2 with JSON.
 - `stop_command(hook_input: dict) -> None`: stop hook logic, exit 0 with or without JSON.
 - `main()`: read stdin, parse args (gate or stop), dispatch.
@@ -69,7 +70,7 @@ Unreconciled branch exposure: not applicable (no group key in the schema)
 Run get_failure_report and export_junit_test, fix the Java port, then run run_differential_check again.
 ```
 
-When a group key is declared in the schema and the exposure metric exists in the certificate: replace "not applicable" with the measured values (sum, max, count, grand total match).
+When the run's `verdict.json` records the exposure (the schema declares a group key, a subtotal and a grand total key), the second line is the line the CLI prints for that run, for example `Unreconciled branch exposure: sum <sum>, max <max>, <N> branches affected, suspense difference <amount>, grand total matches: yes`, with the figures read from `verdict.json`. When the replay of the certificate says it is invalid, the first line is the replay line (`Certificate: INVALID: <reason>`) instead of the verdict recorded in the certificate.
 
 ## Command parsing
 

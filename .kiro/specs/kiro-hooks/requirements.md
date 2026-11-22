@@ -19,7 +19,7 @@ D-37 and D-50 define the Kiro hook strategy based on measured hook behavior in d
 2.6. Block when missing only if the audited COBOL or Java files are staged (detected by running `git diff --cached --name-only` from the hook code).
 2.7. Do not block file writes, compilation, tests, certificate generation or other git commands (git status, git diff, git log, etc.).
 2.8. Blocking form (portable across v2 and v3): stdout `{"decision":"block","reason":"<message>"}` and exit 2.
-2.9. Block message: verdict line, divergences, "Unreconciled branch exposure: not applicable (no group key in the schema)" unless the schema declares a group key (then the measured value when that metric exists), and the fix instruction "Run get_failure_report and export_junit_test, fix the Java port, then run run_differential_check again."
+2.9. Block message: verdict line (the status and sub label of the certificate, which carries the divergence count), the exposure line the CLI prints for the run (read from the run's `verdict.json`; "Unreconciled branch exposure: not applicable (no group key in the schema)" when `verdict.json` records no exposure), and the fix instruction "Run get_failure_report and export_junit_test, fix the Java port, then run run_differential_check again."
 2.10. Non-blocking commands exit 0 silently (no stdout, no stderr).
 
 ### 3. Stop hook

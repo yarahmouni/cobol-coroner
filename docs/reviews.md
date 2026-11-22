@@ -1182,6 +1182,14 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Results: agent: test_hooks.py 12 passed; make test 811 passed in 205.97 s.
 - Kiro balance (2026-11-22): plan 405.95 of 531 used; kiroween2026 2988.02 of 4000 used.
 
+### R-172 2026-11-22: gate block message reads the real certificate and verdict; MCP base-dir test no longer writes into runs/
+- Findings (a) and (b) of R-171. Call p392 (sonnet-5.5).
+- (a) coroner/hooks.py read keys real certificates do not have, so a real ZOMBIE block said "ZOMBIE: " and "Unreconciled branch exposure: not applicable" even for T1. Now the headline uses status, sub_label and cases_divergent with the CLI wording, and the exposure line comes from the verdict.json next to the certificate, through one shared formatter (verdict_from_dict and exposure_text in coroner/verdict.py, also used by cli.py and traps.py). Real block on T1 faulty, 30 cases, seed 42, temporary base: "ZOMBIE: FAIL: business behavior diverged on 12 cases" / "Unreconciled branch exposure: sum 32660.50, max 27849.45, 2 branches affected, suspense difference 32660.50, grand total matches: yes". When the replay says INVALID, the headline is the replay's own line. The hand-made unit test was replaced by tests on real certificates (credit-fees without group key, T1 with exposure, missing verdict.json, tampered copy); test_gate_blocks_zombie_certificate asserts the count and the exposure read from its run's files. .kiro/specs/kiro-hooks design, requirements and tasks updated; evidence files of past runs unchanged.
+- (b) tests/test_mcp_server.py::test_server_from_temp_directory now starts the server from a copy of the repository (coroner/ and samples/credit-fees/), checks the copy's code is the one imported before any audit, and requires the real runs/ unchanged. New fast test: a fresh process in an empty folder imports the server and finds BASE_DIR equal to the repository root. No longer proved: a write into the real runs/ as output location (dropped on purpose).
+- Operator check of the refactor: the CLI on T1 at 2000 cases, seed 42, in two temporary bases, before (stash) and after: faulty output identical, run f584d5f35228, exit 1, exposure sum 3995184.38; correct identical except the duration line, run 29c15f04407b, exit 0.
+- Results: agent: test_hooks.py 15 passed (CORONER_NO_SKIP=1); test_mcp_server.py with slow 10 passed; affected files with slow 51 passed. Operator: make test 815 passed in 210.12 s; runs/ unchanged (153 entries).
+- Kiro balance (2026-11-22): plan 405.95 of 531 used; kiroween2026 3031.81 of 4000 used.
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.

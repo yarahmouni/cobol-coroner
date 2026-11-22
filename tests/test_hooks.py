@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import shutil
+from decimal import Decimal
 from pathlib import Path
 import pytest
 
@@ -62,18 +63,100 @@ def test_is_git_commit_push_merge():
     assert not is_git_commit_push_merge("git diff")
 
 
-def test_build_block_message_no_group_key():
-    """Test block message without group key."""
-    cert_data = {
-        "status": "ZOMBIE",
-        "verdict": "FAIL: business behavior diverged on 75 cases",
-        "divergences": 75
-    }
-    
-    message = build_block_message(cert_data)
-    assert "ZOMBIE: FAIL: business behavior diverged on 75 cases" in message
-    assert "Unreconciled branch exposure: not applicable (no group key in the schema)" in message
-    assert "Run get_failure_report and export_junit_test" in message
+def _load_run_files(run):
+    """The certificate and the verdict.json of a real engine run."""
+    cert = json.loads((run.run_dir / "certificate.json").read_text())
+    verdict = json.loads((run.run_dir / "verdict.json").read_text())
+    return cert, verdict
+
+
+def _cli_exposure_line(run):
+    """The Unreconciled branch exposure line the engine itself printed for the run."""
+    lines = [line for line in run.stdout.splitlines() if line.startswith("Unreconciled branch exposure:")]
+    assert len(lines) == 1, f"expected one exposure line in the CLI output:\n{run.stdout}"
+    return lines[0]
+
+
+FIX_INSTRUCTION = "Run get_failure_report and export_junit_test, fix the Java port, then run run_differential_check again."
+
+
+def test_build_block_message_no_group_key(credit_fees_half_even_30):
+    """A real ZOMBIE certificate of a schema without a group key: sub label from the certificate, exposure not applicable.
+
+    The run is the credit-fees HALF_EVEN variant (30 cases, seed 42), made by the engine. Its
+    verdict.json has no exposure fields because the schema declares no group key.
+    """
+    run = credit_fees_half_even_30
+    cert, verdict = _load_run_files(run)
+    assert cert["status"] == "ZOMBIE"
+    assert "exposure_sum" not in verdict
+    assert "Unreconciled branch exposure" not in run.stdout
+
+    message = build_block_message(cert, verdict)
+
+    assert message == (
+        f"ZOMBIE: {cert['sub_label']}\n"
+        "Unreconciled branch exposure: not applicable (no group key in the schema)\n"
+        f"{FIX_INSTRUCTION}"
+    )
+    assert f"diverged on {cert['cases_divergent']} cases" in message
+
+
+def test_build_block_message_with_exposure(t1_faulty_30):
+    """A real ZOMBIE certificate of T1: sub label from the certificate, exposure from the run's verdict.json.
+
+    The expected exposure line is the one the engine printed on its own stdout for this run, so the
+    block message and the CLI say the same thing, with the figures of the run files.
+    """
+    cert, verdict = _load_run_files(t1_faulty_30)
+    assert cert["status"] == "ZOMBIE"
+    assert cert["cases_divergent"] > 0
+    assert verdict["affected_branches"] > 0
+
+    message = build_block_message(cert, verdict)
+    lines = message.split("\n")
+
+    assert lines[0] == f"ZOMBIE: {cert['sub_label']}"
+    assert f"diverged on {cert['cases_divergent']} cases" in lines[0]
+    assert lines[1] == _cli_exposure_line(t1_faulty_30)
+    assert f"sum {Decimal(verdict['exposure_sum']):.2f}" in lines[1]
+    assert f"{verdict['affected_branches']} branches affected" in lines[1]
+    assert lines[2] == FIX_INSTRUCTION
+    assert "not applicable" not in message
+
+
+def test_build_block_message_without_verdict_file(t1_faulty_30):
+    """When verdict.json cannot be read the message still carries the certificate's sub label."""
+    cert, _ = _load_run_files(t1_faulty_30)
+
+    lines = build_block_message(cert, None).split("\n")
+
+    assert lines[0] == f"ZOMBIE: {cert['sub_label']}"
+    assert lines[1] == "Unreconciled branch exposure: not applicable (no group key in the schema)"
+
+
+def test_build_block_message_invalid_certificate_uses_the_replay_line(tmp_path, t1_correct_200):
+    """An invalid replay is not headlined with the verdict the certificate claims.
+
+    The certificate is a copy of a real ALIVE one with one field edited (hash not recomputed), so
+    the real replay (`python -m coroner verify`, through the gate's own function) exits 3 and
+    prints its INVALID line. The message must start with that line, not with "ALIVE: PASS".
+    """
+    from coroner.hooks import replay_certificate
+
+    cert, verdict = _load_run_files(t1_correct_200)
+    assert cert["status"] == "ALIVE"
+    edited = tmp_path / "certificate.json"
+    edited.write_text(json.dumps({**cert, "cases_divergent": 1}))
+
+    exit_code, replay_line, edited_cert = replay_certificate(_REPO_ROOT, str(edited))
+    assert exit_code == 3
+    assert replay_line.startswith("Certificate: INVALID")
+
+    message = build_block_message(edited_cert, verdict, replay_line)
+
+    assert message.split("\n")[0] == replay_line
+    assert "ALIVE: PASS" not in message
 
 
 def test_gate_ignores_non_git_commands(tmp_path):
@@ -168,9 +251,12 @@ def test_gate_blocks_zombie_certificate(tmp_path, copy_runs, t1_faulty_30):
     gate finds it by file hashes, replays it with `python -m coroner verify` (exit 1) and blocks.
     """
     root = _gate_workspace(tmp_path, copy_runs, t1_faulty_30, "faulty")
-    cert = json.loads((root / "runs" / t1_faulty_30.run_id / "certificate.json").read_text())
+    run_files = root / "runs" / t1_faulty_30.run_id
+    cert = json.loads((run_files / "certificate.json").read_text())
+    verdict = json.loads((run_files / "verdict.json").read_text())
     assert cert["status"] == "ZOMBIE"
     assert cert["cases_divergent"] > 0
+    assert verdict["affected_branches"] > 0
 
     result = _run_gate(root, "git commit -m test")
 
@@ -180,8 +266,16 @@ def test_gate_blocks_zombie_certificate(tmp_path, copy_runs, t1_faulty_30):
     assert output["decision"] == "block"
     reason = output["reason"]
     assert reason.startswith("ZOMBIE:")
-    assert "Unreconciled branch exposure:" in reason
-    assert "Run get_failure_report and export_junit_test, fix the Java port, then run run_differential_check again." in reason
+    # The figures of the message are the ones in the run's own files, not typed values
+    lines = reason.split("\n")
+    assert lines[0] == f"ZOMBIE: {cert['sub_label']}"
+    assert f"diverged on {cert['cases_divergent']} cases" in lines[0]
+    assert lines[1] == _cli_exposure_line(t1_faulty_30)
+    assert f"sum {Decimal(verdict['exposure_sum']):.2f}" in lines[1]
+    assert f"max {Decimal(verdict['exposure_max']):.2f}" in lines[1]
+    assert f"{verdict['affected_branches']} branches affected" in lines[1]
+    assert "not applicable" not in reason
+    assert lines[2] == FIX_INSTRUCTION
     assert reason in result.stderr
 
     # The same ZOMBIE certificate also blocks git push and git merge

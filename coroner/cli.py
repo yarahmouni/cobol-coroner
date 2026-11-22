@@ -11,7 +11,7 @@ from coroner.parse.copybook import parse_cobol_structure
 from coroner.gen import DEFAULT_TIE_SHARE, GeneratorScript, generate_cases, schema_uses_tie_share
 from coroner.run import compile_cobol, compile_java, run_cobol, run_java, run_cobol_instrumented
 from coroner.compare import compare_outputs
-from coroner.verdict import compute_verdict
+from coroner.verdict import compute_verdict, exposure_text
 from coroner.store import collect_inputs, compute_run_id, store_inputs, store_comparison, store_verdict, store_branch_reconciliation
 from coroner.diag.coverage import compute_coverage
 from coroner.diag.report import generate_failure_report
@@ -87,12 +87,9 @@ def format_verdict_block(verdict, coverage, run_dir, duration):
     lines.append(f"Branch coverage (Coroner definition) {coverage['branches_covered']}/{coverage['branches_total']}")
     
     # Print exposure if present
-    if verdict.exposure_sum is not None:
-        matches_text = "yes" if verdict.grand_total_matches else "no"
-        if verdict.suspense_difference is not None:
-            lines.append(f"Unreconciled branch exposure: sum {verdict.exposure_sum:.2f}, max {verdict.exposure_max:.2f}, {verdict.affected_branches} branches affected, suspense difference {verdict.suspense_difference:.2f}, grand total matches: {matches_text}")
-        else:
-            lines.append(f"Unreconciled branch exposure: sum {verdict.exposure_sum:.2f}, max {verdict.exposure_max:.2f}, {verdict.affected_branches} branches affected, grand total matches: {matches_text}")
+    exposure = exposure_text(verdict)
+    if exposure is not None:
+        lines.append(exposure)
     
     lines.append(verdict.validation_notice)
     

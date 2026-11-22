@@ -20,6 +20,39 @@ class Verdict:
     grand_total_matches: bool | None = None
 
 
+def verdict_from_dict(data: dict) -> Verdict:
+    """The Verdict recorded in a run's verdict.json (exposure fields are strings there)."""
+    def decimal(key: str) -> Decimal | None:
+        value = data.get(key)
+        return Decimal(value) if value is not None else None
+
+    return Verdict(
+        status=data["status"],
+        sub_label=data["sub_label"],
+        cases_total=data["cases_total"],
+        cases_divergent=data["cases_divergent"],
+        run_return_codes=tuple(data["run_return_codes"]),
+        validation_notice=data.get("validation_notice", "Validated under GnuCOBOL 3.x"),
+        exposure_sum=decimal("exposure_sum"),
+        exposure_max=decimal("exposure_max"),
+        affected_branches=data.get("affected_branches"),
+        suspense_difference=decimal("suspense_difference"),
+        grand_total_matches=data.get("grand_total_matches"),
+    )
+
+
+def exposure_text(verdict: Verdict) -> str | None:
+    """The "Unreconciled branch exposure" line of the CLI, or None when the run has no exposure."""
+    if verdict.exposure_sum is None:
+        return None
+    matches_text = "yes" if verdict.grand_total_matches else "no"
+    line = (f"Unreconciled branch exposure: sum {verdict.exposure_sum:.2f}, max {verdict.exposure_max:.2f}, "
+            f"{verdict.affected_branches} branches affected")
+    if verdict.suspense_difference is not None:
+        line += f", suspense difference {verdict.suspense_difference:.2f}"
+    return f"{line}, grand total matches: {matches_text}"
+
+
 def compute_verdict(comparison) -> Verdict:
     """
     Compute verdict from comparison results.

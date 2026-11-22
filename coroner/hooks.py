@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 from coroner.store import copybook_file_hashes, generator_script_info
+from coroner.verdict import exposure_text, verdict_from_dict
 
 
 def compute_file_hash(path: str) -> str:
@@ -201,42 +202,41 @@ def is_audited_file_staged(repo_root: Path, scope: dict, staged: list[str]) -> b
     return False
 
 
-def build_block_message(cert_data: dict) -> str:
-    """Build the block message from certificate data."""
-    verdict = cert_data.get("verdict", "")
-    status = cert_data.get("status", "")
-    divergences = cert_data.get("divergences", 0)
-    
-    # Build verdict line
-    if status == "ALIVE":
-        verdict_line = f"ALIVE: {verdict}"
-    else:
-        verdict_line = f"ZOMBIE: {verdict}"
-    
-    # Check for group key in schema
-    exposure_line = "Unreconciled branch exposure: not applicable (no group key in the schema)"
-    
-    # Try to read schema to check for group key
+def read_run_verdict(cert_path: str) -> Optional[dict]:
+    """The verdict.json that sits next to a certificate.json, or None when it cannot be read."""
     try:
-        schema_path = cert_data.get("schema_file", "")
-        if schema_path and os.path.exists(schema_path):
-            with open(schema_path) as f:
-                schema = json.load(f)
-            
-            if "group_key" in schema:
-                # Check if exposure metric exists in certificate
-                exposure = cert_data.get("unreconciled_branch_exposure", {})
-                if exposure:
-                    sum_val = exposure.get("sum", 0)
-                    max_val = exposure.get("max", 0)
-                    count = exposure.get("affected_branches", 0)
-                    grand_total_match = exposure.get("grand_total_match", False)
-                    exposure_line = f"Unreconciled branch exposure: sum {sum_val}, max {max_val}, {count} branches affected, grand total {'matches' if grand_total_match else 'differs'}"
-    except (json.JSONDecodeError, OSError, KeyError):
-        pass
-    
+        with open(Path(cert_path).parent / "verdict.json", encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def build_block_message(cert_data: dict, verdict_data: Optional[dict] = None, replay_line: str = "") -> str:
+    """
+    Build the block message.
+
+    cert_data is the certificate (status, sub_label). verdict_data is the verdict.json of the
+    same run, where the Unreconciled branch exposure is recorded; it is present only when the
+    schema declares a group key, a subtotal and a grand total key. replay_line is the first line
+    printed by the certificate replay: when the replay said the certificate is invalid, that line
+    is the headline, because the verdict recorded in the certificate is then not to be trusted.
+    """
+    if replay_line.startswith("Certificate: INVALID"):
+        verdict_line = replay_line
+    else:
+        verdict_line = f"{cert_data['status']}: {cert_data['sub_label']}"
+
+    exposure_line = None
+    if verdict_data is not None:
+        try:
+            exposure_line = exposure_text(verdict_from_dict(verdict_data))
+        except (KeyError, TypeError, ValueError, ArithmeticError):
+            exposure_line = None
+    if exposure_line is None:
+        exposure_line = "Unreconciled branch exposure: not applicable (no group key in the schema)"
+
     fix_instruction = "Run get_failure_report and export_junit_test, fix the Java port, then run run_differential_check again."
-    
+
     return f"{verdict_line}\n{exposure_line}\n{fix_instruction}"
 
 
@@ -279,7 +279,7 @@ def gate_command(hook_input: dict) -> None:
             sys.exit(2)
         else:
             # ZOMBIE (exit 1) or invalid (exit 3): block
-            message = build_block_message(cert_data)
+            message = build_block_message(cert_data, read_run_verdict(cert_path), verdict_line)
             print(json.dumps({"decision": "block", "reason": message}))
             print(message, file=sys.stderr)
             sys.exit(2)
@@ -330,7 +330,7 @@ def stop_command(hook_input: dict) -> None:
         elif exit_code != 0:
             # ZOMBIE or invalid: should block
             should_block = True
-            block_message = build_block_message(cert_data)
+            block_message = build_block_message(cert_data, read_run_verdict(cert_path), verdict_line)
     else:
         # Certificate missing: check if audited files are staged
         staged = get_staged_files(repo_root)
