@@ -25,6 +25,19 @@ Coroner runs both programs on the same generated test cases, compares the output
 - **ZOMBIE**: FAIL: business behavior diverged on M cases, with the failing case, the COBOL output, the Java output, the divergent field and the COBOL lines executed.
 - **ERROR**: the COBOL reference did not run. The Java port is never blamed for it, and no verdict or certificate is written.
 
+## Try it in 60 seconds
+
+Six links on the live site. Each step says what you should see.
+
+1. [Case 1, faulty port](https://coroner.iqoba.com/run/f584d5f35228): ZOMBIE, "MIGRATION REJECTED", "FAIL: business behavior diverged on 682 cases", exposure 3995184.38 across 2 branches, grand total balances: yes. Branch 001: COBOL 2025606.03, Java 0.00.
+2. On that page, press Verify: "Certificate: VALID" (the audit is replayed; it takes a few seconds).
+3. [Tamper with it](https://coroner.iqoba.com/tamper?run_id=f584d5f35228): set Cases Divergent to 0 and press "Verify Tampered Certificate": "Certificate: INVALID" with "replay mismatch (cases_divergent: expected 0, got 682)".
+4. [Case 1, correct port](https://coroner.iqoba.com/run/29c15f04407b): ALIVE, "MIGRATION CERTIFIED", "PASS: business behavior preserved on 2000 cases", "All 9 branches match".
+5. [Detection Matrix](https://coroner.iqoba.com/matrix): Cases 1 to 5 detected on their faulty ports (682, 856, 429, 87 and 602 of 2000) and ALIVE on every correct port; Case 6 reserved, not measured.
+6. [The bank failure story](https://coroner.iqoba.com/story): Case 1 told in 8 steps, with a Business view and an Engineer view.
+
+To run your own audit, use the Run Audit form on the [home page](https://coroner.iqoba.com/).
+
 ## Where to start
 
 - [docs/judge-guide.md](docs/judge-guide.md): check every claim yourself, five minutes with no install, fifteen minutes with Docker.
@@ -71,6 +84,20 @@ The suspense line is not counted as a branch: the amount missing from branches 0
 Detection rates depend on the generator settings of each trap (schema.json domain_weights for T1, tie_share for T2, etc.) and are not real-world statistics.
 
 The branch-code mix of T1 is a generator setting (schema.json domain_weights), not a real-world statistic.
+
+## Features and honest limits
+
+| Feature | What it does | Honest limit |
+|---|---|---|
+| Differential audit | Runs the COBOL and the Java program on seeded generated cases and compares every output field, with no numeric tolerance. | ALIVE means "business behavior preserved on N cases". It is not a formal proof. |
+| Reference runtime | Uses GnuCOBOL 3.x as the reference. | Validated under GnuCOBOL 3.x only, not IBM Enterprise COBOL. No z/OS emulation. |
+| Scope | Audits standalone batch programs. | CICS, DB2, IMS, VSAM, JCL and multi-program applications are out of scope. |
+| Replayable certificate | Records file hashes, the seed and the verdict. Replay reruns the audit. | Proved by replaying the audit, not by a cryptographic signature. |
+| Detection Matrix | Counts the cases each trap detects in its faulty port. | Five traps, each a small program written for this project. Case 6 not measured. Rates depend on generator settings, not real-world statistics. |
+| Money figure | Shows branch exposure for Case 1, and amounts affected and the largest difference for Cases 2 to 5. | No currency. Cases 3 and 4 show large values because generated amounts cover the whole field range. |
+| Commit gate | Blocks a ZOMBIE commit, push or merge through the Kiro gate, the Git pre-commit hook and CI. | It does not stop an agent from writing code. |
+| Kiro power | Exposes Coroner tools to a Kiro agent. | Measured in the Kiro IDE on Windows. The IDE was not run on macOS. |
+| Live demo | Audits with 10 to 2000 cases per run, with a job queue of 3 by default and per-client rate limits. | Queue and limits are set in the code: 5 Run audit requests per minute and 1 Verify per 10 seconds per client, 20 API requests per minute per client, 100 per minute overall. |
 
 ## Real-world sample: CardDemo
 

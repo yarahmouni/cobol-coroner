@@ -1268,6 +1268,20 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Results: agent: test_docker_compose.py and test_static_page.py with slow passed; make test passed. Operator: make test 911 passed in 286.05 s; no dash, no local path in the diff; no old digest outside the history and the deploy note naming the previous image.
 - Kiro balance (2026-11-22): plan 405.95 of 531 used; kiroween2026 3207.88 of 4000 used (792.12 left).
 
+### R-179 2026-11-22: README "Try it in 60 seconds" and "Features and honest limits" (docs only, feature freeze)
+- Owner request (2026-11-22): near the top of the README, five or six clickable steps on the live site with the expected result of each, measured on the live site; an "Honest limit" column in a feature table. The README had neither section and no feature table.
+- Operator measurement in Chrome on https://coroner.iqoba.com (image of eb4b915), 2026-11-22. Direct run links were chosen because their result is the same before and after the next redeploy (the home page Run Audit result changes with R-174):
+  - /run/f584d5f35228: ZOMBIE, MIGRATION REJECTED, "FAIL: business behavior diverged on 682 cases", Exposure 3995184.38, Branches affected 2, Grand total balances yes, Branch 001 COBOL 2025606.03, Java 0.00.
+  - Verify on that page: "Certificate: VALID".
+  - /tamper?run_id=f584d5f35228 with Cases Divergent set to 0: "Certificate: INVALID", "replay mismatch (cases_divergent: expected 0, got 682)".
+  - /run/29c15f04407b: ALIVE, MIGRATION CERTIFIED, "PASS: business behavior preserved on 2000 cases", "All 9 branches match".
+  - /matrix: 682, 856, 429, 87 and 602 of 2000, ALIVE on every correct port, Case 6 not measured.
+  - /story: Case 1, Step 1 of 8, Business view and Engineer view.
+- Call p401 (haiku-5.5), README.md only: "Try it in 60 seconds" (six links with these results, then the home page form) after the verdict list, and "Features and honest limits" (9 rows: differential audit, reference runtime, scope, replayable certificate, Detection Matrix, money figure, commit gate, Kiro power, live demo) after "The cases". Each limit was given with its source and checked by the agent.
+- Operator checks against the code: rate limits in coroner/ui/app.py (Run audit 5 per minute per client, Verify and Tamper 1 per 10 s, 20 API requests per minute per client, 100 per minute overall, queue of 3 by default); coroner/certificate.py has no signing code, so "proved by replaying the audit, not by a cryptographic signature" holds. The money figure row describes the image of 2c2a11b (pinned, not yet live).
+- Results: tests reading the README (test_precommit_guard.py, test_screenshots_static.py, test_trap_t6.py) and test_case_name_retired.py: 14 passed. No dash in the diff.
+- Kiro balance (2026-11-22): plan 405.95 of 531 used; kiroween2026 3211.29 of 4000 used (788.71 left).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.
