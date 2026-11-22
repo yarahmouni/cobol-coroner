@@ -1207,6 +1207,32 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Results: agent: changed and related UI files with slow, SCREENSHOT_CHANNEL=chrome: 56 passed; make test 821 passed in 201.43 s. Ships in the next image; the live site keeps the "Cached result" line until then.
 - Kiro balance (2026-11-22): plan 405.95 of 531 used; kiroween2026 3074.39 of 4000 used.
 
+### R-175 2026-11-22: amount difference figure for Cases 2 to 5, computed by the engine and stored in verdict.json
+- Owner request (2026-11-22): a measured money figure in the home page verdict box for Cases 2 to 5, computed by the engine and stored in the run, never in a template; only if it fits one small commit with tests and changes no run id. Ships with the next image when the owner asks; no redeploy before.
+- Call p396 (sonnet-5.5), analysis then implementation:
+  - The run id is a hash of inputs only (sources, schema, copybooks, seed, case count, cobc flags, tool versions, generator script). The certificate takes only status, sub_label and the counts from the verdict. Replay recomputes the verdict, and coroner/compare/__init__.py (hashed into certificates) is unchanged.
+  - Engine: amount_difference(comparison, schema) in coroner/verdict.py, exact Decimal, for ZOMBIE runs only. Over the divergent values of decimal output fields it computes the sum of |COBOL - Java|, the largest difference and the count of amounts, written by store_verdict as amount_difference_sum, amount_difference_max and amount_difference_count.
+  - No figure is written when it would mislead: a row missing on one side, an unreadable value, all differences zero (for example -0.00 against +0.00), an ALIVE run, or a run that already has a branch exposure (Case 1). String columns are ignored.
+  - UI: amount_line ("Amount difference: <sum> across <n> amounts") from run_result_summary; the page shows the exposure line, otherwise the amount line.
+  - Faulty runs at 200 cases, seed 42 (run ids 20d699eb804a, 38ae1c058b27, 0eeb10e0d21b, 92c502344514, unchanged before and after):
+    - T2: "Amount difference: 0.90 across 90 amounts" (each 0.01).
+    - T3: "546373400.00 across 44 amounts" (sign flips, each twice the face value).
+    - T4: "105665398.00 across 10 amounts".
+    - T5: "3128991.25 across 60 amounts".
+    - T1 unchanged ("Exposure: 3995184.38 across 2 branches").
+  - tests/test_amount_difference.py on real runs of T2 to T5 in temporary bases checks:
+    - the figures against sums recomputed from comparison_results.json;
+    - an old verdict.json keeps its bytes and mtime and gets no line;
+    - certificate replay;
+    - Case 1 gets no amount figure;
+    - credit-fees HALF_EVEN gets the figure.
+    With the engine call disabled, 5 failures for T3; restored.
+  - Side effect: get_verdict over MCP returns the three new keys.
+- Limits (Q11): runs made before the change have no figure and are never rewritten, so a reused run (for example Case 3 faulty, seed 42, 200 cases, run 38ae1c058b27 on the server) still shows no line; the T3 and T4 magnitudes come from the generator's full S9(7)V99 range.
+- Results: agent: changed and related files with slow, SCREENSHOT_CHANNEL=chrome: 147 passed; make test 866 passed. Operator: make test 866 passed in 234.97 s; no dash in the diff; runs/ unchanged (153 entries).
+- Live check (operator, 2026-11-22, the image of eb4b915 redeployed by the owner): make deploy-check URL=https://coroner.iqoba.com exit 0; clean-clone build of 7b47f7b PASS; then PASS: GET / 200 with the Run audit form; T1 faulty ZOMBIE f584d5f35228; T1 correct ALIVE 29c15f04407b; Tamper INVALID with replay mismatch; Verify VALID; Cache-Control no-store; 17 KB body rejected with 413; Story step 5; Fool page. "Deployment check PASSED: all checks succeeded". Full output kept outside the repository.
+- Kiro balance (2026-11-22): plan 405.95 of 531 used; kiroween2026 3114.09 of 4000 used.
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.
@@ -1221,3 +1247,4 @@ Kept at the end of this log; new review entries go above this section. Work cont
 - Q8 (2026-11-21) CLOSED 2026-11-21: Case 3 name. The former name could be read two ways; T3 reads a positive COMP-3 value (sign nibble F) as negative. Owner answer (2026-11-21): rename Case 3 to "The Phantom Minus" everywhere (UI, docs, tests, video plan), through Kiro. Navigation and lists show the short title only. The case card shows three lines in this order: "Case 3: The Phantom Minus", "A positive amount read as negative", "Packed-decimal sign nibble F interpreted as a minus sign by the Java port". A test checks that the former name appears nowhere in the repository. Applied in R-149.
 - Q9 (2026-11-21) Positioning sentence: the guided story pages, the fool page, docs/judge-guide.md and scripts/deploy_check.py use "Coroner does not translate COBOL. AWS Transform, Kiro, an LLM or a human migrates COBOL to Java. Coroner independently verifies the result." (guided-story spec; naming audited migration tools is allowed by .kiro/steering/public-repo.md). The README (R-159) and the video plan (R-160) say "whoever produced it (an AI tool such as Kiro, another LLM, or a human)". Keep both, or align the UI on one wording? Aligning the UI changes the spec sentence, four tests and the deploy check, and goes into the batched image. Until you answer, nothing changes.
 - Q10 (2026-11-21) Official 2026 rules, to check on the Devpost rules page (it refuses automated reads): (a) the exact category name ("Resurrection"); (b) the maximum video length and platform (the plan is 2:49 on YouTube); (c) repository requirements (public, .kiro directory, open-source license: Apache-2.0 here); (d) the working application URL and how long it must stay up (planned until 2027-01-29); (e) the blog post bonus: where it is published, the required tag or link, and the "materially different from the description" rule. Then the operator fills the "Checked against the official rules on" marker in docs/video-plan.md. The drafts are in the private folder (location given in chat).
+- Q11 (2026-11-22) Amount difference figure (R-175): (a) the runs already on the server keep no figure, because existing runs are never rewritten; the default Case 2 to 5 runs (seed 42) show no line until their parameters change. Should coroner-init add the figure to existing runs as a derived file (a new file next to verdict.json, existing files unchanged), the way it rebuilds the trap catalog, or is the line for new runs only? (b) Case 3 and Case 4 figures are large (546373400.00 and 105665398.00 at 200 cases) because each sign flip counts twice the face value and the generator draws amounts over the whole S9(7)V99 range, the artifact rejected for Case 1 in R-89. Options: keep as measured; show the count and the largest difference instead of the sum for sign defects; or set an amount range in the T3 and T4 schemas (changes their run ids, so their catalog runs and the Detection Matrix ids change). (c) Case 2 shows 0.90 at 200 cases: true but small; keep?

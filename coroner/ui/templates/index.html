@@ -68,7 +68,7 @@
 </section>
 
 <script>
-// Shows the exposure line of the run, exactly as the server sent it, before the "Open the run" link.
+// Shows the money line of the run (exposure or amount difference), exactly as the server sent it, before the "Open the run" link.
 function showExposure(resultDiv, exposureLine) {
     if (typeof exposureLine !== 'string' || exposureLine === '') {
         return;
@@ -136,7 +136,7 @@ function renderResult(resultDiv, data, reused) {
     link.textContent = 'Open the run';
     badge.appendChild(link);
     resultDiv.appendChild(badge);
-    showExposure(resultDiv, data.exposure_line);
+    showExposure(resultDiv, data.exposure_line || data.amount_line);
 }
 
 document.body.addEventListener('htmx:afterRequest', function(event) {

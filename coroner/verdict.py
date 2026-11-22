@@ -1,7 +1,7 @@
 """Verdict computation for COBOL Coroner."""
 
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 
 @dataclass
@@ -18,6 +18,49 @@ class Verdict:
     affected_branches: int | None = None
     suspense_difference: Decimal | None = None
     grand_total_matches: bool | None = None
+    # Sum and largest of |COBOL - Java| over the divergent amount values, and how many differ
+    amount_difference_sum: Decimal | None = None
+    amount_difference_max: Decimal | None = None
+    amount_difference_count: int | None = None
+
+
+def amount_difference(comparison, schema) -> tuple[Decimal, Decimal, int] | None:
+    """
+    The money figure of a ZOMBIE run: (sum, largest, count) of |COBOL - Java| over the divergent
+    values of the decimal output columns, in exact Decimal arithmetic, nothing rounded.
+
+    Returns None when no honest figure exists: the run has a branch exposure (that figure already
+    reports the money), a divergence is not a plain value mismatch (a row missing on one side), a
+    divergent decimal value cannot be read as a finite number, or every difference is zero (for
+    example -0.00 against +0.00). A divergence on a string column is not an amount and is skipped.
+    """
+    if getattr(comparison, "exposure_sum", None) is not None:
+        return None
+    decimal_columns = {column.name for column in schema.output_columns if column.type == "decimal"}
+    total = Decimal(0)
+    largest = Decimal(0)
+    count = 0
+    for case in comparison.cases:
+        for field in case.divergent_fields:
+            if field.get("kind") != "value_mismatch":
+                return None
+            if field.get("field_name") not in decimal_columns:
+                continue
+            try:
+                cobol_value = Decimal(field["cobol_value"].strip())
+                java_value = Decimal(field["java_value"].strip())
+            except (InvalidOperation, KeyError, AttributeError):
+                return None
+            if not (cobol_value.is_finite() and java_value.is_finite()):
+                return None
+            difference = abs(cobol_value - java_value)
+            if difference > 0:
+                total += difference
+                largest = max(largest, difference)
+                count += 1
+    if count == 0:
+        return None
+    return total, largest, count
 
 
 def verdict_from_dict(data: dict) -> Verdict:
@@ -38,6 +81,9 @@ def verdict_from_dict(data: dict) -> Verdict:
         affected_branches=data.get("affected_branches"),
         suspense_difference=decimal("suspense_difference"),
         grand_total_matches=data.get("grand_total_matches"),
+        amount_difference_sum=decimal("amount_difference_sum"),
+        amount_difference_max=decimal("amount_difference_max"),
+        amount_difference_count=data.get("amount_difference_count"),
     )
 
 

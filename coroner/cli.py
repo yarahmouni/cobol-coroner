@@ -11,7 +11,7 @@ from coroner.parse.copybook import parse_cobol_structure
 from coroner.gen import DEFAULT_TIE_SHARE, GeneratorScript, generate_cases, schema_uses_tie_share
 from coroner.run import compile_cobol, compile_java, run_cobol, run_java, run_cobol_instrumented
 from coroner.compare import compare_outputs
-from coroner.verdict import compute_verdict, exposure_text
+from coroner.verdict import amount_difference, compute_verdict, exposure_text
 from coroner.store import collect_inputs, compute_run_id, store_inputs, store_comparison, store_verdict, store_branch_reconciliation
 from coroner.diag.coverage import compute_coverage
 from coroner.diag.report import generate_failure_report
@@ -276,6 +276,9 @@ def run_verify(
     # Step 9: Compute verdict
     step_start = time.time()
     verdict = compute_verdict(comparison)
+    difference = amount_difference(comparison, schema_obj) if verdict.status == "ZOMBIE" else None
+    if difference is not None:
+        verdict.amount_difference_sum, verdict.amount_difference_max, verdict.amount_difference_count = difference
     record_step("Compute verdict", step_start)
     
     # Step 10: Generate reports

@@ -296,6 +296,12 @@ def store_verdict(run_dir: str, verdict: Verdict) -> None:
         verdict_data["affected_branches"] = verdict.affected_branches
         verdict_data["suspense_difference"] = str(verdict.suspense_difference) if verdict.suspense_difference is not None else None
         verdict_data["grand_total_matches"] = verdict.grand_total_matches
+
+    # Add the amount difference when the run has one (never together with the exposure)
+    if verdict.amount_difference_sum is not None:
+        verdict_data["amount_difference_sum"] = format(verdict.amount_difference_sum, "f")
+        verdict_data["amount_difference_max"] = format(verdict.amount_difference_max, "f")
+        verdict_data["amount_difference_count"] = verdict.amount_difference_count
     
     verdict_path = os.path.join(run_dir, "verdict.json")
     

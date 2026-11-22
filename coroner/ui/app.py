@@ -2073,7 +2073,8 @@ async def job_status(job_id: str):
     
     Returns {status: queued|running|done|error, run_id: ..., verdict: ..., cases_divergent: ..., cases_total: ...}
     When done, also returns verdict, cases_divergent and cases_total from verdict.json, and
-    exposure_line (a string built from the exposure fields of verdict.json, or null).
+    exposure_line (a string built from the exposure fields of verdict.json, or null) and
+    amount_line (the same for the amount difference fields, or null).
     All responses include Cache-Control: no-store, no-cache, must-revalidate (via middleware).
     """
     # Validate job_id
@@ -2140,6 +2141,7 @@ async def job_status(job_id: str):
         from coroner.ui.pages import run_result_summary
 
         response_content["exposure_line"] = None
+        response_content["amount_line"] = None
         response_content.update(run_result_summary(run_dir))
         
         # Update run index (always, whether bundled or not)

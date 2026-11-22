@@ -263,6 +263,34 @@ def t1_faulty_30(tmp_path_factory):
     _assert_shared_run_unchanged(run, state)
 
 
+# Faulty port of each trap T2 to T5 at 200 cases, seed 42: (sample folder, COBOL file, Java class, run id).
+# The run ids were measured before the amount difference was added to verdict.json and must not change.
+TRAP_FAULTY_200 = {
+    "T2": ("T2-rounding", "ROUNDING-CALC", "RoundingCalc", "20d699eb804a"),
+    "T3": ("T3-comp3-sign", "COMP3-SIGN", "Comp3Sign", "38ae1c058b27"),
+    "T4": ("T4-zoned-overpunch", "ZONED-OVERPUNCH", "ZonedOverpunch", "0eeb10e0d21b"),
+    "T5": ("T5-redefines-invalid", "REDEFINES-INVALID", "RedefinesInvalid", "92c502344514"),
+}
+
+
+@pytest.fixture(scope="session", params=list(TRAP_FAULTY_200))
+def trap_faulty_200(request, tmp_path_factory):
+    """The faulty port of T2, T3, T4 and T5 at 200 cases, seed 42: ZOMBIE, exit 1. Shared, read only.
+
+    Each run is its own real engine audit in its own temporary base directory; the run id is asserted.
+    """
+    folder, cobol, java_class, run_id = TRAP_FAULTY_200[request.param]
+    sample = f"samples/traps/{folder}"
+    copybooks = f"{sample}/copybooks" if (REPO_ROOT / sample / "copybooks").is_dir() else sample
+    run = _shared_engine_run(
+        tmp_path_factory.mktemp(f"{request.param.lower()}_faulty_200"), run_id,
+        f"{sample}/{cobol}.cob", copybooks, f"{sample}/java/faulty/{java_class}.java", f"{sample}/schema.json", 200, 1,
+    )
+    state = _tree_state(run.run_dir)
+    yield request.param, run
+    _assert_shared_run_unchanged(run, state)
+
+
 def _credit_fees_args(java: str) -> tuple:
     return (f"{CREDIT_FEES_SAMPLE}/CREDIT-FEES.cob", f"{CREDIT_FEES_SAMPLE}/copybooks",
             java, f"{CREDIT_FEES_SAMPLE}/schema.json")

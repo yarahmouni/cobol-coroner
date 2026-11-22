@@ -28,14 +28,33 @@ def exposure_line(verdict_data: dict) -> Optional[str]:
     return f"Exposure: {exposure_sum} across {affected} {noun}"
 
 
+def amount_line(verdict_data: dict) -> Optional[str]:
+    """
+    The one-line amount difference for the Run audit result, from the fields of a run's verdict.json.
+
+    Returns "Amount difference: <amount_difference_sum> across <amount_difference_count> amount(s)"
+    when verdict.json records both and the count is above 0, otherwise None (runs made before the
+    engine wrote the figure have neither field). The sum is used exactly as recorded.
+    """
+    total = verdict_data.get("amount_difference_sum")
+    count = verdict_data.get("amount_difference_count")
+    if not isinstance(total, str) or not total:
+        return None
+    if isinstance(count, bool) or not isinstance(count, int) or count <= 0:
+        return None
+    noun = "amount" if count == 1 else "amounts"
+    return f"Amount difference: {total} across {count} {noun}"
+
+
 def run_result_summary(run_dir: Path) -> dict:
     """
     The result fields of the Run audit box, read from <run_dir>/verdict.json.
 
     Returns verdict (the recorded status), cases_divergent and cases_total (each only when the file
-    records it) and exposure_line (None when the run has no exposure). Used by the job status when a
-    job is done and by the cache-hit answer of POST /api/run, so both paths give the same fields.
-    Returns an empty dict when verdict.json is missing or unreadable.
+    records it), exposure_line (None when the run has no exposure) and amount_line (None when the
+    run has no amount difference, as for a run made before the engine wrote it). Used by the job
+    status when a job is done and by the cache-hit answer of POST /api/run, so both paths give the
+    same fields. Returns an empty dict when verdict.json is missing or unreadable.
     """
     try:
         verdict_data = json.loads((Path(run_dir) / "verdict.json").read_text())
@@ -43,7 +62,11 @@ def run_result_summary(run_dir: Path) -> dict:
         return {}
     if not isinstance(verdict_data, dict):
         return {}
-    summary = {"verdict": verdict_data.get("status"), "exposure_line": exposure_line(verdict_data)}
+    summary = {
+        "verdict": verdict_data.get("status"),
+        "exposure_line": exposure_line(verdict_data),
+        "amount_line": amount_line(verdict_data),
+    }
     for key in ("cases_divergent", "cases_total"):
         if key in verdict_data:
             summary[key] = verdict_data[key]
