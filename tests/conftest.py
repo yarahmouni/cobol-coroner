@@ -264,7 +264,7 @@ def t1_faulty_30(tmp_path_factory):
 
 
 # Faulty port of each trap T2 to T5 at 200 cases, seed 42: (sample folder, COBOL file, Java class, run id).
-# The run ids were measured before the amount difference was added to verdict.json and must not change.
+# The run ids were measured before the amount difference file was added and must not change.
 TRAP_FAULTY_200 = {
     "T2": ("T2-rounding", "ROUNDING-CALC", "RoundingCalc", "20d699eb804a"),
     "T3": ("T3-comp3-sign", "COMP3-SIGN", "Comp3Sign", "38ae1c058b27"),

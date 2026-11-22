@@ -31,6 +31,7 @@ COBOL + copybooks + Java 17 + schema.json
 - `coroner/diag`: coverage report, minimal case selection, failure report, JUnit test generation.
 - `coroner/diag/card.py`: Given/When/Then card generation from minimal case.
 - `coroner/traps.py`: trap catalog runner and detection matrix computation.
+- `coroner/derive.py`: the amount difference of a ZOMBIE run without a branch exposure, kept in a derived file `runs/<run_id>/amount_difference.json` (written by the engine for a new run, by `python -m coroner derive --from-runs` for an existing run, never changing an existing file of a run); the one reader used by the UI.
 - `coroner/catalog/legacy_variant.py`: HALF_EVEN variant generation for test purposes.
 - `coroner/cli.py`: command-line interface and pipeline orchestration.
 - `coroner/mcp`: MCP server with thin layer over the engine.

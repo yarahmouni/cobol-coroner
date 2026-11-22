@@ -83,6 +83,15 @@
     </p>
     {% endif %}
     
+    <!-- Amount difference (ZOMBIE without a branch exposure): the two business lines -->
+    {% if amount_business %}
+    <div id="amount-difference" style="margin: 2rem 0; padding: 1rem; background: var(--panel-bg); border-radius: 4px;">
+        {% for line in amount_business %}
+        <p style="margin: 0.25rem 0; font-size: 1.125rem;">{{ line }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
     <!-- ERROR details -->
     {% if verdict_class == 'error' %}
     <div style="margin: 2rem 0; padding: 1.5rem; background: var(--panel-bg); border-radius: 4px;">
@@ -355,6 +364,17 @@
 COBOL lines involved:
 {% for line in card.cobol_lines %}  {{ line }}
 {% endfor %}</div>
+        {% endif %}
+        
+        <!-- Amount difference, engineer lines -->
+        {% if amount_engineer %}
+        <h3 style="margin-top: 1.5rem;">Amount difference</h3>
+        <div id="amount-difference-engineer">
+            {% for line in amount_engineer %}
+            <div style="margin: 0.5rem 0;">{{ line }}</div>
+            {% endfor %}
+        </div>
+        <p style="font-size: 0.875rem; margin: 0.5rem 0;"><strong>Source:</strong> amount_difference.json, derived from comparison_results.json (run {{ run_id }})</p>
         {% endif %}
         
         <!-- Coverage -->

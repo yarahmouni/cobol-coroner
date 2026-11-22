@@ -570,3 +570,127 @@ def test_missing_catalog_file_after_a_successful_rebuild_does_not_stop_init(star
             assert client.get(api.url + "/").status_code == 200
     finally:
         api.stop()
+
+
+# The amount difference of runs made before the figure existed (owner decision, 2026-11-22):
+# coroner-init derives amount_difference.json for the runs that lack it, as a new file next to the
+# run's own files, and a failure of that step never keeps the site down.
+
+AMOUNT_FILE = "amount_difference.json"
+WARNING_DERIVE = (
+    "WARNING: amount difference derivation failed (exit 5); "
+    "runs without the figure show no amount lines and the site starts."
+)
+
+
+def runs_with_amount_file(base: Path) -> list:
+    return sorted(p.parent.name for p in (base / "runs").glob(f"*/{AMOUNT_FILE}"))
+
+
+def started_copy_without_amount_files(started_base, tmp_path):
+    """
+    A copy of the started base as a redeploy would find the runs of an older image: the figure
+    files are removed (their bytes returned). Returns (base, variant, {run id: file bytes}).
+    """
+    source, variant = started_base
+    base = tmp_path / "data"
+    shutil.copytree(source / "runs", base / "runs")
+    ids = runs_with_amount_file(base)
+    # credit-fees HALF_EVEN (bundled) and the faulty port of T2 to T5 have a figure, nothing else does
+    expected_ids = {BUNDLED_IDS[3]} | {catalog_trap(base, t)["faulty_run_id"] for t in ("T2", "T3", "T4", "T5")}
+    assert set(ids) == expected_ids
+    original = {run_id: (base / "runs" / run_id / AMOUNT_FILE).read_bytes() for run_id in ids}
+    for run_id in ids:
+        (base / "runs" / run_id / AMOUNT_FILE).unlink()
+    return base, variant, original
+
+
+def test_init_script_derives_the_figure_for_runs_that_lack_it_and_changes_nothing_else(started_base, tmp_path):
+    base, variant, original = started_copy_without_amount_files(started_base, tmp_path)
+    before = snapshot(base)
+
+    first = run_init_script(base, variant)
+
+    assert first.returncode == 0, f"stdout: {first.stdout}\nstderr: {first.stderr}"
+    assert last_stdout_line(first) == "Bundled demo runs generated."
+    assert "WARNING" not in first.stdout
+    for run_id in original:
+        assert f"Wrote runs/{run_id}/{AMOUNT_FILE}" in first.stdout
+    assert f"Amount difference: written {len(original)}, already present 0, " in first.stdout
+
+    # the files are the ones the engine wrote, and they are the only addition to the run folders
+    for run_id, content in original.items():
+        assert (base / "runs" / run_id / AMOUNT_FILE).read_bytes() == content
+    after = snapshot(base)
+    assert set(after) - set(before) == {f"{run_id}/{AMOUNT_FILE}" for run_id in original}
+    assert {key: after[key] for key in before} == before  # hash, size and mtime of every pre-existing file
+    assert_replay_valid(base, catalog_trap(base, "T2")["faulty_run_id"])  # a derived run, through the Verify route
+
+    # a second start skips every run that has the file
+    second = run_init_script(base, variant)
+    assert second.returncode == 0, f"stdout: {second.stdout}\nstderr: {second.stderr}"
+    assert "Wrote runs/" not in second.stdout
+    assert f"Amount difference: written 0, already present {len(original)}, " in second.stdout
+    assert snapshot(base) == after
+
+
+def test_a_failing_derivation_does_not_fail_init_and_the_api_still_starts(started_base, tmp_path):
+    import httpx
+
+    base, variant, original = started_copy_without_amount_files(started_base, tmp_path)
+    before = snapshot(base)
+
+    wrapper = tmp_path / "python-wrapper.sh"
+    wrapper.write_text(
+        "#!/usr/bin/env bash\n"
+        "if [ \"$1\" = \"-m\" ] && [ \"$2\" = \"coroner\" ] && [ \"$3\" = \"derive\" ]; then\n"
+        "    echo 'derive crashed' >&2\n"
+        "    exit 5\n"
+        "fi\n"
+        f"exec {sys.executable!r} \"$@\"\n"
+    )
+    wrapper.chmod(0o755)
+
+    result = run_init_script(base, variant, python=str(wrapper))
+
+    assert result.returncode == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
+    assert "derive crashed" in result.stdout
+    assert WARNING_DERIVE in result.stdout.splitlines()
+    assert "WARNING: catalog rebuild failed" not in result.stdout
+    assert last_stdout_line(result) == "Bundled demo runs generated."
+    assert runs_with_amount_file(base) == []  # nothing was invented
+    assert snapshot(base) == before
+    assert (base / "runs" / "trap_catalog.json").is_file()  # the catalog step before it ran normally
+
+    api = RealApi(base, tmp_path)
+    try:
+        api.wait_ready()
+        with httpx.Client(timeout=30.0) as client:
+            assert client.get(api.url + "/").status_code == 200
+            status, page = get_page(client, f"{api.url}/run/{BUNDLED_IDS[3]}")
+            assert status == 200
+            assert "Largest single difference" not in page  # no file, no lines, no error
+    finally:
+        api.stop()
+
+
+def test_a_derivation_that_exits_2_for_one_run_still_derives_the_others_and_init_exits_0(started_base, tmp_path):
+    """A real error: the recorded schema of one run no longer matches. That run is reported, the rest is done."""
+    base, variant, original = started_copy_without_amount_files(started_base, tmp_path)
+    broken_id = BUNDLED_IDS[3]
+    inputs_path = base / "runs" / broken_id / "inputs.json"
+    inputs = json.loads(inputs_path.read_text())
+    inputs["schema_sha256"] = "0" * 64
+    inputs_path.write_text(json.dumps(inputs, indent=2, sort_keys=True) + "\n")
+    before = snapshot(base)
+
+    result = run_init_script(base, variant)
+
+    assert result.returncode == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
+    assert "WARNING: amount difference derivation failed (exit 2)" in result.stdout
+    assert f"ERROR: run {broken_id}" in result.stdout
+    assert last_stdout_line(result) == "Bundled demo runs generated."
+    assert runs_with_amount_file(base) == sorted(set(original) - {broken_id})
+    after = snapshot(base)
+    assert {key: after[key] for key in before} == before
+    assert (base / "runs" / broken_id / AMOUNT_FILE).exists() is False

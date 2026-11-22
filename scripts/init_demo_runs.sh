@@ -5,8 +5,10 @@
 # run folder does not exist, an existing run folder is never touched, and runs/trap_catalog.json
 # and runs/trap_catalog.txt are always rebuilt from the runs on disk (python -m coroner traps
 # --from-runs). Each verify must return its expected exit code (0 ALIVE, 1 ZOMBIE).
-# A failing catalog rebuild is not fatal: the script prints a WARNING, keeps the previous catalog
-# files and exits 0, so coroner-api always starts. A failing bundled-run step still exits 2.
+# After that, python -m coroner derive --from-runs adds amount_difference.json to the runs that lack
+# it (a new file in the run folder, no existing file changed).
+# A failing catalog rebuild or derivation is not fatal: the script prints a WARNING, keeps the
+# previous files and exits 0, so coroner-api always starts. A failing bundled-run step still exits 2.
 #
 # Environment: CORONER_BASE_DIR (default /data), PYTHON (default python3),
 # CORONER_VARIANT_JAVA (default build/variants/CreditFees.java, the HALF_EVEN variant).
@@ -135,6 +137,18 @@ else
             echo "WARNING: catalog rebuild reported success but $catalog_file is missing; the site starts without it."
         fi
     done
+fi
+
+# Amount difference of runs that do not have it yet (a derived file next to the run's own files,
+# never changing any existing file of a run). A run that already has the file is skipped. Like the
+# catalog rebuild, a failure here must never keep the API from starting: warn and go on.
+set +e
+"$PY" -m coroner derive --from-runs > /tmp/derive_amounts.log 2>&1
+rc=$?
+set -e
+cat /tmp/derive_amounts.log
+if [ "$rc" -ne 0 ]; then
+    echo "WARNING: amount difference derivation failed (exit $rc); runs without the figure show no amount lines and the site starts."
 fi
 
 echo "Bundled demo runs generated."

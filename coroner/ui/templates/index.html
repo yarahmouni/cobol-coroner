@@ -68,7 +68,7 @@
 </section>
 
 <script>
-// Shows the money line of the run (exposure or amount difference), exactly as the server sent it, before the "Open the run" link.
+// Shows the exposure line of the run exactly as the server sent it, before the "Open the run" link.
 function showExposure(resultDiv, exposureLine) {
     if (typeof exposureLine !== 'string' || exposureLine === '') {
         return;
@@ -79,6 +79,23 @@ function showExposure(resultDiv, exposureLine) {
     line.style.marginBottom = '0.5rem';
     line.textContent = exposureLine;
     badge.insertBefore(line, badge.querySelector('a'));
+}
+
+// Shows the two amount lines of the run exactly as the server sent them (read from the run's
+// amount_difference.json), before the "Open the run" link. Nothing is computed here.
+function showAmountLines(resultDiv, amountLines) {
+    if (!Array.isArray(amountLines) || amountLines.length !== 2) {
+        return;
+    }
+    const badge = resultDiv.querySelector('.verdict-badge');
+    const ids = ['amount-count-text', 'amount-largest-text'];
+    amountLines.forEach(function(text, index) {
+        const line = document.createElement('div');
+        line.id = ids[index];
+        line.style.marginBottom = '0.5rem';
+        line.textContent = text;
+        badge.insertBefore(line, badge.querySelector('a'));
+    });
 }
 
 // One rendering for a finished job and for a cache hit (reused is true for a cache hit).
@@ -136,7 +153,8 @@ function renderResult(resultDiv, data, reused) {
     link.textContent = 'Open the run';
     badge.appendChild(link);
     resultDiv.appendChild(badge);
-    showExposure(resultDiv, data.exposure_line || data.amount_line);
+    showExposure(resultDiv, data.exposure_line);
+    showAmountLines(resultDiv, data.amount_lines);
 }
 
 document.body.addEventListener('htmx:afterRequest', function(event) {

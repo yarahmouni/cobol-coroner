@@ -801,6 +801,14 @@ async def run_page(request: Request, run_id: str):
             except OSError:
                 pass
     
+    # Amount difference (Cases 2 to 5, credit-fees): read from amount_difference.json, never for a
+    # run that has a branch exposure (Case 1) or is not a ZOMBIE
+    amount = None
+    if status == "ZOMBIE" and exhibit is None:
+        from coroner.ui.pages import amount_view
+
+        amount = amount_view(run_dir, inputs_data)
+    
     return templates.TemplateResponse(
         request=request,
         name="run.html",
@@ -828,6 +836,8 @@ async def run_page(request: Request, run_id: str):
             "card": card,
             "has_certificate": has_certificate,
             "certificate": certificate,
+            "amount_business": amount["business"] if amount else None,
+            "amount_engineer": amount["engineer"] if amount else None,
         }
     )
 
@@ -2074,7 +2084,8 @@ async def job_status(job_id: str):
     Returns {status: queued|running|done|error, run_id: ..., verdict: ..., cases_divergent: ..., cases_total: ...}
     When done, also returns verdict, cases_divergent and cases_total from verdict.json, and
     exposure_line (a string built from the exposure fields of verdict.json, or null) and
-    amount_line (the same for the amount difference fields, or null).
+    amount_lines (the two business lines of the amount difference read from amount_difference.json,
+    "<N> amounts affected" and "Largest single difference: <amount>", or null).
     All responses include Cache-Control: no-store, no-cache, must-revalidate (via middleware).
     """
     # Validate job_id
@@ -2141,7 +2152,7 @@ async def job_status(job_id: str):
         from coroner.ui.pages import run_result_summary
 
         response_content["exposure_line"] = None
-        response_content["amount_line"] = None
+        response_content["amount_lines"] = None
         response_content.update(run_result_summary(run_dir))
         
         # Update run index (always, whether bundled or not)

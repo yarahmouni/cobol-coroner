@@ -277,8 +277,6 @@ def run_verify(
     step_start = time.time()
     verdict = compute_verdict(comparison)
     difference = amount_difference(comparison, schema_obj) if verdict.status == "ZOMBIE" else None
-    if difference is not None:
-        verdict.amount_difference_sum, verdict.amount_difference_max, verdict.amount_difference_count = difference
     record_step("Compute verdict", step_start)
     
     # Step 10: Generate reports
@@ -407,7 +405,10 @@ def run_verify(
     store_comparison(str(run_dir), comparison)
     store_branch_reconciliation(str(run_dir), comparison)
     store_verdict(str(run_dir), verdict)
-    
+    if difference is not None:
+        # Derived file next to the run's own files; nothing else in the run refers to it
+        from coroner.derive import write_amount_difference
+        write_amount_difference(run_dir, difference, inputs_data["schema_sha256"])
     # Store timing if provided
     if duration_seconds is not None:
         from coroner.store import store_timing
@@ -512,6 +513,24 @@ def main():
              "the engine runs only for a port that has no run, and no existing run folder is changed"
     )
     
+    # derive command
+    derive_parser = subparsers.add_parser(
+        "derive",
+        help="Write runs/<run_id>/amount_difference.json for existing runs that lack it",
+        description=(
+            "For every run folder under the base directory (CORONER_BASE_DIR, default '.') that is a ZOMBIE "
+            "run without a branch exposure and has no amount_difference.json, compute the amount difference "
+            "(sum and largest of |COBOL - Java| over the divergent decimal values, and how many amounts) "
+            "from the run's own comparison_results.json and the schema the run recorded, and write it as a "
+            "new file in the run folder. No existing file of a run is changed. A run that already has the "
+            "file is skipped, so running it twice changes nothing. Exit 0, or 2 if any run could not be derived."
+        ),
+    )
+    derive_parser.add_argument(
+        "--from-runs", action="store_true", required=True,
+        help="Derive the file for the runs already in the base directory"
+    )
+
     # gate command
     gate_parser = subparsers.add_parser("gate", help="CI gate: check verdict and certificate")
     gate_parser.add_argument("--scope", default=".kiro/coroner-scope.json", help="Path to scope file (default: .kiro/coroner-scope.json)")
@@ -637,6 +656,23 @@ def main():
             traceback.print_exc()
             return 2
     
+    elif args.command == "derive":
+        from coroner.derive import derive_all
+
+        base_dir = os.environ.get('CORONER_BASE_DIR', '.')
+        result = derive_all(base_dir)
+        for run_id in result["written"]:
+            print(f"Wrote runs/{run_id}/amount_difference.json")
+        for run_id, detail in result["errors"]:
+            print(f"ERROR: run {run_id}: {detail}", file=sys.stderr)
+        counts = result["counts"]
+        print(
+            f"Amount difference: written {counts['written']}, already present {counts['exists']}, "
+            f"not applicable {counts['not applicable']}, no figure {counts['no figure']}, "
+            f"errors {counts['error']}"
+        )
+        return 2 if result["errors"] else 0
+
     elif args.command == "gate":
         # Run gate
         from coroner.gate import run_gate

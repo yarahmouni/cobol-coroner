@@ -28,33 +28,47 @@ def exposure_line(verdict_data: dict) -> Optional[str]:
     return f"Exposure: {exposure_sum} across {affected} {noun}"
 
 
-def amount_line(verdict_data: dict) -> Optional[str]:
+def amount_view(run_dir: Path, inputs_data: Optional[dict] = None) -> Optional[dict]:
     """
-    The one-line amount difference for the Run audit result, from the fields of a run's verdict.json.
+    The texts of the amount difference of a run, read only from <run_dir>/amount_difference.json
+    (through the one reader, coroner.derive.read_amount_difference), exactly as the engine wrote it.
 
-    Returns "Amount difference: <amount_difference_sum> across <amount_difference_count> amount(s)"
-    when verdict.json records both and the count is above 0, otherwise None (runs made before the
-    engine wrote the figure have neither field). The sum is used exactly as recorded.
+    Returns None when the run has no such file. Otherwise:
+      business: ["<N> amounts affected", "Largest single difference: <amount>"]
+      engineer: the two lines above, then "Sum of absolute differences: <amount> (seed <S>, <C> cases)"
+    The seed and the case count come from the run's inputs.json (inputs_data); "not recorded" when
+    absent. No currency label. Nothing is computed here: amounts are the recorded decimal strings.
     """
-    total = verdict_data.get("amount_difference_sum")
-    count = verdict_data.get("amount_difference_count")
-    if not isinstance(total, str) or not total:
+    from coroner.derive import read_amount_difference
+
+    data = read_amount_difference(run_dir)
+    if data is None:
         return None
-    if isinstance(count, bool) or not isinstance(count, int) or count <= 0:
-        return None
-    noun = "amount" if count == 1 else "amounts"
-    return f"Amount difference: {total} across {count} {noun}"
+    count = data["amounts_affected"]
+    business = [
+        f"{count} {'amount' if count == 1 else 'amounts'} affected",
+        f"Largest single difference: {data['largest_difference']}",
+    ]
+    inputs_data = inputs_data or {}
+    seed = inputs_data.get("random_seed", inputs_data.get("seed"))
+    cases = inputs_data.get("case_count")
+    seed_text = "not recorded" if seed is None else str(seed)
+    cases_text = "not recorded" if cases is None else str(cases)
+    sum_line = f"Sum of absolute differences: {data['sum_of_absolute_differences']} (seed {seed_text}, {cases_text} cases)"
+    return {"business": business, "engineer": business + [sum_line]}
 
 
 def run_result_summary(run_dir: Path) -> dict:
     """
-    The result fields of the Run audit box, read from <run_dir>/verdict.json.
+    The result fields of the Run audit box, read from <run_dir>/verdict.json and, for the amount
+    lines, <run_dir>/amount_difference.json.
 
     Returns verdict (the recorded status), cases_divergent and cases_total (each only when the file
-    records it), exposure_line (None when the run has no exposure) and amount_line (None when the
-    run has no amount difference, as for a run made before the engine wrote it). Used by the job
-    status when a job is done and by the cache-hit answer of POST /api/run, so both paths give the
-    same fields. Returns an empty dict when verdict.json is missing or unreadable.
+    records it), exposure_line (None when the run has no exposure) and amount_lines (the two
+    business lines of amount_view, or None when the run has no amount difference file or has an
+    exposure line). Used by the job status when a job is done and by the cache-hit answer of
+    POST /api/run, so both paths give the same fields. Returns an empty dict when verdict.json is
+    missing or unreadable.
     """
     try:
         verdict_data = json.loads((Path(run_dir) / "verdict.json").read_text())
@@ -62,10 +76,12 @@ def run_result_summary(run_dir: Path) -> dict:
         return {}
     if not isinstance(verdict_data, dict):
         return {}
+    exposure = exposure_line(verdict_data)
+    amounts = amount_view(run_dir) if exposure is None and verdict_data.get("status") == "ZOMBIE" else None
     summary = {
         "verdict": verdict_data.get("status"),
-        "exposure_line": exposure_line(verdict_data),
-        "amount_line": amount_line(verdict_data),
+        "exposure_line": exposure,
+        "amount_lines": amounts["business"] if amounts else None,
     }
     for key in ("cases_divergent", "cases_total"):
         if key in verdict_data:
