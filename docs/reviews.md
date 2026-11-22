@@ -1282,6 +1282,33 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Results: tests reading the README (test_precommit_guard.py, test_screenshots_static.py, test_trap_t6.py) and test_case_name_retired.py: 14 passed. No dash in the diff.
 - Kiro balance (2026-11-22): plan 405.95 of 531 used; kiroween2026 3211.29 of 4000 used (788.71 left).
 
+### R-180 2026-11-22: live check after the redeploy of the 2c2a11b image; README steps rechecked
+- Owner report (2026-11-22): server redeployed on sha256:7bc88f3cd371...efc7211; coroner-init wrote amount_difference.json for 8 runs, errors 0; api and engine restarted, cloudflared kept running; all three show unless-stopped.
+- Operator: make deploy-check URL=https://coroner.iqoba.com, exit 0:
+  - clean-clone build of 421c7c8 PASS;
+  - PASS: GET / returns 200 with Run audit form;
+  - PASS: T1 faulty: ZOMBIE verdict, run_id=f584d5f35228;
+  - PASS: T1 correct: ALIVE verdict, run_id=29c15f04407b;
+  - PASS: Tamper: INVALID with replay mismatch, run_id=f584d5f35228;
+  - PASS: Verify: certificate VALID, run_id=f584d5f35228;
+  - PASS: Cache-Control: /api/* responses include no-store;
+  - PASS: Body limit: 17 KB body rejected with 413;
+  - PASS: Story step 5: Cause of death, positioning sentence and a branch table row;
+  - PASS: Fool page: counter and three checkboxes;
+  - "Deployment check PASSED: all checks succeeded". Full output kept outside the repository.
+- README "Try it in 60 seconds" (R-179) rechecked in Chrome on the live site, every expected result found:
+  1. /run/f584d5f35228: ZOMBIE, MIGRATION REJECTED, "FAIL: business behavior diverged on 682 cases", 3995184.38, Branches affected 2, Grand total balances yes, Branch 001 COBOL 2025606.03, Java 0.00.
+  2. Verify: "Certificate: VALID".
+  3. Tamper with Cases Divergent 0: "Certificate: INVALID", "replay mismatch (cases_divergent: expected 0, got 682)".
+  4. /run/29c15f04407b: ALIVE, MIGRATION CERTIFIED, "PASS: business behavior preserved on 2000 cases", "All 9 branches match".
+  5. /matrix: 682, 856, 429, 87, 602 of 2000, ALIVE on every correct port, Case 6 not measured.
+  6. /story: "Case 1 The Missing Branch", "Step 1 of 8", Business view, Engineer view.
+- New in this image, on the live home page (both reused runs):
+  - Case 1 faulty, seed 42, 2000 cases: "ZOMBIE / 682 of 2000 cases diverge. / Same inputs as an existing run: result reused. / Exposure: 3995184.38 across 2 branches / Open the run" (R-174).
+  - Case 3 faulty, seed 42, 200 cases: "ZOMBIE / 44 of 200 cases diverge. / Same inputs as an existing run: result reused. / 44 amounts affected / Largest single difference: 19962848.06". Run page 38ae1c058b27: the same two lines in the verdict section; Technical details "Sum of absolute differences: 546373400.00 (seed 42, 200 cases)" (R-175, R-177). The owner's report of R-174 (no money line for Case 3) is resolved on the live site.
+- Q12 step 1 (redeploy and live check) done.
+- Kiro balance (2026-11-22): plan 405.95 of 531 used; kiroween2026 3211.29 of 4000 used.
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.
@@ -1298,7 +1325,7 @@ Kept at the end of this log; new review entries go above this section. Work cont
 - Q10 (2026-11-21) Official 2026 rules, to check on the Devpost rules page (it refuses automated reads): (a) the exact category name ("Resurrection"); (b) the maximum video length and platform (the plan is 2:49 on YouTube); (c) repository requirements (public, .kiro directory, open-source license: Apache-2.0 here); (d) the working application URL and how long it must stay up (planned until 2027-01-29); (e) the blog post bonus: where it is published, the required tag or link, and the "materially different from the description" rule. Then the operator fills the "Checked against the official rules on" marker in docs/video-plan.md. The drafts are in the private folder (location given in chat).
 - Q11 (2026-11-22) CLOSED 2026-11-22 in R-177 (owner answers: derived file added by coroner-init, two lines, sum in the engineer view, no range change, Case 2 kept). Amount difference figure (R-175): (a) the runs already on the server keep no figure, because existing runs are never rewritten; the default Case 2 to 5 runs (seed 42) show no line until their parameters change. Should coroner-init add the figure to existing runs as a derived file (a new file next to verdict.json, existing files unchanged), the way it rebuilds the trap catalog, or is the line for new runs only? (b) Case 3 and Case 4 figures are large (546373400.00 and 105665398.00 at 200 cases) because each sign flip counts twice the face value and the generator draws amounts over the whole S9(7)V99 range, the artifact rejected for Case 1 in R-89. Options: keep as measured; show the count and the largest difference instead of the sum for sign defects; or set an amount range in the T3 and T4 schemas (changes their run ids, so their catalog runs and the Detection Matrix ids change). (c) Case 2 shows 0.90 at 200 cases: true but small; keep?
 - Q12 (2026-11-22) Remaining owner steps after the feature freeze, in order:
-  1. Redeploy the image of 2c2a11b on the server with the commands given on 2026-11-22 (git pull; config --images shows sha256:7bc88f3c...efc7211; pull; up -d; ps -a; logs of coroner-init with the "Amount difference" summary; logs of coroner-engine and cloudflared; the restart policy check showing three lines ending in unless-stopped). Then tell the operator, who runs make deploy-check URL=https://coroner.iqoba.com and records it in a review entry.
+  1. DONE 2026-11-22 (R-180). Redeploy the image of 2c2a11b on the server with the commands given on 2026-11-22 (git pull; config --images shows sha256:7bc88f3c...efc7211; pull; up -d; ps -a; logs of coroner-init with the "Amount difference" summary; logs of coroner-engine and cloudflared; the restart policy check showing three lines ending in unless-stopped). Then tell the operator, who runs make deploy-check URL=https://coroner.iqoba.com and records it in a review entry.
   2. Record the Kiro IDE power clip on Windows (docs/video-plan.md section 4, 10 to 15 s) and send it; the operator splices it into shot 11 of the cut.
   3. Around 2026-11-28: record the voice-over from the Voice-over column of docs/video-plan.md on the finished cut and send it; the operator adds it.
   4. Answer Q9 (positioning sentence), Q10 (official 2026 rules, from the Devpost rules page) and Q3 (hand-written Case 1 port, by 2026-11-26, otherwise its row is removed). Q1 (Case 6 field trap) and Q4 and Q7 stay as recorded unless answered.
