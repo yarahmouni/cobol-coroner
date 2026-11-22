@@ -7,6 +7,7 @@ are valid and properly configured with security limits.
 import ast
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -919,3 +920,45 @@ def test_server_override_still_renders_with_pinned_image():
         assert services[name]["image"] == PINNED_IMAGE, name
         assert "build" not in services[name], name
     assert "cloudflared" in services
+
+
+RESTARTED_SERVICES = ["coroner-api", "coroner-engine", "cloudflared"]
+
+
+def _assert_restart_policies(services):
+    """The three long-running services restart unless stopped; coroner-init stays one-shot."""
+    for name in RESTARTED_SERVICES:
+        assert services[name].get("restart") == "unless-stopped", (
+            f"{name} must have restart: unless-stopped"
+        )
+    init_restart = services["coroner-init"].get("restart")
+    assert init_restart in (None, "no"), (
+        f"coroner-init is one-shot and must not restart, found restart: {init_restart}"
+    )
+
+
+def test_server_file_restart_policies():
+    """docker-compose.server.yml pins the restart policies (reads the YAML, no docker needed)."""
+    with open("docker-compose.server.yml") as f:
+        server = yaml.safe_load(f)["services"]
+    with open("docker-compose.yml") as f:
+        base = yaml.safe_load(f)["services"]
+    for name in RESTARTED_SERVICES:
+        assert server[name].get("restart") == "unless-stopped", (
+            f"{name} must have restart: unless-stopped in docker-compose.server.yml"
+        )
+    # coroner-init has no restart key in either file
+    assert "restart" not in base["coroner-init"]
+    assert "restart" not in server.get("coroner-init", {})
+    # tester mode (docker-compose.yml alone) is not changed by the server policy
+    for name in ("coroner-api", "coroner-engine"):
+        assert "restart" not in base[name], f"{name}: the policy belongs in the server file"
+
+
+@pytest.mark.repo
+def test_server_merged_config_restart_policies():
+    """The merged server configuration renders the restart policies (needs the docker CLI)."""
+    if shutil.which("docker") is None:
+        pytest.skip("docker CLI not installed")
+    services = _compose_config(["docker-compose.yml", "docker-compose.server.yml"], SERVER_ENV)
+    _assert_restart_policies(services)

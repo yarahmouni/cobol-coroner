@@ -278,6 +278,22 @@ coroner-engine   ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9
 coroner-init     ghcr.io/yarahmouni/cobol-coroner@sha256:0ca88a1f3cf795b08c2c8b9169efd1d05e276e593f22aaeafd7be082501a4ad4   Exited (0) 5 minutes ago
 ```
 
+Check the restart policy of each running container. The command lists the running containers of this compose project and prints the policy the Docker daemon applies to each:
+
+```bash
+docker inspect --format '{{.Name}} {{.HostConfig.RestartPolicy.Name}}' $(docker compose -f docker-compose.yml -f docker-compose.server.yml ps -q)
+```
+
+Expected output (not measured on the server; the container names start with the name of the folder you cloned into, here `cobol-coroner`): three lines, each ending in `unless-stopped`.
+
+```
+/cobol-coroner-cloudflared-1 unless-stopped
+/cobol-coroner-coroner-api-1 unless-stopped
+/cobol-coroner-coroner-engine-1 unless-stopped
+```
+
+`coroner-init` is not listed because it has exited, and it has no restart policy on purpose (see "After a host reboot").
+
 Check that the demo runs were generated:
 
 ```bash
@@ -347,7 +363,31 @@ docker compose -f docker-compose.yml -f docker-compose.server.yml up -d
 
 What a redeploy does to the data volume: `coroner-init` runs again on every `up -d`. It never reruns an audit for an existing run id and never changes a file inside a run folder, so Verify keeps working on runs made before the redeploy, including visitor runs. It always rebuilds the two derived files `runs/trap_catalog.json` and `runs/trap_catalog.txt` from the runs on disk (`python -m coroner traps --from-runs`), so the new image's card and case names appear without regenerating anything. A bundled run is generated only if its folder is missing, in a scratch folder under `build/` and moved into `runs/` only when no folder with that run id exists. If the catalog finds a run folder that exists but whose `inputs.json` does not match a trap port, the rebuild stops with exit code 2 and writes nothing. This never keeps the site down: `coroner-init` prints the rebuild output, then one line, `WARNING: catalog rebuild failed (exit <rc>); the previous catalog files are kept and the site starts with them.` (or, when no `runs/trap_catalog.json` exists yet, `WARNING: catalog rebuild failed (exit <rc>); no catalog file exists yet, the Detection Matrix has no data until a rebuild succeeds.`), exits 0 and ends with `Bundled demo runs generated.`, so `coroner-api` starts and serves every existing run with the previous catalog files, which stay byte for byte unchanged. A failure while generating a bundled run still exits 2. After fixing the cause, rebuild the catalog by hand: `docker compose -f docker-compose.yml -f docker-compose.server.yml run --rm coroner-init`.
 
+## After a host reboot
+
+The stack comes back by itself. `coroner-api`, `coroner-engine` and `cloudflared` have `restart: unless-stopped` in `docker-compose.server.yml`, so the Docker daemon starts them again when the host boots, without running Compose. `coroner-init` has no restart policy: it stays `Exited (0)`, which is normal, and it is not run again. The API and the engine start from the existing volumes, which `coroner-init` already filled at the first start. This behaviour is not measured here by rebooting the host. A Run audit that was running when the host went down shows an error and must be run again; the engine marks it at start.
+
+Check:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.server.yml ps -a --format 'table {{.Service}}\t{{.Status}}'
+```
+
+Look for `coroner-api`, `coroner-engine` and `cloudflared` with a status starting with `Up`, and `coroner-init` as `Exited (0)`.
+
+A service stopped with `docker compose stop` stays stopped after a reboot (that is what `unless-stopped` means). `docker compose down` removes the containers, so nothing comes back until the next `up -d`.
+
 ## Troubleshooting
+
+**Error 1033.** Cloudflare shows error 1033 when the tunnel is not connected: nobody is running cloudflared for coroner.iqoba.com, or it cannot reach Cloudflare. Check, in this order:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.server.yml ps
+docker compose -f docker-compose.yml -f docker-compose.server.yml logs --tail 50 cloudflared
+docker compose -f docker-compose.yml -f docker-compose.server.yml up -d
+```
+
+The first command shows whether `cloudflared` is `Up` (an `Exited` status means no tunnel). The second shows why it stopped or whether it registered its connections ("Registered tunnel connection" lines). The third starts every service that is not running and changes nothing for the ones that are.
 
 **Credentials file unreadable by uid 65532.** The cloudflared container cannot read the credentials file. Check ownership and mode:
 

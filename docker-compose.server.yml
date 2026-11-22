@@ -4,16 +4,26 @@
 #
 # This removes the published port from the API (accessed only through Cloudflare tunnel)
 # and adds the cloudflared service.
+#
+# Restart policy: coroner-api, coroner-engine and cloudflared use "unless-stopped", so the Docker
+# daemon brings them back after a host reboot or a crash. coroner-init has no restart key on
+# purpose: it is a one-shot service and must stay Exited once it has finished. The policy is set
+# here and not in docker-compose.yml, so tester mode (docker compose up) is unchanged.
 
 services:
   coroner-api:
+    restart: unless-stopped
     ports: !reset []
     environment:
       - CORONER_TRUSTED_PROXY=10.5.0.3
     networks:
       - coroner-net
 
+  coroner-engine:
+    restart: unless-stopped
+
   cloudflared:
+    restart: unless-stopped
     image: cloudflare/cloudflared:2026.10.7@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba
     platform: linux/amd64
     security_opt:

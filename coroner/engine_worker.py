@@ -423,9 +423,57 @@ def execute_job(job_dir: Path):
         update_status(job_dir, "error", reason=str(e), completed_at=time.time())
 
 
+STALE_JOB_REASON = (
+    "The engine stopped while this audit was running. Run the audit again."
+)
+
+
+def recover_stale_jobs() -> list[str]:
+    """
+    Mark every job left "running" by a previous worker process as "error".
+
+    There is one worker per exchange folder (one coroner-engine container), so a job
+    that is "running" when a worker starts belongs to a process that no longer exists.
+    Nothing is killed: the old process group went away with the old container.
+    A "queued" job is left alone and runs normally. Returns the recovered job ids.
+    """
+    jobs_dir = get_exchange_dir() / "jobs"
+    recovered: list[str] = []
+
+    if not jobs_dir.is_dir():
+        print("Recovered 0 stale running job(s)", file=sys.stderr)
+        return recovered
+
+    for job_dir in sorted(jobs_dir.iterdir()):
+        if job_dir.is_symlink() or not job_dir.is_dir():
+            continue
+        status_file = job_dir / "status.json"
+        try:
+            status_data = json.loads(status_file.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        if not isinstance(status_data, dict) or status_data.get("status") != "running":
+            continue
+        try:
+            update_status(job_dir, "error", reason=STALE_JOB_REASON, completed_at=time.time())
+        except OSError as e:
+            print(f"Could not recover stale job {job_dir.name}: {e}", file=sys.stderr)
+            continue
+        print(f"Recovered stale running job: {job_dir.name}", file=sys.stderr)
+        recovered.append(job_dir.name)
+
+    print(f"Recovered {len(recovered)} stale running job(s)", file=sys.stderr)
+    return recovered
+
+
 def worker_loop():
-    """Main worker loop: poll for jobs and execute them."""
+    """Recover stale jobs, then poll for jobs and execute them."""
     print("Engine worker started", file=sys.stderr)
+
+    try:
+        recover_stale_jobs()
+    except Exception as e:
+        print(f"Stale job recovery failed: {e}", file=sys.stderr)
     
     while True:
         try:

@@ -14,6 +14,7 @@ State at 2026-11-21, from the review log (R-xxx) and the judge guide:
 - The CardDemo audit run is not bundled yet and the main README has no CardDemo line (R-126).
 - The guided story ("Try the bank failure") has a spec (c65a8ba) and its gate-check endpoint (909b2c2); the story pages are not described as built in the review log.
 - The default test suite target of 60 s is not reached (R-78).
+- Fixed, not yet in a published image: a Run audit job left "running" when the engine container stopped stayed "running" forever, and three of them made the site refuse every Run audit with 429. The engine now marks such jobs as error when it starts (`recover_stale_jobs` in `coroner/engine_worker.py`, `tests/test_engine_stale_jobs.py`).
 
 ## 2026-11-21
 
