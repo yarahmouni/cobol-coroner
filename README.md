@@ -350,9 +350,44 @@ CICS, DB2, IMS, VSAM, JCL, EBCDIC-encoded data (the EBCDIC collating sequence tr
 
 - COMP-3 sign nibbles B, A, E and other non-preferred nibbles are excluded from certified cases (GnuCOBOL reads B as positive, IBM documentation treats B as negative). Coroner tests use only preferred sign nibbles C (positive), D (negative), and F (unsigned/positive).
 
-## How Kiro was used
+## How we used Kiro
 
-Specs, steering, skills, hooks, MCP server and agents are in [.kiro/](.kiro/).
+Kiro wrote the code, specs, tests and hook files. An operator wrote the prompts, checked every result on real runs and sent back what was wrong.
+
+**Specs.** [.kiro/specs/](.kiro/specs/) holds 15 spec folders, each with requirements.md, design.md and tasks.md. Two examples:
+- [engine](.kiro/specs/engine/requirements.md): takes a COBOL program, its copybooks, a Java 17 version and a schema, runs both on generated cases and returns ALIVE or ZOMBIE.
+- [kiro-hooks](.kiro/specs/kiro-hooks/requirements.md): the delivery gate blocks git commit, push and merge while the certificate replays as ZOMBIE, missing or invalid.
+
+Details: [section 2 of docs/KIRO_USAGE.md](docs/KIRO_USAGE.md#2-specs).
+
+**Steering.** Seven files in [.kiro/steering/](.kiro/steering/), all marked `inclusion: always`:
+- product.md: Coroner verifies and never converts; the verdict never depends on an AI model.
+- quality.md: short code, fixed seeds, reference outputs only from running the COBOL program.
+- public-repo.md: no private, client or competitor names.
+- no-formal-proof.md: wording limits, such as never "formal proof" or "guaranteed".
+- cobol-semantics.md: COBOL rounding and sign rules for the Java side.
+- comparison-rules.md: exact comparison after normalization, no numeric tolerance.
+- scope-v1.md: what is in and out of scope for V1.
+
+**Hooks.** Five files in [.kiro/hooks/](.kiro/hooks/), one hook per file:
+- coroner-commit-gate.json: blocks git commit, push and merge when the scope certificate is ZOMBIE, missing or invalid.
+- coroner-stop-check.json: when the agent stops, asks it to continue while the verdict is ZOMBIE, at most 3 requests per session.
+- fast-tests-on-save.json: runs the matching fast test file after a Python file under coroner/ or tests/ is saved.
+- public-repo-check.json: before a git commit, blocks added em or en dashes, home paths and unlisted files at the root or in scripts/.
+- trap-catalog-refresh.json: after a trap sample is saved, asks the agent to run make traps and report what the catalog file says.
+
+The commit gate and the stop check are also wired in the custom agent for kiro-cli. The IDE hook files were not run in the Kiro IDE, because the IDE does not run on macOS 12 ([section 4 of docs/KIRO_USAGE.md](docs/KIRO_USAGE.md#4-hooks-and-the-gate)).
+
+**Skills.** Three folders in [.kiro/skills/](.kiro/skills/), loaded by the custom agent:
+- banking-trap-recognition: the six banking migration traps in COBOL and Java.
+- cobol-semantics-safety: COBOL rules a Java port must keep, such as rounding and BigDecimal scale.
+- coroner-audit-workflow: the audit steps, from run_differential_check to the verdict and its failure details.
+
+**Custom agent.** [.kiro/agents/coroner-auditor.json](.kiro/agents/coroner-auditor.json) audits Java ports with the Coroner MCP tools and reports only what Coroner outputs. Its first run had no tools list, and the model printed an invented verdict with branch coverage 42/70. The next run made real tool calls, and its values match the measured 200-case run ([section 5 of docs/KIRO_USAGE.md](docs/KIRO_USAGE.md#5-mcp-and-the-coroner-auditor-agent)).
+
+**MCP power.** [powers/coroner-audit/](powers/coroner-audit/) exposes the 7 Coroner tools to a Kiro agent. It ran in the Kiro IDE on Windows 10 on 2026-11-21, and Kiro called the tools on Case 1 ([docs/evidence/kiro-power-run.md](docs/evidence/kiro-power-run.md)).
+
+**Kiro surprised us.** Checking the Case 1 minimal case against run f584d5f35228 showed that the run's own card was right: case GEN-001525, branch 001, amount 6253.54. The trap catalog card, rebuilt by the code, printed the first input row instead (BRANCH=D04, AMOUNT=5.88), above lines about branch 001 and 6253.54. The rebuild had dropped two fields of the failure report. Kiro fixed coroner/traps.py and added tests/test_traps_card.py, which fails without the fix and passes with it. Check every figure against the run files, including the ones the tool shows you.
 
 The full account with evidence is in [docs/KIRO_USAGE.md](docs/KIRO_USAGE.md).
 

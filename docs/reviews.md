@@ -1325,6 +1325,13 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Operator: with this change staged, the public-repo check on a real "git commit" event exited 0 with no output in 0.42 s. Agent: test_kiro_hooks_files.py and test_hooks.py with slow 54 passed; make test 950 passed. Repository runs/ unchanged (153 entries); nothing under coroner/ changed.
 - Kiro balance (2026-11-23): plan 405.95 of 531 used; kiroween2026 3246.18 of 4000 used.
 
+### R-182 2026-11-23: README "How we used Kiro"
+- Owner request (2026-11-23): a README section on specs (count and two examples), steering, hooks, skills, the custom agent, the MCP power and one "Kiro surprised us" story (R-155), from evidence files only.
+- Call p403 (haiku-5.5), README.md only: the short "How Kiro was used" section replaced by "How we used Kiro": 15 spec folders (engine and kiro-hooks as examples), the 7 steering files, the 5 hook files of R-181, the 3 skills, the coroner-auditor agent (run 1 without tools printed an invented "42/70"; run 2 reported tool values), the coroner-audit power (7 tools, run in the Kiro IDE on Windows 10 on 2026-11-21), and the R-155 card story (the catalog card showed BRANCH=D04, AMOUNT=5.88 while the run's card said GEN-001525, branch 001, 6253.54; fixed in coroner/traps.py with tests/test_traps_card.py).
+- Operator checks against the sources: 15 folders in .kiro/specs/; "six banking migration traps" in .kiro/skills/banking-trap-recognition/SKILL.md; "42/70" in docs/KIRO_USAGE.md section 5; "Windows 10 Pro" in docs/evidence/kiro-power-run.md; "never depends on an AI model" in .kiro/steering/product.md; "The server exposes 7 tools" in powers/coroner-audit/POWER.md; the three section anchors of docs/KIRO_USAGE.md exist. No dash in the diff.
+- Results: tests reading the README and test_case_name_retired.py: 14 passed.
+- Kiro balance (2026-11-23): plan 405.95 of 531 used; kiroween2026 3250.40 of 4000 used.
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.
