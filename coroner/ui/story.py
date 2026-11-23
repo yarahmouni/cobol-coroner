@@ -37,7 +37,7 @@ class StoryDataError(Exception):
 
 @dataclass(frozen=True)
 class CatalogEntry:
-    """One trap of runs/trap_catalog.json. T6 has no run ids."""
+    """One trap of runs/trap_catalog.json. An entry of an older catalog may have no run ids."""
     trap_id: str
     faulty_run_id: Optional[str]
     correct_run_id: Optional[str]

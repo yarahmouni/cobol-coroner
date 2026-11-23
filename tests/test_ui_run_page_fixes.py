@@ -290,8 +290,8 @@ def test_favicon_inline_svg_in_html():
 
 
 def test_trap_json_files_have_business_fix():
-    """Test that all trap.json files (T1-T5) have business_fix field."""
-    for trap_id in ["T1", "T2", "T3", "T4", "T5"]:
+    """Test that all trap.json files (T1-T6) have business_fix field."""
+    for trap_id in ["T1", "T2", "T3", "T4", "T5", "T6"]:
         trap_files = list(Path("samples/traps").glob(f"{trap_id}-*/trap.json"))
         assert len(trap_files) == 1, f"Expected exactly one trap.json for {trap_id}"
         

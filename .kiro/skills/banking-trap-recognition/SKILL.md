@@ -47,9 +47,13 @@ Six banking migration traps that silently corrupt amounts, signs, ordering or co
 
 **Java mistake**: No validation, assuming all numeric fields contain valid numbers.
 
-## Trap 6: Reserved for owner field trap
+## Trap 6: Modulo of a negative value
 
-Placeholder for a real migration trap provided by the owner.
+**COBOL**: `FUNCTION MOD(a, b)` takes the sign of the divisor, so `FUNCTION MOD(-11, 7)` is 3. `FUNCTION REM` and `DIVIDE ... REMAINDER` behave like Java `%`, so each construct must be mapped separately.
+
+**Evidence**: `FUNCTION MOD` on a signed field, for example a rotation slot computed from a day offset.
+
+**Java mistake**: `offset % 7` keeps the sign of the dividend (`-11 % 7` is -4). `Math.floorMod(offset, 7)` has the COBOL MOD definition.
 
 ## Procedure
 

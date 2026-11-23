@@ -156,8 +156,8 @@ def test_load_catalog_matches_the_file(story_runs):
         assert entry.faulty_run_id == trap.get("faulty_run_id")
         assert entry.correct_run_id == trap.get("correct_run_id")
         assert entry.entry == trap
-    assert catalog["T6"].faulty_run_id is None
-    assert catalog["T6"].correct_run_id is None
+    assert catalog["T6"].faulty_run_id is not None
+    assert catalog["T6"].correct_run_id is not None
     assert catalog["T1"].faulty_run_id != catalog["T1"].correct_run_id
 
 

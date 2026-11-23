@@ -188,7 +188,7 @@ def get_base_dir() -> Path:
 def detect_trap_id(inputs_data: dict) -> str | None:
     """
     Detect trap ID from run's recorded COBOL path.
-    Returns trap ID (T1, T2, T3, T4, T5) or None.
+    Returns trap ID (T1, T2, T3, T4, T5, T6) or None.
     """
     cobol_path = inputs_data.get("cobol_file")
     if not cobol_path:
@@ -571,7 +571,7 @@ async def run_page(request: Request, run_id: str):
         # Detect trap ID from inputs
         trap_id = detect_trap_id(inputs_data)
         
-        if trap_id and trap_id in ["T1", "T2", "T3", "T4", "T5"]:
+        if trap_id and trap_id in ["T1", "T2", "T3", "T4", "T5", "T6"]:
             try:
                 verdict_sentence = generate_zombie_sentence(trap_id, run_dir)
             except Exception:
@@ -620,7 +620,7 @@ async def run_page(request: Request, run_id: str):
     example_sentence = None
     minimal_case_evidence = None
     
-    if trap_id and trap_id in ["T1", "T2", "T3", "T4", "T5"]:
+    if trap_id and trap_id in ["T1", "T2", "T3", "T4", "T5", "T6"]:
         # Find trap.json
         cobol_path = inputs_data.get("cobol_file", "")
         if cobol_path:
@@ -1519,8 +1519,8 @@ async def matrix_page(request: Request):
             for trap_data in catalog_data.get("traps", []):
                 trap_id = trap_data.get("id", "")
                 
-                # T6 is a placeholder without numbers
-                if trap_id == "T6":
+                # An entry that is not measured (a placeholder of an older catalog) has no numbers
+                if trap_data.get("status", "measured") != "measured":
                     traps.append({
                         "id": trap_id,
                         "case": case_label(trap_id, registry) or "not recorded",
@@ -1569,7 +1569,7 @@ async def matrix_page(request: Request):
 
 class RunAuditRequest(BaseModel):
     """Request to run an audit."""
-    sample: str = Field(..., pattern=r"^(credit-fees|T1|T2|T3|T4|T5)$")
+    sample: str = Field(..., pattern=r"^(credit-fees|T1|T2|T3|T4|T5|T6)$")
     port: str = Field(..., pattern=r"^(correct|faulty)$")
     seed: int = Field(..., ge=0, le=1000000)
     cases: int = Field(..., ge=10, le=2000)

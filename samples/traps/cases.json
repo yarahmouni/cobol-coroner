@@ -9,5 +9,10 @@
   },
   "T4": {"case": 4, "name": "The Sign of Zero"},
   "T5": {"case": 5, "name": "The Silent Zero"},
-  "T6": {"case": 6, "name": "reserved"}
+  "T6": {
+    "case": 6,
+    "name": "The Cursed Modulo",
+    "subtitle": "A remainder that changes sign for days before the reference date",
+    "detail": "COBOL FUNCTION MOD takes the sign of the divisor, the Java % operator keeps the sign of the dividend"
+  }
 }

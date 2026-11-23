@@ -13,7 +13,7 @@ def matrix_catalog(story_runs):
     """The real trap catalog of the session (fixture story_runs of tests/conftest.py), read only.
 
     story_runs ran run_catalog and write_catalog_files once in a temporary base directory (9 cases,
-    seed 42, faulty and correct port of T1 to T5). The page only reads the catalog file.
+    seed 42, faulty and correct port of T1 to T6). The page only reads the catalog file.
     """
     tmp_path = story_runs.base
     
@@ -65,7 +65,7 @@ def test_matrix_page_with_catalog(matrix_catalog, monkeypatch):
     assert "Correct port" in html
     
     # Check each trap from the real catalog
-    for trap_id in ["T1", "T2", "T3", "T4", "T5"]:
+    for trap_id in ["T1", "T2", "T3", "T4", "T5", "T6"]:
         assert trap_id in html
         
         trap_data = catalog_data[trap_id]
@@ -92,26 +92,45 @@ def test_matrix_page_with_catalog(matrix_catalog, monkeypatch):
         if correct_verdict:
             assert correct_verdict in html
     
-    # Check T6 placeholder (no numbers)
+    # T6 is measured like the others: its row shows the numbers of the catalog
     assert "T6" in html
-    trap_t6 = catalog_data.get("T6")
-    if trap_t6:
-        t6_title = trap_t6.get("title", "")
-        if t6_title:
-            assert t6_title in html
-    
-    # T6 should show "not measured" for all numeric fields
-    # Find T6 row and check its cells
     t6_index = html.find(">T6<")
     assert t6_index > 0, "T6 not found in HTML"
     t6_row = html[t6_index:html.find("</tr>", t6_index)]
-    
-    # Count "not measured" in T6 row (should be 3: Detected, Rate, Correct port)
-    not_measured_count = t6_row.count("not measured")
-    assert not_measured_count == 3, f"Expected 3 'not measured' in T6 row, got {not_measured_count}"
+    trap_t6 = catalog_data["T6"]
+    assert trap_t6["title"] in html
+    assert f"{trap_t6['cases_detected']} of {trap_t6['cases_generated']}" in t6_row
+    assert trap_t6["detection_rate"] in t6_row
+    assert trap_t6["correct_verdict"] in t6_row
+    assert "not measured" not in t6_row
+    assert "Case 6 The Cursed Modulo" in html
     
     # Check no "not available yet" message
     assert "not available yet" not in html
+
+
+def test_matrix_page_shows_an_unmeasured_entry_without_numbers(matrix_catalog, tmp_path, monkeypatch):
+    """An entry of an older catalog that is not measured (a placeholder) is shown as "not measured"."""
+    catalog_data, base_dir = matrix_catalog
+    traps = [dict(trap) for trap in catalog_data.values()]
+    for trap in traps:
+        if trap["id"] == "T6":
+            for key in ("cases_generated", "cases_detected", "detection_rate", "correct_verdict",
+                        "faulty_run_id", "correct_run_id"):
+                trap.pop(key, None)
+            trap["status"] = "placeholder: owner field trap pending"
+    (tmp_path / "runs").mkdir()
+    (tmp_path / "runs" / "trap_catalog.json").write_text(json.dumps({"traps": traps}))
+    monkeypatch.setenv("CORONER_BASE_DIR", str(tmp_path))
+
+    from coroner.ui.app import app
+
+    html = TestClient(app).get("/matrix").text
+    t6_index = html.find(">T6<")
+    t6_row = html[t6_index:html.find("</tr>", t6_index)]
+    assert t6_row.count("not measured") == 3
+    t1_index = html.find(">T1<")
+    assert "not measured" not in html[t1_index:html.find("</tr>", t1_index)]
 
 
 def test_matrix_page_without_catalog(tmp_path, monkeypatch):

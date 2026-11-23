@@ -258,8 +258,8 @@ def test_get_detection_matrix_with_catalog(tmp_path):
         assert "traps" in matrix_data, "Matrix should have 'traps' key"
         assert len(matrix_data["traps"]) == 6, f"Expected 6 traps, got {len(matrix_data['traps'])}"
         
-        # Verify T1 to T5 have measured numbers
-        for trap in matrix_data["traps"][:5]:
+        # Verify T1 to T6 have measured numbers
+        for trap in matrix_data["traps"]:
             assert trap["status"] == "measured", f"Trap {trap['id']} should be measured"
             assert "cases_generated" in trap, f"Trap {trap['id']} should have cases_generated"
             assert trap["cases_generated"] == 200, f"Trap {trap['id']} should have 200 cases"
@@ -270,11 +270,17 @@ def test_get_detection_matrix_with_catalog(tmp_path):
             actual_rate = float(trap["detection_rate"])
             assert abs(actual_rate - expected_rate) < 0.0001, f"Trap {trap['id']} rate mismatch"
         
-        # Verify T6 has no numeric fields (placeholder)
+        # Case 6 is a normal measured case
         t6 = matrix_data["traps"][5]
         assert t6["id"] == "T6", f"Expected T6, got {t6['id']}"
-        assert "cases_generated" not in t6, "T6 should not have cases_generated"
-        assert "cases_detected" not in t6, "T6 should not have cases_detected"
+        assert t6["case_name"] == "The Cursed Modulo"
+        assert t6["cases_detected"] >= 1, "T6 faulty port should be detected"
+        assert t6["correct_verdict"] == "ALIVE"
+        
+        # Get single trap T6 through the same tool
+        t6_result = await session.call_tool("get_detection_matrix", arguments={"trap_id": "T6"})
+        assert t6_result.is_error is False
+        assert json.loads(t6_result.content[0].text)["id"] == "T6"
         
         # Get single trap T1
         t1_result = await session.call_tool("get_detection_matrix", arguments={"trap_id": "T1"})

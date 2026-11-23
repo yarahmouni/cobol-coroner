@@ -13,7 +13,7 @@ from coroner.traps import run_catalog, write_catalog_files
 def test_trap_catalog_acceptance(tmp_path):
     """
     Run the catalog runner with defaults (2000 cases, seed 42),
-    assert measured results for T1 to T5 and placeholder for T6.
+    assert measured results for T1 to T6.
     """
     base_dir = tmp_path / "run1"
     base_dir.mkdir()
@@ -32,8 +32,8 @@ def test_trap_catalog_acceptance(tmp_path):
     
     assert len(catalog) == 6, "Expected 6 traps (T1 to T6)"
     
-    # T1 to T5: status measured, correct_verdict ALIVE, at least one detected case
-    for i in range(5):
+    # T1 to T6: status measured, correct_verdict ALIVE, at least one detected case
+    for i in range(6):
         trap = catalog[i]
         trap_id = f"T{i+1}"
         assert trap["id"] == trap_id, f"Expected trap id {trap_id}"
@@ -52,18 +52,16 @@ def test_trap_catalog_acceptance(tmp_path):
     assert t1["grand_total_matches"] is True, "T1 grand total should match"
     assert t1["affected_branches"] >= 1, "T1 should have at least one affected branch"
     
-    # T6: placeholder without numeric fields
+    # T6: measured like the others, with numeric fields
     t6 = catalog[5]
     assert t6["id"] == "T6", "Expected trap id T6"
-    assert t6["status"] == "placeholder: owner field trap pending", "T6 status should be placeholder"
-    assert "cases_detected" not in t6, "T6 placeholder should not have cases_detected"
-    assert "cases_generated" not in t6, "T6 placeholder should not have cases_generated"
-    assert "detection_rate" not in t6, "T6 placeholder should not have detection_rate"
+    assert t6["status"] == "measured", "T6 status should be measured"
+    assert t6["case_name"] == "The Cursed Modulo"
+    assert t6["cases_generated"] == 2000
     
     # No global rate field
     for trap in catalog:
-        if trap["id"] != "T6":
-            assert "global_rate" not in trap, f"{trap['id']} should not have global_rate"
+        assert "global_rate" not in trap, f"{trap['id']} should not have global_rate"
 
 
 @pytest.mark.slow

@@ -37,6 +37,7 @@ Folder `.kiro/specs/`. Each folder has `requirements.md`, `design.md` and `tasks
 | [`screenshots`](../.kiro/specs/screenshots/requirements.md) | README screenshots and demo GIF generated from real runs (D-58). |
 | [`guided-story`](../.kiro/specs/guided-story/requirements.md) | A guided story of 8 steps on the home page, built on the T1 trap. |
 | [`carddemo-cbact04c`](../.kiro/specs/carddemo-cbact04c/requirements.md) | The audit of a Kiro-made Java port of one interest-calculation path of the open-source CardDemo sample. |
+| [`case-6-cursed-modulo`](../.kiro/specs/case-6-cursed-modulo/requirements.md) | Case 6, The Cursed Modulo: `FUNCTION MOD` of a negative day offset in COBOL against Java `%`, turning the reserved sixth slot of the trap catalog into a measured case. |
 
 ## 3. Steering and skills
 

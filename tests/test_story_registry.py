@@ -28,7 +28,7 @@ EXPECTED_REGISTRY = {
     "T3": (3, "The Phantom Minus"),
     "T4": (4, "The Sign of Zero"),
     "T5": (5, "The Silent Zero"),
-    "T6": (6, "reserved"),
+    "T6": (6, "The Cursed Modulo"),
 }
 
 
@@ -41,20 +41,20 @@ def test_every_trap_folder_has_a_registry_entry():
     registry = load_cases_registry()
     folder_ids = {p.name.split("-")[0] for p in TRAPS_DIR.iterdir() if p.is_dir()}
     assert folder_ids == set(registry), "trap folders and registry entries differ"
-    for trap_id in ("T1", "T2", "T3", "T4", "T5"):
+    for trap_id in ("T1", "T2", "T3", "T4", "T5", "T6"):
         assert any(TRAPS_DIR.glob(f"{trap_id}-*/trap.json"))
 
 
 def test_case_label_display_form():
     registry = load_cases_registry()
     assert case_label("T1", registry) == "Case 1 The Missing Branch"
-    assert case_label("T6", registry) == "Case 6 reserved"
+    assert case_label("T6", registry) == "Case 6 The Cursed Modulo"
     assert case_label("T9", registry) is None
     assert case_label(None, registry) is None
 
 
-def test_auditable_trap_ids_exclude_the_placeholder():
-    assert auditable_trap_ids() == ["T1", "T2", "T3", "T4", "T5"]
+def test_auditable_trap_ids_cover_the_six_cases():
+    assert auditable_trap_ids() == ["T1", "T2", "T3", "T4", "T5", "T6"]
 
 
 @pytest.mark.parametrize("key", ["subtitle", "detail"])
@@ -77,11 +77,21 @@ def test_optional_text_fields_are_optional(tmp_path):
     assert case_card("T2", registry) == ["Case 2: Second", "Only a subtitle"]
 
 
-def test_only_t3_has_subtitle_and_detail():
+def test_only_t3_and_t6_have_subtitle_and_detail():
     registry = load_cases_registry()
     for trap_id, entry in registry.items():
-        assert ("subtitle" in entry) == (trap_id == "T3")
-        assert ("detail" in entry) == (trap_id == "T3")
+        assert ("subtitle" in entry) == (trap_id in ("T3", "T6"))
+        assert ("detail" in entry) == (trap_id in ("T3", "T6"))
+
+
+def test_t6_case_card_lines():
+    registry = load_cases_registry()
+    assert case_card("T6", registry) == [
+        "Case 6: The Cursed Modulo",
+        "A remainder that changes sign for days before the reference date",
+        "COBOL FUNCTION MOD takes the sign of the divisor, the Java % operator keeps the sign of the dividend",
+    ]
+    assert case_label("T6", registry) == "Case 6 The Cursed Modulo"
 
 
 def test_case_card_lines():
@@ -125,7 +135,7 @@ def test_home_selector_reads_the_registry(tmp_path, monkeypatch):
     for trap_id in auditable_trap_ids(registry):
         label = case_label(trap_id, registry)
         assert f'<option value="{trap_id}">{label} ({trap_id})</option>' in page
-    assert '<option value="T6"' not in page
+    assert f'<option value="T6">{case_label("T6", registry)} (T6)</option>' in page
     assert '<option value="credit-fees">' in page
 
 
@@ -165,21 +175,28 @@ def test_matrix_and_run_page_show_case_names(story_runs, monkeypatch):
     registry = load_cases_registry()
     for trap_id in registry:
         assert f"<td style=\"padding: 1rem;\">{case_label(trap_id, registry)}</td>" in matrix
+    catalog = load_catalog(story_runs.base)
+    t6_entry = catalog["T6"].entry
     t6_at = matrix.index(">T6<")
     t6_row = matrix[matrix.rfind("<tr", 0, t6_at):matrix.index("</tr>", t6_at)]
     cells = re.findall(r"<td[^>]*>([^<]*)</td>", t6_row)
     assert cells[0] == "T6"
-    assert cells[1] == "Case 6 reserved"
-    assert cells[3:] == ["not measured"] * 3
+    assert cells[1] == "Case 6 The Cursed Modulo"
+    assert cells[3:] == [
+        f"{t6_entry['cases_detected']} of {t6_entry['cases_generated']}",
+        t6_entry["detection_rate"],
+        t6_entry["correct_verdict"],
+    ]
+    assert "not measured" not in matrix
 
-    catalog = load_catalog(story_runs.base)
-    for trap_id in ("T1", "T2", "T3", "T4", "T5"):
+    card_titles = {"T3": "Case 3: The Phantom Minus", "T6": "Case 6: The Cursed Modulo"}
+    for trap_id in ("T1", "T2", "T3", "T4", "T5", "T6"):
         for run_id in (catalog[trap_id].faulty_run_id, catalog[trap_id].correct_run_id):
             page = client.get(f"/run/{run_id}")
             assert page.status_code == 200
             text = html.unescape(page.text)
-            if trap_id == "T3":
-                assert "<strong>Case 3: The Phantom Minus</strong>" in text
+            if trap_id in card_titles:
+                assert f"<strong>{card_titles[trap_id]}</strong>" in text
             else:
                 assert f"<strong>{case_label(trap_id, registry)}</strong>" in text
     # the run page reads the same run the data layer reads
@@ -193,6 +210,13 @@ T3_CARD_LINES = [
 ]
 
 
+T6_CARD_LINES = [
+    "Case 6: The Cursed Modulo",
+    "A remainder that changes sign for days before the reference date",
+    "COBOL FUNCTION MOD takes the sign of the divisor, the Java % operator keeps the sign of the dividend",
+]
+
+
 def _text_lines(page_html: str) -> list[str]:
     """Visible text of a page, one stripped non-empty string per tag-delimited chunk."""
     text = html.unescape(re.sub(r"<[^>]+>", "\n", page_html))
@@ -200,24 +224,28 @@ def _text_lines(page_html: str) -> list[str]:
 
 
 @pytest.mark.slow
-def test_t3_run_page_shows_the_three_line_case_card(story_runs, monkeypatch):
+@pytest.mark.parametrize("trap_id,card_lines,short_title", [
+    ("T3", T3_CARD_LINES, "Case 3 The Phantom Minus"),
+    ("T6", T6_CARD_LINES, "Case 6 The Cursed Modulo"),
+])
+def test_run_page_shows_the_three_line_case_card(story_runs, monkeypatch, trap_id, card_lines, short_title):
     monkeypatch.setenv("CORONER_BASE_DIR", str(story_runs.base))
     client = TestClient(app)
     catalog = load_catalog(story_runs.base)
-    for run_id in (catalog["T3"].faulty_run_id, catalog["T3"].correct_run_id):
+    for run_id in (catalog[trap_id].faulty_run_id, catalog[trap_id].correct_run_id):
         page = client.get(f"/run/{run_id}")
         assert page.status_code == 200
         lines = _text_lines(page.text)
-        at = lines.index(T3_CARD_LINES[0])
-        assert lines[at:at + 3] == T3_CARD_LINES
+        at = lines.index(card_lines[0])
+        assert lines[at:at + 3] == card_lines
         # the title line is strong, each line has its own element
-        assert f"<strong>{T3_CARD_LINES[0]}</strong>" in page.text
-        for line in T3_CARD_LINES[1:]:
-            assert re.search(rf"<p[^>]*>\s*{re.escape(line)}\s*</p>", page.text)
+        assert f"<strong>{card_lines[0]}</strong>" in page.text
+        for line in card_lines[1:]:
+            assert re.search(rf"<p[^>]*>\s*{re.escape(html.escape(line, quote=False))}\s*</p>", page.text)
         # the audit date, version and run id line comes after the card, and no longer carries the label
         audit_at = next(i for i, line in enumerate(lines) if line.startswith("Audit ") and run_id in line)
         assert audit_at == at + 3
-        assert "Case 3 The Phantom Minus" not in page.text
+        assert short_title not in page.text
 
 
 @pytest.mark.slow

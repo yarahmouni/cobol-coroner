@@ -40,7 +40,7 @@ Open http://127.0.0.1:8000. What to click:
 2. Run Audit again with port `Correct`. The verdict is ALIVE.
 3. On a run page, use Verify. A real replay of the certificate gives "Certificate: VALID".
 4. On the same run page, use the Tamper link. Change Status to ALIVE and Cases Divergent to 0, then submit. The result is "Certificate: INVALID, replay mismatch (status: expected ALIVE, got ZOMBIE)" (R-104 in `docs/reviews.md`). The original certificate is not changed.
-5. Open `/matrix` for the Detection Matrix (measured counts for T1 to T5, T6 not measured).
+5. Open `/matrix` for the Detection Matrix (measured counts for T1 to T6; the live site shows T6 as not measured until the next image is deployed).
 
 Stop with `docker compose down`.
 
@@ -250,7 +250,7 @@ The wording comes from `.kiro/steering/no-formal-proof.md`.
 - The verdict is deterministic. No AI model decides it. The same inputs and seed give the same verdict.
 - The Coroner Certificate is a reproducible run record: the verdict, N cases, the seed, tool versions and the SHA-256 of the input files. It is not a guarantee.
 - Out of scope in V1: CICS, DB2, IMS, VSAM, JCL, EBCDIC-encoded data (the EBCDIC collating sequence is in scope), multi-program applications, targets other than Java 17.
-- T6 of the trap catalog is a placeholder. It is "not measured".
+- T6 (Case 6, The Cursed Modulo) is measured on a catalog run: faulty run e3919aefc333 (ZOMBIE, 636 of 2000 cases), correct run 35909d3fe97d (ALIVE), seed 42. Its public sources are in `samples/traps/T6-cursed-modulo/README.md`.
 - The detection rates depend on the generator settings of each trap. They are not real-world statistics, and there is no global detection rate.
 - A return code is compared as an OS exit status (0 to 255).
 

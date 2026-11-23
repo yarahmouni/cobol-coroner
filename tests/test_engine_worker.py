@@ -102,12 +102,13 @@ def test_discover_trap_folders():
     """Test trap folder discovery."""
     trap_map = discover_trap_folders()
     
-    # Should find at least T1 through T5
+    # Should find T1 through T6
     assert "T1" in trap_map
     assert "T2" in trap_map
     assert "T3" in trap_map
     assert "T4" in trap_map
     assert "T5" in trap_map
+    assert "T6" in trap_map
     
     # Check that paths are valid directories
     for trap_id, folder in trap_map.items():
@@ -157,7 +158,7 @@ def test_resolve_sample_paths_credit_fees(tmp_path):
 
 def test_resolve_sample_paths_traps(tmp_path):
     """Test resolving paths for all trap samples."""
-    for trap_id in ["T1", "T2", "T3", "T4", "T5"]:
+    for trap_id in ["T1", "T2", "T3", "T4", "T5", "T6"]:
         # Correct port
         cobol_path, java_path, schema_path, copybooks_path = resolve_sample_paths(trap_id, "correct", tmp_path)
         

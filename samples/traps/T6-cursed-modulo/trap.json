@@ -1,0 +1,25 @@
+{
+  "id": "T6",
+  "title": "Modulo of a negative day offset",
+  "business_name": "Rotation slot wrong for days before the reference date",
+  "business_cause": "Items dated before the reference date land in a negative or wrong rotation slot, because the Java port computes the remainder with a different rule than COBOL.",
+  "probable_cause": "Faulty Java uses the % operator, which keeps the sign of the dividend, where COBOL FUNCTION MOD takes the sign of the divisor.",
+  "technical_cause": "COBOL FUNCTION MOD(-11, 7) is 3. Java -11 % 7 is -4. DIVIDE ... REMAINDER and FUNCTION REM in COBOL behave like Java %, so each construct must be mapped separately. Sources are listed in the case README.",
+  "business_fix": "Compute the rotation slot the way the COBOL program does, so that days before the reference date still fall in slots 0 to 6.",
+  "fix_sentence": "Use Math.floorMod(offset, 7) instead of offset % 7.",
+  "differs_from_case_3": "Case 3 loses a sign in storage; Case 6 uses a different mathematical definition of the operation.",
+  "sources": [
+    {
+      "name": "IBM Enterprise COBOL language reference, FUNCTION MOD (table: MOD(-11,5) = 4, MOD(11,-5) = -4)",
+      "url": "https://www.ibm.com/docs/en/SS6SG3_6.5/lr/ref/rlinfmod.html"
+    },
+    {
+      "name": "Java Language Specification, section 15.17.3, Remainder Operator %",
+      "url": "https://docs.oracle.com/javase/specs/jls/se17/html/jls-15.html#jls-15.17.3"
+    },
+    {
+      "name": "SEI CERT Oracle Coding Standard for Java, rule NUM51-J",
+      "url": "https://wiki.sei.cmu.edu/confluence/x/IxRMBQ"
+    }
+  ]
+}

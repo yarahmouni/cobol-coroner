@@ -55,7 +55,7 @@ def case_card(trap_id: Optional[str], registry: Optional[dict] = None) -> Option
 
 
 def auditable_trap_ids(registry: Optional[dict] = None, traps_root: Optional[Path] = None) -> list[str]:
-    """Registry ids that have a trap folder with a trap.json (T6 has none), in case order."""
+    """Registry ids that have a trap folder with a trap.json, in case order."""
     registry = load_cases_registry() if registry is None else registry
     root = Path(traps_root) if traps_root else TRAPS_ROOT
     ids = [

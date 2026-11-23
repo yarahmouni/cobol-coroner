@@ -62,9 +62,9 @@ Positioning: targeted regression traps within the supported COBOL subset. Not ge
 5.5. Wording: Coroner reports the behavior change, it does not judge which side is right.
 5.6. The hand fixture includes at least one invalid numeric value.
 
-### 6. Trap 6 (T6-reserved): reserved for owner field trap
-6.1. Status: placeholder until the owner provides a real field trap.
-6.2. The catalog runner lists it with status "placeholder: owner field trap pending", not measured, never with numbers.
+### 6. Trap 6 (T6-cursed-modulo): modulo of a negative day offset
+6.1. Status: built as a real case on 2026-11-23 (owner decision Q1). It was a placeholder before. Its own requirements are in `.kiro/specs/case-6-cursed-modulo/requirements.md`.
+6.2. The catalog runner measures it like T1 to T5, with numbers.
 
 ### 7. Engine extension for batch input and control breaks (D-34, built with T1)
 7.1. schema.json may declare "case_rows": {"min": 2, "max": 12} (the generator emits several input rows per case), "output_key": ["CASE-ID", "BRANCH"] (comparison key of output rows; a case is divergent when any of its rows diverges), "group_key": "BRANCH", "subtotal": "SUBTOTAL", "grand_total_key": "TOTAL" (the value of the group_key field that marks the grand total row).
@@ -74,9 +74,9 @@ Positioning: targeted regression traps within the supported COBOL subset. Not ge
 7.5. Existing schemas (no case_rows, no output_key) keep their behavior unchanged.
 
 ### 8. Catalog runner: `python -m coroner traps`
-8.1. For each trap T1 to T5 (T6 is a placeholder): run the engine on the faulty Java and on the correct Java (default seed 42, default cases 2000), write runs/trap_catalog.json and a text rendering.
+8.1. For each trap T1 to T6: run the engine on the faulty Java and on the correct Java (default seed 42, default cases 2000), write runs/trap_catalog.json and a text rendering.
 8.2. Per trap: id, title, status, cases_generated, cases_detected, detection_rate, minimal case (deterministic, per the engine rule), COBOL lines (from the failure report), probable cause, suggested fix (one sentence, D-26), Given/When/Then card (D-43, deterministic text from the minimal case, no LLM), correct Java verdict (must be ALIVE), and for T1 the exposure.
-8.3. T6: status "placeholder: owner field trap pending", no numbers.
+8.3. T6 is measured like the others (before 2026-11-23 it was listed with status "placeholder: owner field trap pending" and no numbers).
 8.4. No global detection rate. Each trap has its own rate.
 
 ### 9. Given/When/Then card generation (D-43)
@@ -93,7 +93,7 @@ Positioning: targeted regression traps within the supported COBOL subset. Not ge
 11.3. Makefile target `traps` runs the catalog.
 
 ### 12. Acceptance
-12.1. Every trap T1 to T5 gives ZOMBIE on its faulty Java with at least one detected case (detection_rate > 0) and ALIVE on its correct Java.
+12.1. Every trap T1 to T6 gives ZOMBIE on its faulty Java with at least one detected case (detection_rate > 0) and ALIVE on its correct Java.
 12.2. T1 shows divergent subtotals with a matching TOTAL row and non-zero exposure (verified with measured numbers: TOTAL rows are equal, at least one branch subtotal differs).
 12.3. The catalog JSON and text rendering are written to runs/.
 12.4. `@coroner/get_detection_matrix` returns the matrix in a Kiro session.

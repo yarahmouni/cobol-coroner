@@ -87,13 +87,13 @@ Done when:
 - Run the engine on the fixture: faulty Java ZOMBIE with divergent OUTPUT-VALUE on "12A45"; correct Java ALIVE.
 - pytest passes.
 
-- [x] 7. Trap 6 (T6-reserved) placeholder
+- [x] 7. Trap 6 (T6-cursed-modulo)
 
-_Requirements: Req 6. Reserved slot for the owner's real field trap._
+_Requirements: Req 6. It was a reserved slot for the owner's field trap; it became a real case on 2026-11-23. The detailed tasks are in `.kiro/specs/case-6-cursed-modulo/tasks.md`._
 
 Done when:
-- samples/traps/T6-reserved/ directory created with a README.md stating "Placeholder for owner field trap".
-- The catalog runner lists T6 with status "placeholder: owner field trap pending", not measured, no numbers.
+- samples/traps/T6-cursed-modulo/ exists with ROTATION-SLOT.cob, schema.json, trap.json, fixtures, java/correct and java/faulty.
+- The catalog runner measures T6 like T1 to T5, with numbers.
 
 - [ ] 8. Given/When/Then card generation
 
@@ -112,7 +112,7 @@ _Requirements: Req 8. `python -m coroner traps` runs the engine on all built tra
 Done when:
 - coroner/traps.py: run_catalog(seed=42, cases=2000) loops over T1 to T5, runs the engine on faulty Java and correct Java, collects id, title, status, cases_generated, cases_detected, detection_rate, minimal_case, cobol_lines, probable_cause, suggested_fix, given_when_then, correct_java_verdict, and for T1 the exposure.
 - Probable cause and suggested fix per trap (one sentence each): T1 "Faulty Java sorts by ASCII String.compareTo instead of EBCDIC byte order. Use IBM1047 Charset or a custom Comparator.", T2 "Faulty Java uses HALF_EVEN where COBOL has ROUNDED (default HALF_UP). Use RoundingMode.HALF_UP.", T3 "Faulty Java treats sign nibble F as negative or rejects it. GnuCOBOL reads F as positive.", T4 "Faulty Java applies the ASCII convention (or strips the last character) to EBCDIC-encoded data. Use the EBCDIC overpunch table (compile the reference with -fsign=EBCDIC).", T5 "Faulty Java rejects invalid numeric data under REDEFINES. GnuCOBOL reads the low nibble of each byte."
-- T6: {"id": "T6", "title": "Reserved for owner field trap", "status": "placeholder: owner field trap pending"}.
+- T6 is measured like the others: {"id": "T6", "title": "Modulo of a negative day offset", "status": "measured", ...}.
 - Writes runs/trap_catalog.json (JSON array of trap results) and runs/trap_catalog.txt (human-readable rendering).
 - CLI entry point: python -m coroner traps calls run_catalog.
 - pytest passes.
@@ -132,7 +132,7 @@ _Requirements: Req 11. README, architecture.md, Makefile target._
 
 Done when:
 - README.md: after "What Coroner is not", add "## Six banking migration traps" with the list (EBCDIC collation lead, rounding, COMP-3 sign with preferred nibbles only, zoned overpunch, REDEFINES, reserved) and the wording "targeted regression traps within its supported COBOL subset, not general COBOL coverage". Add under limitations: "COMP-3 sign nibbles B, A, E and other non-preferred nibbles are excluded from certified cases (GnuCOBOL reads B as positive, IBM documentation as negative)."
-- architecture.md: under "Modules" add coroner/traps.py, under "Repository layout" add samples/traps/T1-ebcdic-match-merge/ to T6-reserved/.
+- architecture.md: under "Modules" add coroner/traps.py, under "Repository layout" add samples/traps/T1-ebcdic-match-merge/ to T6-cursed-modulo/.
 - Makefile: target `traps` runs `python -m coroner traps`.
 
 - [x] 12. Acceptance
@@ -142,7 +142,7 @@ _Requirements: Req 12. Every trap T1 to T5 gives ZOMBIE on its faulty Java with 
 Done when:
 - Run `make traps`: T1 to T5 each show ZOMBIE on faulty Java with detection_rate > 0 and ALIVE on correct Java.
 - T1 faulty Java verdict: at least one case with divergent branch subtotals and a matching TOTAL row (measured verification: COBOL TOTAL row value equals Java TOTAL row value, at least one branch subtotal differs), exposure sum > 0, max > 0, affected_branches > 0, grand_total_matches = true.
-- runs/trap_catalog.json exists and contains 6 entries (T1 to T5 measured, T6 placeholder).
+- runs/trap_catalog.json exists and contains 6 entries (T1 to T6 measured; T6 was a placeholder until 2026-11-23).
 - runs/trap_catalog.txt exists and is human-readable.
 - Real Kiro session: `@coroner/get_detection_matrix` returns the matrix (6 traps listed).
 - pytest passes (all trap tests, MCP test).

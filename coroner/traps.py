@@ -200,18 +200,6 @@ def _build_trap_entry(
     return trap_result
 
 
-def _t6_placeholder(registry: dict) -> dict[str, Any]:
-    if "T6" not in registry:
-        _fail("Trap T6 has no entry in the case registry")
-    return {
-        "id": "T6",
-        "title": "Reserved for owner field trap",
-        "status": "placeholder: owner field trap pending",
-        "case_number": registry["T6"]["case"],
-        "case_name": registry["T6"]["name"],
-    }
-
-
 # A run getter returns (verdict, run directory) for the "faulty" or "correct" port of a trap.
 RunGetter = Callable[[str, TrapSetup], tuple[Verdict, Path]]
 
@@ -219,14 +207,13 @@ RunGetter = Callable[[str, TrapSetup], tuple[Verdict, Path]]
 def _build_catalog(cases: int, get_run: RunGetter) -> dict[str, Any]:
     registry = load_cases_registry()
     results = []
-    for trap_id in ["T1", "T2", "T3", "T4", "T5"]:
+    for trap_id in ["T1", "T2", "T3", "T4", "T5", "T6"]:
         setup = _trap_setup(trap_id, registry)
         faulty_verdict, faulty_run_dir = get_run("faulty", setup)
         correct_verdict, correct_run_dir = get_run("correct", setup)
         results.append(_build_trap_entry(
             setup, registry, cases, faulty_verdict, faulty_run_dir, correct_verdict, correct_run_dir
         ))
-    results.append(_t6_placeholder(registry))
     return {"traps": results}
 
 
@@ -404,7 +391,7 @@ def _trap_folder_name(trap_id: str) -> str:
         "T3": "T3-comp3-sign",
         "T4": "T4-zoned-overpunch",
         "T5": "T5-redefines-invalid",
-        "T6": "T6-reserved"
+        "T6": "T6-cursed-modulo"
     }
     return names.get(trap_id, "")
 

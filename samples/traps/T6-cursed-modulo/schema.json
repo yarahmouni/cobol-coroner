@@ -1,0 +1,47 @@
+{
+  "program": "ROTATION-SLOT",
+  "description": "Trap 6: rotation slot (weekday slot 0 to 6) from a signed day offset, computed with FUNCTION MOD",
+  "input": {
+    "file": "input.csv",
+    "columns": [
+      {
+        "name": "CASE-ID",
+        "type": "string",
+        "pic": "X(10)",
+        "description": "Case identifier"
+      },
+      {
+        "name": "DAY-OFFSET",
+        "type": "decimal",
+        "pic": "S9(3)",
+        "scale": 0,
+        "description": "Signed day offset relative to the reference date; negative means days before it"
+      }
+    ]
+  },
+  "output": {
+    "file": "output.csv",
+    "columns": [
+      {
+        "name": "CASE-ID",
+        "type": "string",
+        "pic": "X(10)",
+        "description": "Case identifier"
+      },
+      {
+        "name": "DAY-OFFSET",
+        "type": "integer",
+        "pic": "+9(3)",
+        "scale": 0,
+        "description": "Day offset echoed with its sign"
+      },
+      {
+        "name": "SLOT",
+        "type": "integer",
+        "pic": "+9",
+        "scale": 0,
+        "description": "Rotation slot, 0 to 6, from FUNCTION MOD(DAY-OFFSET, 7); a slot is a code, not an amount"
+      }
+    ]
+  }
+}

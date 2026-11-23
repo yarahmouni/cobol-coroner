@@ -36,8 +36,12 @@ samples/traps/
     fixtures/invalid-numerics.csv
     java/correct/RedefinesInvalid.java
     java/faulty/RedefinesInvalid.java
-  T6-reserved/
-    (placeholder for owner trap)
+  T6-cursed-modulo/
+    ROTATION-SLOT.cob
+    schema.json
+    fixtures/offsets.csv
+    java/correct/RotationSlot.java
+    java/faulty/RotationSlot.java
 ```
 
 ## Trap 1: EBCDIC vs ASCII collating order (lead demo, D-33)
@@ -195,9 +199,9 @@ At least 2 values: "12A45" (A is 0x41, low nibble 1, read as 12145, output 12146
 ### Detection
 100 percent on cases where the generator emits at least one invalid numeric value.
 
-## Trap 6: Reserved for owner field trap
+## Trap 6: Modulo of a negative day offset
 
-Status: placeholder until the owner provides a real field trap. The catalog runner lists it with status "placeholder: owner field trap pending", not measured, never with numbers.
+Built on 2026-11-23 (owner decision Q1), replacing the reserved slot. The design is in `.kiro/specs/case-6-cursed-modulo/design.md`. The catalog runner measures it like T1 to T5.
 
 ## Catalog runner
 
@@ -207,7 +211,7 @@ Status: placeholder until the owner provides a real field trap. The catalog runn
 def run_catalog(seed=42, cases=2000):
     """Run the trap catalog on all built traps, write runs/trap_catalog.json and text."""
     results = []
-    for trap_id in ["T1", "T2", "T3", "T4", "T5"]:
+    for trap_id in ["T1", "T2", "T3", "T4", "T5", "T6"]:
         trap_dir = f"samples/traps/{trap_id}-{slug}/"
         if not os.path.exists(trap_dir):
             continue
@@ -231,8 +235,6 @@ def run_catalog(seed=42, cases=2000):
             "correct_java_verdict": correct_verdict.status,
             "exposure": faulty_verdict.exposure if trap_id == "T1" else None,
         })
-    # T6 placeholder
-    results.append({"id": "T6", "title": "Reserved for owner field trap", "status": "placeholder: owner field trap pending"})
     # Write JSON and text
     write_json("runs/trap_catalog.json", results)
     write_text("runs/trap_catalog.txt", render_catalog(results))
@@ -317,7 +319,7 @@ Under "Repository layout":
 - `samples/traps/T3-comp3-sign/`
 - `samples/traps/T4-zoned-overpunch/`
 - `samples/traps/T5-redefines-invalid/`
-- `samples/traps/T6-reserved/`
+- `samples/traps/T6-cursed-modulo/`
 ```
 
 ### Makefile
@@ -327,7 +329,7 @@ traps:
 ```
 
 ## Acceptance criteria
-1. Every trap T1 to T5 gives ZOMBIE on its faulty Java with at least one detected case (detection_rate > 0) and ALIVE on its correct Java.
+1. Every trap T1 to T6 gives ZOMBIE on its faulty Java with at least one detected case (detection_rate > 0) and ALIVE on its correct Java.
 2. T1 shows divergent subtotals with a matching TOTAL row and non-zero exposure (verified with measured numbers: TOTAL rows are equal, at least one branch subtotal differs).
 3. runs/trap_catalog.json and runs/trap_catalog.txt are written with all required fields.
 4. `@coroner/get_detection_matrix` returns the matrix in a Kiro session.

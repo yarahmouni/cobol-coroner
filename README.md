@@ -69,7 +69,7 @@ Coroner prioritizes high-impact banking migration traps, such as EBCDIC collatin
 | Case 3: The Phantom Minus | T3 | A positive amount read as negative. Packed-decimal sign nibble F interpreted as a minus sign by the Java port. COMP-3 sign nibble (C positive, D negative, F unsigned) | 429 of 2000 | 0.2145 | ALIVE |
 | Case 4: The Sign of Zero | T4 | Zoned sign overpunch in input files; reference compiled with -fsign=EBCDIC; the faulty port forgets the zero overpunch characters { and } | 87 of 2000 | 0.0435 | ALIVE |
 | Case 5: The Silent Zero | T5 | REDEFINES and invalid numeric data | 602 of 2000 | 0.3010 | ALIVE |
-| Case 6: reserved | T6 | placeholder, owner field trap pending | not measured | not measured | not measured |
+| Case 6: The Cursed Modulo | T6 | A rotation slot from a negative day offset. COBOL FUNCTION MOD takes the sign of the divisor, the Java % operator keeps the sign of the dividend | 636 of 2000 | 0.3180 | ALIVE |
 
 Run all traps:
 
@@ -83,6 +83,8 @@ The suspense line is not counted as a branch: the amount missing from branches 0
 
 Detection rates depend on the generator settings of each trap (schema.json domain_weights for T1, tie_share for T2, etc.) and are not real-world statistics.
 
+Case 6 (T6) measured on a catalog run in a temporary base (2000 cases, seed 42): faulty run e3919aefc333 (ZOMBIE, 636 of 2000 cases), correct run 35909d3fe97d (ALIVE). The divergent cases are exactly the negative day offsets that are not multiples of 7. The case README, [samples/traps/T6-cursed-modulo/README.md](samples/traps/T6-cursed-modulo/README.md), lists the public sources.
+
 The branch-code mix of T1 is a generator setting (schema.json domain_weights), not a real-world statistic.
 
 ## Features and honest limits
@@ -93,8 +95,8 @@ The branch-code mix of T1 is a generator setting (schema.json domain_weights), n
 | Reference runtime | Uses GnuCOBOL 3.x as the reference. | Validated under GnuCOBOL 3.x only, not IBM Enterprise COBOL. No z/OS emulation. |
 | Scope | Audits standalone batch programs. | CICS, DB2, IMS, VSAM, JCL and multi-program applications are out of scope. |
 | Replayable certificate | Records file hashes, the seed and the verdict. Replay reruns the audit. | Proved by replaying the audit, not by a cryptographic signature. |
-| Detection Matrix | Counts the cases each trap detects in its faulty port. | Five traps, each a small program written for this project. Case 6 not measured. Rates depend on generator settings, not real-world statistics. |
-| Money figure | Shows branch exposure for Case 1, and amounts affected and the largest difference for Cases 2 to 5. | No currency. Cases 3 and 4 show large values because generated amounts cover the whole field range. |
+| Detection Matrix | Counts the cases each trap detects in its faulty port. | Six traps, each a small program written for this project. All six are measured (2000 cases, seed 42). Rates depend on generator settings, not real-world statistics. |
+| Money figure | Shows branch exposure for Case 1, and amounts affected and the largest difference for Cases 2 to 5. | No currency. Cases 3 and 4 show large values because generated amounts cover the whole field range. Case 6 shows no money figure: a rotation slot is a code, not an amount. |
 | Commit gate | Blocks a ZOMBIE commit, push or merge through the Kiro gate, the Git pre-commit hook and CI. | It does not stop an agent from writing code. |
 | Kiro power | Exposes Coroner tools to a Kiro agent. | Measured in the Kiro IDE on Windows. The IDE was not run on macOS. |
 | Live demo | Audits with 10 to 2000 cases per run, with a job queue of 3 by default and per-client rate limits. | Queue and limits are set in the code: 5 Run audit requests per minute and 1 Verify per 10 seconds per client, 20 API requests per minute per client, 100 per minute overall. |
@@ -250,7 +252,7 @@ The evidence is in [docs/evidence/kiro-power-run.md](docs/evidence/kiro-power-ru
 ## Kiro skills
 
 Three skills guide the coroner-auditor agent:
-- `banking-trap-recognition`: Recognize the six banking migration traps in COBOL and Java (EBCDIC collation, rounding, COMP-3 sign, zoned overpunch, REDEFINES, reserved for owner trap).
+- `banking-trap-recognition`: Recognize the six banking migration traps in COBOL and Java (EBCDIC collation, rounding, COMP-3 sign, zoned overpunch, REDEFINES, modulo of a negative value).
 - `cobol-semantics-safety`: COBOL semantic rules a Java port must preserve (rounding to HALF_UP, truncation to DOWN, BigDecimal with explicit scale, sign handling, EBCDIC collating sequence).
 - `coroner-audit-workflow`: End-to-end workflow from run_differential_check to certificate verification.
 
@@ -354,7 +356,7 @@ CICS, DB2, IMS, VSAM, JCL, EBCDIC-encoded data (the EBCDIC collating sequence tr
 
 Kiro wrote the code, specs, tests and hook files. An operator wrote the prompts, checked every result on real runs and sent back what was wrong.
 
-**Specs.** [.kiro/specs/](.kiro/specs/) holds 15 spec folders, each with requirements.md, design.md and tasks.md. Two examples:
+**Specs.** [.kiro/specs/](.kiro/specs/) holds 16 spec folders, each with requirements.md, design.md and tasks.md. Two examples:
 - [engine](.kiro/specs/engine/requirements.md): takes a COBOL program, its copybooks, a Java 17 version and a schema, runs both on generated cases and returns ALIVE or ZOMBIE.
 - [kiro-hooks](.kiro/specs/kiro-hooks/requirements.md): the delivery gate blocks git commit, push and merge while the certificate replays as ZOMBIE, missing or invalid.
 

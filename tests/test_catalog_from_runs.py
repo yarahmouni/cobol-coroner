@@ -162,7 +162,7 @@ def test_rebuild_touches_no_existing_run(story_runs, pristine, working_base):
     before = snapshot(base)
     assert pristine.visitor_id in before
     run_folders = {key for key in before if re.fullmatch(r"[0-9a-f]{12}", key)}
-    assert len(run_folders) == 11  # 10 catalog runs and the visitor run
+    assert len(run_folders) == 13  # 12 catalog runs and the visitor run
     # runs/temp is the engine's scratch folder (generate_cases); it is in the snapshot too
     assert "temp/generated_cases.csv" in before
 
@@ -180,7 +180,7 @@ def test_rebuild_touches_no_existing_run(story_runs, pristine, working_base):
 
     # The engine was not called for any trap port: every run was found on disk
     for output in (first.stdout, second.stdout):
-        assert output.count("Kept existing run") == 10
+        assert output.count("Kept existing run") == 12
         assert "generating it" not in output
 
     assert_catalog_rebuilt(base)
@@ -229,7 +229,7 @@ def test_missing_run_is_generated_once_and_nothing_else_changes(story_runs, pris
     result = traps_from_runs(base, pristine.cases)
 
     assert result.returncode == 0, result.stdout + result.stderr
-    assert result.stdout.count("Kept existing run") == 9
+    assert result.stdout.count("Kept existing run") == 11
     assert f"Generated run {t3_faulty_id} for T3 faulty" in result.stdout
 
     after = snapshot(base)

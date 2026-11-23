@@ -10,7 +10,7 @@ def generate_zombie_sentence(trap_id: str, run_dir: Path) -> str:
     Generate a trap-specific ZOMBIE sentence from run files.
     
     Args:
-        trap_id: T1, T2, T3, T4, T5
+        trap_id: T1, T2, T3, T4, T5, T6
         run_dir: Path to run directory
         
     Returns:
@@ -26,6 +26,8 @@ def generate_zombie_sentence(trap_id: str, run_dir: Path) -> str:
         return _generate_t4_sentence(run_dir)
     elif trap_id == "T5":
         return _generate_t5_sentence(run_dir)
+    elif trap_id == "T6":
+        return _generate_t6_sentence(run_dir)
     else:
         # Fallback to sub_label
         verdict_file = run_dir / "verdict.json"
@@ -165,3 +167,28 @@ def _generate_t5_sentence(run_dir: Path) -> str:
             count += 1
     
     return f"This Java migration is not safe to promote: {count} invalid amounts are silently treated as zero instead of being processed like COBOL."
+
+
+def _generate_t6_sentence(run_dir: Path) -> str:
+    """Generate T6 sentence (modulo of a negative day offset)."""
+    comparison_file = run_dir / "comparison_results.json"
+    comparison = json.loads(comparison_file.read_text())
+
+    count = 0
+    negative_java = 0
+
+    for case in comparison["cases"]:
+        if case.get("divergent", False):
+            for field in case.get("divergent_fields", []):
+                if field["field_name"] == "SLOT":
+                    count += 1
+                    try:
+                        if Decimal(field["java_value"].strip()) < 0:
+                            negative_java += 1
+                    except Exception:
+                        pass
+
+    sentence = f"This Java migration is not safe to promote: {count} rotation slots differ from COBOL for days before the reference date."
+    if count > 0 and negative_java == count:
+        sentence += " Java gives a negative slot where COBOL gives 0 to 6."
+    return sentence
