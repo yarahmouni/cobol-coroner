@@ -2,6 +2,8 @@
 
 This guide shows how to check the main claims of COBOL Coroner yourself. Each check gives the command, the line it should print, and the file in this repository where the measured result is recorded.
 
+**Hackathon facts.** Category: Resurrection. The live site stays free and reachable until 2027-01-29, 1:00 pm PT. The repository is public, licensed under Apache-2.0, and has the `.kiro` directory at its root.
+
 ## 1. Positioning
 
 AWS Transform, Kiro, an LLM or a human migrates COBOL to Java. Coroner independently verifies the result. Coroner never translates COBOL.

@@ -4,19 +4,21 @@
 
 **Duration:** Under 3 minutes (this plan: 2:49, last shot ends at 2:49)
 
-**Platform:** YouTube, public
+**Platform:** YouTube only, public
 
-**Music:** No music (no unlicensed music unless a licence file is added to the repository)
+**Music:** No music. No third-party trademarks or copyrighted music without permission (rules); the cut has no audio stream and no logo (operator check of every 2nd second, 2026-11-23).
 
 **Language:** English
 
-**Checked against the official rules on:** <!-- OPERATOR: date and link of the rules page -->
+**Checked against the official rules on:** 2026-11-23 (the owner read the official rules page, updated 2026-11-16)
 
 ## 2. Story and positioning
 
 Banks ran the old and the new system side by side for months before switching. Coroner brings that practice back for migrations, in seconds, whoever wrote the Java.
 
-**Positioning (verbatim):** Coroner never translates COBOL. It verifies a migration that already exists, whoever produced it (an AI tool such as Kiro, another LLM, or a human).
+**Positioning (verbatim):** Coroner does not translate COBOL. AWS Transform, Kiro, an LLM or a human migrates COBOL to Java. Coroner independently verifies the result.
+
+Shot 2 card to be recorded again after this change (2026-11-23).
 
 **Tagline:** "AI accelerates. Coroner certifies."
 
@@ -35,7 +37,7 @@ Local stack for every live page: `docker compose -f docker-compose.yml -f docker
 | Shot | Start | End | Duration | Source of the picture | Subtitle (first cut) | Voice-over (finished cut) | Source of the numbers |
 |---|---|---|---|---|---|---|---|
 | 1 | 0:00 | 0:04 | 4 s | Text card: title card (section 3.1, card 1). No logo: none exists in the repository. | COBOL Coroner. Parallel run, resurrected. | COBOL Coroner. Parallel run, resurrected. | None (no number). |
-| 2 | 0:04 | 0:19 | 15 s | Text card: problem and positioning (section 3.1, card 2). | Banks migrating COBOL to Java need proof the business logic survived. Coroner never translates COBOL. It verifies a migration that already exists, whoever produced it: an AI tool such as Kiro, another LLM, or a human. | Banks migrating COBOL to Java need proof the business logic survived. Coroner never translates COBOL. It verifies a migration that already exists, whoever produced it: an AI tool such as Kiro, another LLM, or a human. | None (no number). Wording from section 2. |
+| 2 | 0:04 | 0:19 | 15 s | Text card: problem and positioning (section 3.1, card 2). | Banks migrating COBOL to Java need proof the business logic survived. Coroner does not translate COBOL. AWS Transform, Kiro, an LLM or a human migrates COBOL to Java. Coroner independently verifies the result. | Banks migrating COBOL to Java need proof the business logic survived. Coroner does not translate COBOL. AWS Transform, Kiro, an LLM or a human migrates COBOL to Java. Coroner independently verifies the result. | None (no number). Wording from section 2. |
 | 3 | 0:19 | 0:27 | 8 s | Live page: http://127.0.0.1:8000/story/step/1?view=business. Action: open the page and wait 1 s. No scroll. | Case 1: The Missing Branch. Every night the bank reconciles branch subtotals to catch posting errors before opening. | Case 1: The Missing Branch. Every night the bank reconciles branch subtotals to catch posting errors before opening. | Name: samples/traps/cases.json, key T1, field name. Sentence: coroner/ui/templates/story_step_1.html. No number. |
 | 4 | 0:27 | 0:39 | 12 s | Live page: http://127.0.0.1:8000/story/step/2?view=business. Action: open the page, scroll to the table caption "Subtotals posted by the COBOL program", wait 2 s. | The COBOL program posts 31071 transactions in 2000 test batches. Branch 001 gets 2025606.03. Branch 9ZZ gets 1969578.35. Suspense gets 1865002.53. The grand total is 139844166.11. | The COBOL program posts its transactions in 2000 test batches. Branch 001 and branch 9ZZ get their subtotals. The grand total is at the bottom. | 31071: docs/reviews.md R-89. Re-checked on 2026-11-21: runs/f584d5f35228/generated_cases.csv has 31072 lines including the header. 2000: runs/f584d5f35228/verdict.json, cases_total. 2025606.03 and 1969578.35: runs/f584d5f35228/branch_reconciliation.json, branches, cobol_subtotal. 1865002.53: same file, suspense.cobol. 139844166.11: same file, grand_total.cobol. |
 | 5 | 0:39 | 0:48 | 9 s | Live page: http://127.0.0.1:8000/story/step/3?view=business. Action: open the page, wait 1 s. | A developer ported this to Java. The grand total still matches. Both sides show 139844166.11. | A developer ported this to Java. The grand total still matches. It is the same on both sides. | runs/f584d5f35228/branch_reconciliation.json, grand_total.java and grand_total.cobol (same value). |
@@ -65,7 +67,7 @@ Each card is an HTML page with a dark background, the text centered, and nothing
 
 **Card 2 (shot 2):**
 - Banks migrating COBOL to Java need proof the business logic survived.
-- Coroner never translates COBOL. It verifies a migration that already exists, whoever produced it: an AI tool such as Kiro, another LLM, or a human.
+- Coroner does not translate COBOL. AWS Transform, Kiro, an LLM or a human migrates COBOL to Java. Coroner independently verifies the result.
 
 **Card 3 (shot 11, first cut only):**
 - Kiro IDE, coroner-audit power
@@ -140,7 +142,7 @@ Target: under 2.6 words per second for every shot. The word count counts the wor
 | Shot | Time window | Voice-over text (exact) | Words | Words per second |
 |---|---|---|---|---|
 | 1 | 0:00 to 0:04 | COBOL Coroner. Parallel run, resurrected. | 5 | 1.25 |
-| 2 | 0:04 to 0:19 | Banks migrating COBOL to Java need proof the business logic survived. Coroner never translates COBOL. It verifies a migration that already exists, whoever produced it: an AI tool such as Kiro, another LLM, or a human. | 36 | 2.40 |
+| 2 | 0:04 to 0:19 | Banks migrating COBOL to Java need proof the business logic survived. Coroner does not translate COBOL. AWS Transform, Kiro, an LLM or a human migrates COBOL to Java. Coroner independently verifies the result. | 33 | 2.20 |
 | 3 | 0:19 to 0:27 | Case 1: The Missing Branch. Every night the bank reconciles branch subtotals to catch posting errors before opening. | 18 | 2.25 |
 | 4 | 0:27 to 0:39 | The COBOL program posts its transactions in 2000 test batches. Branch 001 and branch 9ZZ get their subtotals. The grand total is at the bottom. | 25 | 2.08 |
 | 5 | 0:39 to 0:48 | A developer ported this to Java. The grand total still matches. It is the same on both sides. | 18 | 2.00 |

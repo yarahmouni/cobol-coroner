@@ -12,7 +12,7 @@ COBOL Coroner does not just compare outputs. It detects the banking migration tr
 
 > AI accelerates. Coroner certifies.
 
-COBOL Coroner does not convert code. It verifies a migration that already exists, whoever produced it (an AI tool such as Kiro, another LLM, or a human).
+Coroner does not translate COBOL. AWS Transform, Kiro, an LLM or a human migrates COBOL to Java. Coroner independently verifies the result.
 
 Give it:
 - a batch COBOL program and its copybooks,
