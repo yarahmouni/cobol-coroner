@@ -9,7 +9,8 @@ The same COBOL program (`samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob`) w
 1. **Kiro agent** (kiro-cli, agent coroner-builder, model claude-sonnet-4.5): written from the COBOL source alone, following standard Java practices
 2. **Claude Opus 5.5** (Anthropic), run as a Claude Code subagent: not a Kiro agent, different tool but same vendor as Kiro's default model
 3. **Kiro agent, fresh isolated session** (separate git worktree, stronger input isolation): written from the COBOL source alone in a reduced context
-4. **Hand-written port** (pending): reserved for a port written by a person without AI assistance
+
+No port written by hand is included: none was written before the deadline.
 
 Each port was audited by the same independent auditor: Coroner's differential engine.
 
@@ -24,7 +25,6 @@ Links:
 - [kiro/SOURCE.md](ports/kiro/SOURCE.md)
 - [claude/SOURCE.md](ports/claude/SOURCE.md)
 - [kiro-fresh/SOURCE.md](ports/kiro-fresh/SOURCE.md)
-- [hand-written/README.md](ports/hand-written/README.md)
 
 ## The table
 
@@ -79,8 +79,6 @@ Both ran the same Coroner audit command once and did not iterate after the audit
 2. **One seed and 2,000 cases**: Each audit uses the same seed (42) and case count (2,000). Other seeds were not run for this table.
 
 3. **Same vendor for the Claude subagent and Kiro's default model**: The Claude Opus 5.5 subagent and Kiro's default model (claude-sonnet-4.5) are both from Anthropic. The subagent is a different tool and model from Kiro, but not a different vendor.
-
-4. **Hand-written port pending**: The hand-written port slot is reserved for a person. The operator and Kiro are language models and do not write code in that slot.
 
 ## What the independence track proves
 

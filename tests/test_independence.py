@@ -16,6 +16,54 @@ def repo_root():
     return Path(__file__).parent.parent
 
 
+# The rows of TABLE.md, in the order run_table.py writes them (sorted port folders).
+EXPECTED_LABELS = [
+    "Claude Opus 5.5",
+    "Kiro agent, session 1 (rules in prompt, full repository readable)",
+    "Kiro agent, fresh isolated session",
+]
+
+
+def _table_rows(table_text):
+    """Data rows of the markdown table (after the header separator line)."""
+    rows = []
+    in_body = False
+    for line in table_text.splitlines():
+        if line.startswith("|---") or line.startswith("|--"):
+            in_body = True
+            continue
+        if in_body and line.startswith("|"):
+            rows.append(line)
+    return rows
+
+
+def _row_label(row):
+    return row.split("|")[1].strip()
+
+
+def test_table_rows_are_exactly_the_remaining_ports(repo_root):
+    """TABLE.md has one row per port that exists, and no hand-written row."""
+    table_text = (repo_root / "samples" / "independence" / "TABLE.md").read_text(encoding="utf-8")
+    labels = [_row_label(r) for r in _table_rows(table_text)]
+
+    assert labels == EXPECTED_LABELS
+    assert not any(label.lower().startswith("hand-written") for label in labels)
+    assert "pending" not in table_text
+
+    # One row per port folder that holds a port, labelled as run_table.py labels it.
+    sys.path.insert(0, str(repo_root / "samples" / "independence"))
+    try:
+        from run_table import PORT_LABELS
+    finally:
+        sys.path.pop(0)
+    ports_dir = repo_root / "samples" / "independence" / "ports"
+    ports_with_java = sorted(
+        d.name for d in ports_dir.iterdir() if (d / "MatchMerge.java").exists()
+    )
+    assert sorted(PORT_LABELS) == ports_with_java
+    assert labels == [PORT_LABELS[name] for name in ports_with_java]
+
+
 def test_parse_certificate(tmp_path, repo_root):
     """Test that run_table.py can parse a real certificate."""
     # Run the engine once in tmp_path to generate a certificate
@@ -172,17 +220,14 @@ def test_run_table_end_to_end(tmp_path, repo_root):
     assert "Environment:" in table_content
     
     # Parse the table and verify against certificates
-    lines = table_content.strip().split("\n")
-    
-    # Find the data rows (skip header and separator)
-    data_rows = []
-    for line in lines:
-        if (line.startswith("| Kiro") or line.startswith("| Claude") or 
-            line.startswith("| hand-written")):
-            data_rows.append(line)
-    
-    assert len(data_rows) >= 2, "Should have at least claude and kiro rows"
-    
+    # Find the data rows (everything after the header separator)
+    data_rows = _table_rows(table_content)
+
+    assert [_row_label(r) for r in data_rows] == EXPECTED_LABELS, (
+        "Table rows must be exactly the remaining ports"
+    )
+    assert not any(_row_label(r).lower().startswith("hand-written") for r in data_rows)
+
     # Check each port against its certificate
     for row in data_rows:
         parts = [p.strip() for p in row.split("|")]
@@ -192,17 +237,9 @@ def test_run_table_end_to_end(tmp_path, repo_root):
         cases = parts[4]
         run_id = parts[5]
         same_file = parts[8]
-        
-        if "hand-written" in label:
-            # Hand-written port should be pending
-            assert verdict == "pending"
-            assert cases == "pending"
-            assert run_id == "pending"
-            assert same_file == "pending"
-            continue
-        
-        # For real ports, verify against certificate
-        if run_id != "pending":
+
+        # Verify against the certificate
+        if run_id:
             cert_file = runs_dir / run_id / "certificate.json"
             assert cert_file.exists(), f"Certificate not found for {label}: {run_id}"
             

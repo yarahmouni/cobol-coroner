@@ -122,8 +122,9 @@ The same Case 1 audit (T1, 2000 cases, seed 42) was applied to Java ports from d
 
 - a port by Claude Opus 5.5, run as a Claude Code subagent: ALIVE, 0 of 2000 cases divergent;
 - a port by a Kiro agent in session 1: ZOMBIE, 682 of 2000 cases divergent;
-- a port by a Kiro agent in a fresh, isolated session: ALIVE, 0 of 2000 cases divergent;
-- a hand-written port by the author: pending.
+- a port by a Kiro agent in a fresh, isolated session: ALIVE, 0 of 2000 cases divergent.
+
+No port written by hand is included: none was written before the deadline.
 
 ## Screenshots
 

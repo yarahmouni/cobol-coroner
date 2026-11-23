@@ -124,7 +124,6 @@ Only these direct dependencies are pinned. Their own dependencies are resolved b
   - `ports/kiro/`: Kiro agent, session 1 (kiro-cli, agent `coroner-builder`, model claude-sonnet-4.5).
   - `ports/kiro-fresh/`: Kiro agent, fresh isolated session.
   - `ports/claude/`: Claude Opus 5.5 (Anthropic), run as a Claude Code subagent, not a Kiro agent.
-  - `ports/hand-written/`: no port. Only [`README.md`](../samples/independence/ports/hand-written/README.md) exists; the row stays "pending" until a person writes the port.
 
   Each port folder has `prompt.txt` and `SOURCE.md`; the Kiro folders also have `transcript.txt`.
 - [`samples/carddemo-cbact04c/java/Cbact04c.java`](../samples/carddemo-cbact04c/java/Cbact04c.java): written by a Kiro agent (kiro-cli 3.5.0, agent `coroner-builder`, model claude-sonnet-5.5) in one isolated session and committed as written. Prompt, transcript, input hashes and the audit output are in [`docs/evidence/carddemo-cbact04c-port/`](evidence/carddemo-cbact04c-port/README.md).

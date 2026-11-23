@@ -22,7 +22,6 @@ PORT_LABELS = {
     "kiro": "Kiro agent, session 1 (rules in prompt, full repository readable)",
     "kiro-fresh": "Kiro agent, fresh isolated session",
     "claude": "Claude Opus 5.5",
-    "hand-written": "hand-written by the author: pending",
 }
 
 
@@ -218,7 +217,7 @@ def run_audit(port_dir: Path, repo_root: Path, cases: int, image_name: str | Non
     Returns dict with keys: run_id, status, cases_divergent, cases_total,
     java_sha256, exposure_summary, same_file
     
-    Returns None if the port has no MatchMerge.java.
+    Returns None if the folder has no MatchMerge.java (it gets no row).
     """
     java_file = port_dir / "MatchMerge.java"
     if not java_file.exists():
@@ -386,30 +385,19 @@ def generate_table(repo_root: Path, cases: int, image_name: str | None) -> str:
         result = run_audit(port_dir, repo_root, cases, image_name)
         
         if result is None:
-            # Port is pending
-            rows.append({
-                "label": label,
-                "source": "pending",
-                "verdict": "pending",
-                "divergent": "pending",
-                "total": "pending",
-                "run_id": "pending",
-                "java_sha256": "pending",
-                "exposure": "pending",
-                "same_file": "pending",
-            })
-        else:
-            rows.append({
-                "label": label,
-                "source": source_column,
-                "verdict": result["status"],
-                "divergent": str(result["cases_divergent"]),
-                "total": str(result["cases_total"]),
-                "run_id": result["run_id"],
-                "java_sha256": result["java_sha256"],
-                "exposure": result["exposure_summary"],
-                "same_file": result["same_file"],
-            })
+            # No port in this folder: no row
+            continue
+        rows.append({
+            "label": label,
+            "source": source_column,
+            "verdict": result["status"],
+            "divergent": str(result["cases_divergent"]),
+            "total": str(result["cases_total"]),
+            "run_id": result["run_id"],
+            "java_sha256": result["java_sha256"],
+            "exposure": result["exposure_summary"],
+            "same_file": result["same_file"],
+        })
     
     # Get environment info
     env_info = get_environment_info(image_name)
@@ -425,30 +413,16 @@ def generate_table(repo_root: Path, cases: int, image_name: str | None) -> str:
     ]
     
     for row in rows:
-        if row["verdict"] == "pending":
-            # Pending row has "pending" in every column
-            line = (
-                f"| {row['label']} "
-                f"| pending "
-                f"| pending "
-                f"| pending "
-                f"| pending "
-                f"| pending "
-                f"| pending "
-                f"| pending |"
-            )
-        else:
-            line = (
-                f"| {row['label']} "
-                f"| {row['source']} "
-                f"| {row['verdict']} "
-                f"| {row['divergent']} of {row['total']} "
-                f"| {row['run_id']} "
-                f"| {row['java_sha256']} "
-                f"| {row['exposure']} "
-                f"| {row['same_file']} |"
-            )
-        lines.append(line)
+        lines.append(
+            f"| {row['label']} "
+            f"| {row['source']} "
+            f"| {row['verdict']} "
+            f"| {row['divergent']} of {row['total']} "
+            f"| {row['run_id']} "
+            f"| {row['java_sha256']} "
+            f"| {row['exposure']} "
+            f"| {row['same_file']} |"
+        )
     
     return "\n".join(lines) + "\n"
 

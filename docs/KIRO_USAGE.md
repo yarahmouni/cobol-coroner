@@ -124,7 +124,6 @@ Coroner does not translate COBOL. It audits a Java port from any source. Two exp
 | Port | Source | Verdict | Divergent cases | Run ID | Java SHA-256 | Branch exposure | Same file as a repository Java port? |
 |------|--------|---------|-----------------|--------|--------------|-----------------|--------------------------------------|
 | Claude Opus 5.5 | Claude Opus 5.5 (Anthropic), run as a Claude Code subagent; not a Kiro agent. | ALIVE | 0 of 2000 | 0d1e698359fb | be82c6bdcd5d | sum 0.00 | no |
-| hand-written by the author: pending | pending | pending | pending | pending | pending | pending | pending |
 | Kiro agent, session 1 (rules in prompt, full repository readable) | Kiro agent (kiro-cli, agent coroner-builder, model claude-sonnet-4.5) | ZOMBIE | 682 of 2000 | a4709d638df5 | 3f2b2d38933c | sum 3995184.38, max 2025606.03, 2 branches | no |
 | Kiro agent, fresh isolated session | Kiro agent (kiro-cli, agent coroner-builder, model claude-sonnet-4.5), fresh session | ALIVE | 0 of 2000 | 7af943198226 | 37fc82b6d5d6 | sum 0.00 | no |
 
@@ -133,7 +132,7 @@ Notes, from [`samples/independence/README.md`](../samples/independence/README.md
 - The Kiro session 1 port has the same count and exposure as the faulty demo port (682 of 2000, 3995184.38) but is a different file (SHA-256 3f2b2d38... against 8d9bb18a...). Both use `String.compareTo` instead of the EBCDIC order, and both audits use the same generated cases.
 - The fresh isolated session ran in a worktree with every tracked `.java` file, `docs/`, `README.md`, `.kiro/`, every `trap.json` and `runs/` removed. The diffs of the inputs it was given are in `samples/independence/ports/kiro-fresh/cobol-input.diff` and `schema-input.diff`. The agent ran no audit. Its prompt and transcript are in `samples/independence/ports/kiro-fresh/`.
 - That fresh port formats amounts with `String.format("%+010.2f")`. In the project image its verdict is ALIVE. On the operator's Mac, whose JVM default locale is `fr_FR`, the same port gave ZOMBIE on 2000 of 2000 cases (decimal comma). R-118 records the engine fix: the Java run now uses a fixed locale and the certificate records `java_locale`.
-- The hand-written row stays "pending". [`samples/independence/ports/hand-written/README.md`](../samples/independence/ports/hand-written/README.md) says only a person writes it and that the row is removed if it has not arrived by 2026-11-26 (also Q3 in `docs/reviews.md`).
+- No port written by hand is included: none was written before the deadline (owner decision Q3, 2026-11-23, recorded in `docs/reviews.md`). The table has three rows.
 - Limits stated in the README: one program, one seed, 2,000 cases; the Claude Opus 5.5 subagent comes from the same vendor as Kiro's default model; the verdicts are not a comparison of models.
 
 ### CardDemo CBACT04C, port by an isolated Kiro session

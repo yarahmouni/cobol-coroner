@@ -200,7 +200,7 @@ The script runs every audit inside the image and rewrites `samples/independence/
 | Kiro agent, session 1 | ZOMBIE | 682 of 2000 | a4709d638df5 | sum 3995184.38, max 2025606.03, 2 branches |
 | Kiro agent, fresh isolated session | ALIVE | 0 of 2000 | 7af943198226 | sum 0.00 |
 
-The hand-written row says "pending". Only a person can write that port. The row is removed if it has not arrived by 2026-11-26 (Q3 in `docs/reviews.md`).
+No port written by hand is included: none was written before the deadline.
 
 Read `samples/independence/README.md` for the limits: one program, one seed, 2,000 cases, and the verdicts are not a comparison of models. The same README explains why the session 1 port has the same count as the demo faulty port although it is a different file.
 
