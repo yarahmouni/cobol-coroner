@@ -1384,6 +1384,14 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Not yet true: the page still shows the catalog of the image of 2c2a11b (Case 6 reserved); it is rebuilt with the 2026-11-28 image.
 - Results: tests/test_pages_workflow.py 9 passed.
 
+### R-189 2026-11-23: static page live on GitHub Pages; README "Pre-existing code"; 2026-11-28 redeploy checklist
+- Owner decisions (2026-11-23): keep "AWS Transform" and "Kiro" (sponsor marks, used descriptively) and "Java", "GnuCOBOL" as descriptive words; no third-party logo anywhere in the video. A README "Pre-existing code" section listing every item inline. Kiro no longer used for coding: the remaining credits are kept for the shot 11 recording on Windows (2026-11-27); these two text edits used haiku (about 4 credits). The 2026-11-28 redeploy prepared as a checklist, not run.
+- GitHub Pages: the owner enabled Pages (source GitHub Actions; API build_type workflow). Operator: "Static page" workflow run 45243555144 succeeded; https://yarahmouni.github.io/cobol-coroner/ and certificate-29c15f04407b.json answer 200; the four published files (index.html, both certificates, cases-a1ad67c683af.csv) are byte-identical to docs/static/; footer "Built from commit 2c2a11b".
+- Call p410 (haiku-5.5): README "Pre-existing code" before "Third-party components" (AWS CardDemo CBACT04C program, five copybooks and four data files, Apache 2.0, upstream repository and commit 59cc6c2f, one documented change, the D-62 line; htmx 2.0.4, 0BSD; the GnuCOBOL traces in tests/fixtures; build-time downloads pointed to Third-party components and PREEXISTING_CODE.md section 3), all from docs/PREEXISTING_CODE.md section 2; the Pages address added to the docs/static line of "Where to start" after the check above. docs/deploy.md "Redeploy of 2026-11-28 (checklist, not run yet)": eight steps with who does each (image and local upgrade check, removal of the host's scheduled reboot, server commands with expected outputs and the restart policy check, live deploy check with Case 6 on the matrix, static page rebuild and Pages check, screenshots and README step 5, shots 2 and 17, the private Devpost text). Call p411 (haiku-5.5): step 7 names the shot 17 rows of sections 3 and 6 and the --ffmpeg argument.
+- Operator checks: docker-compose.build.yml exists; no host, user, address or reboot schedule named; no dash in the diff.
+- Results: README and compose tests with test_trap_t6.py and test_case_name_retired.py: 71 passed.
+- Kiro balance (2026-11-23): plan 405.95 of 531 used; kiroween2026 3403.94 of 4000 used.
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.
@@ -1406,7 +1414,7 @@ Kept at the end of this log; new review entries go above this section. Work cont
   4. Answer Q9 (positioning sentence), Q10 (official 2026 rules, from the Devpost rules page) and Q3 (hand-written Case 1 port, by 2026-11-26, otherwise its row is removed). Q1 (Case 6 field trap) and Q4 and Q7 stay as recorded unless answered.
   5. Publish the video (platform and length per Q10) and the Devpost and dev.to texts from the private drafts, after your own read.
   6. 2026-12-03: the operator does the final review, the frozen tag kiroween-2026 and the GitHub release, on your go.
-  7. (added 2026-11-23) Enable GitHub Pages once: repository Settings, Pages, Source: GitHub Actions (or `gh api -X POST repos/yarahmouni/cobol-coroner/pages -f build_type=workflow`), then re-run the "Static page" workflow; the operator checks the page and links it from the README.
+  7. DONE 2026-11-23 (R-189). (added 2026-11-23) Enable GitHub Pages once: repository Settings, Pages, Source: GitHub Actions (or `gh api -X POST repos/yarahmouni/cobol-coroner/pages -f build_type=workflow`), then re-run the "Static page" workflow; the operator checks the page and links it from the README.
   8. (added 2026-11-23) 2026-11-28 redeploy: the image with Case 6 (R-183) and the removal of the server's nightly reboot; then the operator rebuilds docs/static/, re-records shot 2 (Q9 sentence) and shot 17 (Detection Matrix with Case 6), retakes the matrix screenshot, and updates README "Try it in 60 seconds" step 5.
   9. (added 2026-11-23) Before 2026-12-04, 2:00 pm PT: publish the blog post (dev.to draft, first line says it was written for the Kiroween 2026 hackathon); write and publish the Social Blitz post starting with #KiroweenHackathon26.
   10. (added 2026-11-23) While recording shot 11 on Windows: run the five hook files in the Kiro IDE once (R-187).

@@ -573,3 +573,41 @@ One-time repository setting, made by the owner: Settings, Pages, Source: GitHub 
 Expected address once the first deploy succeeds: https://yarahmouni.github.io/cobol-coroner/ . This address has not been measured: no deploy has run yet, and the README does not link it yet.
 
 To rebuild the page from new runs, use `make static-page BASE=<dir> COMMIT=<id>` (see `scripts/build_static_page.py`), commit the changed files of `docs/static/`, and push to `main`.
+
+## Redeploy of 2026-11-28 (checklist, not run yet)
+
+Run the steps in order. Each step names who does it. The commands are the ones used earlier in this guide. Replace `<NEW_DIGEST>` with the digest that step 1 publishes, and `<IMAGE_COMMIT>` with the commit it was built from. Nothing in this checklist has been run.
+
+1. **Operator: publish and check the new image.** Start the Publish Image workflow from `main` by hand (`gh workflow run publish-image.yml --ref main`). Note the digest and the test count in its job summary. Then, on the operator's Mac:
+   - start a stack on the current image: `docker compose up -d`;
+   - start the same volumes on the new image: change the `x-coroner-image:` digest in `docker-compose.yml` to `<NEW_DIGEST>`, then `docker compose up -d`. The coroner-init log must show the "Amount difference" summary, and the existing run files must be unchanged;
+   - run `.venv/bin/python scripts/deploy_check.py --url http://127.0.0.1:8000 --skip-build`; every check must print PASS;
+   - pin the digest in `tests/test_docker_compose.py`, the power files in `powers/coroner-audit/` and this guide.
+
+2. **Owner, on the server: remove the scheduled reboot of the host.** The restart policies stay as they are (`unless-stopped` on coroner-api, coroner-engine and cloudflared). This step has no command in this repository. Step 3 checks the policies.
+
+3. **Owner, on the server: redeploy.** From the clone, run in this order:
+
+   ```bash
+   git pull
+   docker compose -f docker-compose.yml -f docker-compose.server.yml config --images
+   docker compose -f docker-compose.yml -f docker-compose.server.yml pull
+   docker compose -f docker-compose.yml -f docker-compose.server.yml up -d
+   docker compose -f docker-compose.yml -f docker-compose.server.yml ps -a --format 'table {{.Service}}\t{{.Status}}'
+   docker compose -f docker-compose.yml -f docker-compose.server.yml logs coroner-init
+   docker compose -f docker-compose.yml -f docker-compose.server.yml logs coroner-engine
+   docker compose -f docker-compose.yml -f docker-compose.server.yml logs cloudflared
+   docker inspect --format '{{.Name}} {{.HostConfig.RestartPolicy.Name}}' $(docker compose -f docker-compose.yml -f docker-compose.server.yml ps -q)
+   ```
+
+   Expected: `config --images` lists `<NEW_DIGEST>` for the three Coroner services. `ps -a` shows coroner-api, coroner-engine and cloudflared as `Up` and coroner-init as `Exited (0)`. The coroner-init log shows the catalog rebuild and the "Amount difference" summary, and ends with `Bundled demo runs generated.`. The restart policy check prints three lines, each ending in `unless-stopped`.
+
+4. **Operator: deployment check and Detection Matrix.** Run `make deploy-check URL=https://coroner.iqoba.com`. It must end with `Deployment check PASSED: all checks succeeded`, with every check PASS (the clean-clone build and the nine checks). Open the Detection Matrix on the live site and confirm that Case 6 shows a measured count, not "not measured". Record the result in a review entry in `docs/reviews.md`.
+
+5. **Operator: publish the static page.** Build `docs/static/` from a base directory that holds the committed certificates and the new catalog, with the commit of the image: `make static-page BASE=<base directory> COMMIT=<IMAGE_COMMIT>`. Commit the changed files of `docs/static/` and push to `main`. The Pages workflow publishes them. Check that https://yarahmouni.github.io/cobol-coroner/ shows the same content as `docs/static/index.html`, including the Case 6 row.
+
+6. **Operator: screenshots and README.** Retake the screenshots with `make screenshots SCREENSHOT_CHANNEL=chrome`. Update the caption of the Detection Matrix screenshot and step 5 of "Try it in 60 seconds" in `README.md`, with the Case 6 figures measured on the live site in step 4.
+
+7. **Operator: re-record shots 2 and 17.** First update the shot 17 rows of `docs/video-plan.md` (the shot list in section 3 and the voice-over sheet in section 6), which still say that Case 6 is reserved. Then, from a local stack of current main (`docker compose -f docker-compose.yml -f docker-compose.build.yml up --build`), record each shot with `.venv/bin/python scripts/record_demo.py --shots <n> --out-dir <folder outside the repository> --ffmpeg <path of ffmpeg>` (the form used in section 5 of `docs/video-plan.md`), and splice the two new clips into the cut.
+
+8. **Operator: refresh the private Devpost text.** Update the six cases (Case 6 is measured), the number of spec folders in `.kiro/specs/`, the number of hook files in `.kiro/hooks/`, and the test count of the new image from step 1. The drafts stay in the private folder, outside the repository.

@@ -45,7 +45,7 @@ To run your own audit, use the Run Audit form on the [home page](https://coroner
 - [docs/architecture.md](docs/architecture.md): modules and repository layout.
 - [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md): accessibility checks the tests run, the manual browser checks, and their limits.
 - [docs/deploy.md](docs/deploy.md): the deployment guide, with measured outputs.
-- [docs/static/index.html](docs/static/index.html): static copy of real outputs, readable without the live site.
+- [docs/static/index.html](docs/static/index.html): static copy of real outputs, readable without the live site; also published at https://yarahmouni.github.io/cobol-coroner/
 - [samples/independence/TABLE.md](samples/independence/TABLE.md): the same audit on ports from different sources.
 - [samples/carddemo-cbact04c/README.md](samples/carddemo-cbact04c/README.md): the audit of one path of AWS's CardDemo sample.
 - [powers/coroner-audit/](powers/coroner-audit/): the Kiro power that exposes Coroner tools to a Kiro agent.
@@ -397,6 +397,16 @@ The full account with evidence is in [docs/KIRO_USAGE.md](docs/KIRO_USAGE.md).
 ## Data
 
 All COBOL programs and data in this repository are synthetic. No code or data from any real bank is used.
+
+## Pre-existing code
+
+Code and data not written for this project. Details: [docs/PREEXISTING_CODE.md](docs/PREEXISTING_CODE.md).
+
+- **AWS CardDemo: program CBACT04C, its five copybooks and its four upstream data files** (Apache 2.0). Source: [aws-samples/aws-mainframe-modernization-carddemo](https://github.com/aws-samples/aws-mainframe-modernization-carddemo), commit 59cc6c2f. The upstream files are kept byte for byte in [samples/carddemo-cbact04c/upstream/](samples/carddemo-cbact04c/upstream/). The adapted program in [samples/carddemo-cbact04c/](samples/carddemo-cbact04c/) has one documented change, listed in [CHANGES.md](samples/carddemo-cbact04c/CHANGES.md). Uses AWS's open-source CardDemo sample (Apache 2.0). Not affiliated with or endorsed by AWS.
+- **htmx 2.0.4** (0BSD), vendored at [coroner/ui/static/htmx.min.js](coroner/ui/static/htmx.min.js).
+- **GnuCOBOL traces** in [tests/fixtures/sample_trace.txt](tests/fixtures/sample_trace.txt) and [tests/fixtures/trace2/sample_trace.txt](tests/fixtures/trace2/sample_trace.txt). No third-party licence: GnuCOBOL 3.2.0 generated them, with `-ftraceall`, from the project's own test programs.
+
+Downloaded or installed at build time, not committed (GnuCOBOL, OpenJDK 17, JUnit Platform, jqwik, Python packages, the base image): see [Third-party components](#third-party-components) below and [docs/PREEXISTING_CODE.md](docs/PREEXISTING_CODE.md) section 3.
 
 ## Third-party components
 
