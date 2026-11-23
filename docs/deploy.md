@@ -561,3 +561,15 @@ What each check means and what to do on a `FAIL:`:
 - **Tamper**: an edited copy of the certificate replays as INVALID with a replay mismatch. **Verify**: the unmodified certificate replays as VALID. On FAIL, check that the run files exist under `/data/runs` and read the coroner-api logs.
 - **Cache-Control**: every `/api/*` response carries `no-store`. **Body limit**: a 17 KB body is rejected with 413. A FAIL on either is a code issue, not a deployment issue.
 - **Story step 5**: `/story/step/5` shows the "Cause of death" heading, the positioning sentence and at least one branch table row. **Fool page**: `/fool` shows the counter sentence and the three checkboxes case1, case2 and case4. Both read the bundled demo runs and start no audit. On FAIL, check that coroner-init ended with `Bundled demo runs generated.` (step 6).
+
+## Static fallback on GitHub Pages
+
+A static copy of real outputs, for when the live site is unavailable (D-48, D-59). It runs no code and is not the live demo.
+
+What is published: only the folder `docs/static/` of the repository, by `.github/workflows/pages.yml`. The page `index.html` shows the Detection Matrix, the Case 1 verdicts, one certificate and the replay command, and links the two certificates and the generated cases file that sit next to it in the same folder (relative links, so they work from the root of the site). Nothing else in the repository is published. The workflow runs on a push to `main` that changes `docs/static/**` or the workflow file, and on a manual run (`workflow_dispatch`).
+
+One-time repository setting, made by the owner: Settings, Pages, Source: GitHub Actions. Until it is set, the deploy step of the workflow fails.
+
+Expected address once the first deploy succeeds: https://yarahmouni.github.io/cobol-coroner/ . This address has not been measured: no deploy has run yet, and the README does not link it yet.
+
+To rebuild the page from new runs, use `make static-page BASE=<dir> COMMIT=<id>` (see `scripts/build_static_page.py`), commit the changed files of `docs/static/`, and push to `main`.

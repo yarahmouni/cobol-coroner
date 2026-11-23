@@ -1377,6 +1377,13 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Results: agent: test_kiro_hooks_files.py and test_hooks.py with slow 65 passed; make test 978 passed on the second run (the first had one timeout in tests/test_trap_t3.py::test_cobol_runs_on_fixture under parallel load, passed alone and in the second run; same kind as R-97 and R-102).
 - Kiro balance (2026-11-23): plan 405.95 of 531 used; kiroween2026 3398.16 of 4000 used.
 
+### R-188 2026-11-23: static page published by a GitHub Pages workflow (D-48, D-59)
+- Owner decision (2026-11-23): host the static fallback page on GitHub Pages; the owner makes the one repository setting.
+- Operator: release commits of the official Pages actions read from GitHub (all published more than two weeks ago): actions/configure-pages v6.0.0 45bfe0192ca1faeb007ade9deae92b16b8254a0d, actions/upload-pages-artifact v5.0.0 fc324d3547104276b827a68afc52ff2a11cc49c9, actions/deploy-pages v5.0.1 368f82528645a54fb793d4d04e342629a3f51346.
+- Call p409 part 2 (sonnet-5.5): .github/workflows/pages.yml publishes only docs/static/ (push to main on docs/static/** or the workflow, and workflow_dispatch; contents read, pages write, id-token write; concurrency "pages" without cancelling; environment github-pages with the page URL; every action pinned by commit with its version). tests/test_pages_workflow.py (9 tests: triggers, permissions, artifact path, pinned uses, relative links of index.html resolve inside docs/static/). docs/deploy.md "Static fallback on GitHub Pages" (what is published, the one-time setting, the expected address https://yarahmouni.github.io/cobol-coroner/, not measured yet). docs/decisions.md D-59: status sentence (billing lock cleared, R-98; page published by pages.yml). README link unchanged until the first deploy succeeds.
+- Not yet true: the page still shows the catalog of the image of 2c2a11b (Case 6 reserved); it is rebuilt with the 2026-11-28 image.
+- Results: tests/test_pages_workflow.py 9 passed.
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.
