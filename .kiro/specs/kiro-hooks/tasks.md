@@ -123,6 +123,20 @@ Create `tests/test_hooks.py`:
 
 **Done when**: all tests pass.
 
+## Task 12: IDE hook files in .kiro/hooks/ (v1 format)
+_Requirements: 5.5_
+
+- [x] Done. Standalone hook files in the v1 format (`{"version": "v1", "hooks": [...]}`), one hook per file:
+  - `.kiro/hooks/coroner-commit-gate.json`: PreToolUse, matcher "shell", `.venv/bin/python -m coroner.hooks gate`.
+  - `.kiro/hooks/coroner-stop-check.json`: Stop, `.venv/bin/python -m coroner.hooks stop` (measured 9.9 s then 3.7 s, so enabled).
+  - `.kiro/hooks/fast-tests-on-save.json`: PostFileSave on Python files under coroner/ and tests/, runs `scripts/kiro_hook_fast_tests.py {{filePath}}`.
+  - `.kiro/hooks/public-repo-check.json`: PreToolUse, matcher "shell", runs `scripts/kiro_hook_public_repo.py` (blocks a git commit whose staged diff has an em dash, an en dash, a home path or an unlisted root or scripts file).
+  - `.kiro/hooks/trap-catalog-refresh.json`: PostFileSave on trap samples under samples/traps/, an agent action that runs `make traps` and reports the figures it reads in runs/trap_catalog.txt.
+- The legacy `.kiro.hook` format is not used.
+- No change under `coroner/`: the gate and stop commands are the ones of tasks 7 and 8.
+
+**Done when**: `tests/test_kiro_hooks_files.py` passes (file shape, regular expressions, command programs exist, the public repository check on a temporary repository, the gate ignores other shell commands). The hooks were not run in the Kiro IDE on this Mac (the IDE does not run on macOS 12), so their behaviour inside the IDE is not measured.
+
 ## Coverage table
 
 | Criterion | Tasks |
@@ -131,6 +145,6 @@ Create `tests/test_hooks.py`:
 | Delivery gate | 5, 6, 7, 9, 11 |
 | Stop hook | 8, 9, 11 |
 | Hook input | 2, 11 |
-| Agent config | 9 |
+| Agent config | 9, 12 |
 | Documentation | 10 |
 | Testing | 11 |

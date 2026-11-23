@@ -71,6 +71,14 @@ What `coroner/hooks.py` is: a module with three commands, `gate`, `stop` and `pr
 
 The migration under audit is named in [`.kiro/coroner-scope.json`](../.kiro/coroner-scope.json) (the `credit-fees` COBOL, copybooks, Java and schema paths).
 
+Kiro IDE hook files, in the standalone v1 format of `.kiro/hooks/` (one hook per file). They were not run in the Kiro IDE on this Mac (the IDE does not run on macOS 12), so their behaviour inside the IDE is not measured. Only the files (`tests/test_kiro_hooks_files.py`) and the commands they call are tested:
+
+- [`coroner-commit-gate.json`](../.kiro/hooks/coroner-commit-gate.json): PreToolUse on shell commands, runs the same `gate` command as the agent configuration above.
+- [`coroner-stop-check.json`](../.kiro/hooks/coroner-stop-check.json): Stop, runs the same `stop` command (measured 9.9 s on the first run, 3.7 s on the second).
+- [`fast-tests-on-save.json`](../.kiro/hooks/fast-tests-on-save.json): after a Python file under `coroner/` or `tests/` is saved, runs the matching test file or a fixed set of fast ones (`scripts/kiro_hook_fast_tests.py`), cut after 25 s.
+- [`public-repo-check.json`](../.kiro/hooks/public-repo-check.json): before a `git commit`, blocks a staged diff with an added em dash or en dash, a home path, or an unlisted root or scripts file (`scripts/kiro_hook_public_repo.py`, which reuses `scripts/precommit_guard.py`).
+- [`trap-catalog-refresh.json`](../.kiro/hooks/trap-catalog-refresh.json): after a trap sample under `samples/traps/` is saved, asks the agent to run `make traps` and report the figures it reads in `runs/trap_catalog.txt`.
+
 Behavior read from [`coroner/hooks.py`](../coroner/hooks.py):
 
 - `gate` acts only on a command that starts with `git commit`, `git push` or `git merge`. It finds the newest certificate in `runs/` whose recorded file hashes match the files in scope and replays it with `python -m coroner verify <certificate>`. Exit status 0 of the replay allows the command. Any other status blocks it: the gate prints `{"decision":"block","reason":...}` on stdout, the message on stderr, and exits with status 2. With no certificate, it blocks only when the scope COBOL or Java file is staged. If the scope file or the certificate lookup fails, it allows the command.

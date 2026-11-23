@@ -1,0 +1,17 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Fast tests on save",
+      "description": "After a Python file under coroner/ or tests/ is saved, runs pytest -x on the test file that matches it (tests/test_<name>.py), or on a fixed subset of 5 fast test files when no test file matches. Slow tests are not run. Measured: 1.1 s for coroner/verdict.py, 6.0 s for tests/test_compare.py, 6.8 s for the fixed subset. Limit: the script stops pytest after 25 s and says so, which is neither a pass nor a fail; saving coroner/hooks.py or tests/test_hooks.py hits that limit (that test file alone takes about 31 s).",
+      "trigger": "PostFileSave",
+      "matcher": "^(.*/)?(coroner|tests)/.*\\.py$",
+      "action": {
+        "type": "command",
+        "command": ".venv/bin/python scripts/kiro_hook_fast_tests.py {{filePath}}"
+      },
+      "timeout": 40,
+      "enabled": true
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Coroner stop check",
+      "description": "When the agent stops, replays the Coroner certificate of the migration in .kiro/coroner-scope.json and asks the agent to continue, with the verdict and the fix instruction, while the verdict is ZOMBIE or invalid (or the certificate is missing and the audited file is staged). It gives up after 3 requests per session and writes build/hooks/<session>-failure.json. Measured with the credit-fees scope: 9.9 s on the first run, 3.7 s on the second, so it stays enabled. Limit: it re-prompts the agent, it does not keep the agent working until the verdict is ALIVE (docs/evidence/kiro-hooks-verification.md).",
+      "trigger": "Stop",
+      "action": {
+        "type": "command",
+        "command": ".venv/bin/python -m coroner.hooks stop"
+      },
+      "timeout": 60,
+      "enabled": true
+    }
+  ]
+}

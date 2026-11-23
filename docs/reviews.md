@@ -1309,6 +1309,22 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Q12 step 1 (redeploy and live check) done.
 - Kiro balance (2026-11-22): plan 405.95 of 531 used; kiroween2026 3211.29 of 4000 used.
 
+### R-181 2026-11-23: Kiro IDE hook files in .kiro/hooks/ (v1 format)
+- Owner request (2026-11-23): the judges score specs, steering and hooks; the repository had no .kiro/hooks/ folder. Implement the kiro-hooks spec as real Kiro hook files, small and useful; no change to the frozen engine or the live image.
+- Finding: the spec's gate and stop hook were already implemented (coroner/hooks.py) and wired in the custom agent .kiro/agents/coroner-auditor.json (kiro-cli), not as IDE hook files.
+- Format, read by the operator in the Kiro docs (kiro.dev/docs/hooks, /docs/ide/whats-new-v1/hooks): since IDE 1.0 a hook is a JSON file .kiro/hooks/<id>.json with "version": "v1" and a hooks list (name, description, trigger, matcher as a regex, action command or agent, timeout, enabled), shared with the CLI. The 0.x .kiro.hook format (when/then) is shown as legacy in 1.x, so it was not used.
+- Call p402 (sonnet-5.5), five files:
+  - coroner-commit-gate.json: PreToolUse on shell, the spec's gate; 0.17 s for a non-git command.
+  - coroner-stop-check.json: Stop, the spec's stop hook; 9.9 s then 3.7 s with the credit-fees scope (ALIVE), kept enabled.
+  - fast-tests-on-save.json: PostFileSave on Python files under coroner/ and tests/, scripts/kiro_hook_fast_tests.py runs the matching test file or a fixed fast subset (1.1 s to 6.8 s measured); pytest is cut at 25 s with a message (tests/test_hooks.py alone takes about 31 s).
+  - public-repo-check.json: PreToolUse on shell, scripts/kiro_hook_public_repo.py, only for git commit: blocks added em or en dashes and the checks of scripts/precommit_guard.py (home path, unlisted root or scripts file), reused by import; cannot detect private or competitor names.
+  - trap-catalog-refresh.json: PostFileSave on trap samples, an agent action: run make traps, then report the figures read from runs/trap_catalog.txt only.
+  - tests/test_kiro_hooks_files.py (39 tests): schema, triggers, regex matches, programs exist, the public-repo check in a temporary git repository (em dash blocks with exit 2, clean commit and git status silent), the gate silent for ls with several shell tool names. With the dash check disabled, 3 failed; restored.
+  - Spec (requirements 5.5, task 12), docs/KIRO_USAGE.md section 4 and docs/architecture.md updated.
+- Not measured: the hooks inside the Kiro IDE (it does not run on macOS 12); regex subject, {{filePath}} expansion and the key holding the shell command in IDE events are from the docs only. The commands use .venv/bin/python, which is the macOS and Linux path; on Windows the virtual environment path differs.
+- Operator: with this change staged, the public-repo check on a real "git commit" event exited 0 with no output in 0.42 s. Agent: test_kiro_hooks_files.py and test_hooks.py with slow 54 passed; make test 950 passed. Repository runs/ unchanged (153 entries); nothing under coroner/ changed.
+- Kiro balance (2026-11-23): plan 405.95 of 531 used; kiroween2026 3246.18 of 4000 used.
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.

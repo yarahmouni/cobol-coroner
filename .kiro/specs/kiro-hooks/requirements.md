@@ -41,6 +41,7 @@ D-37 and D-50 define the Kiro hook strategy based on measured hook behavior in d
 5.2. The agent defines one stop hook, command `.venv/bin/python -m coroner.hooks stop`.
 5.3. The agent tools include "shell" so the agent can attempt git commands (the gate governs them).
 5.4. Validate with `kiro-cli agent validate --agent coroner-auditor`.
+5.5. The same gate and stop commands are also wired as Kiro IDE hook files (v1 format) in `.kiro/hooks/`: `coroner-commit-gate.json` (PreToolUse, matcher "shell") and `coroner-stop-check.json` (Stop). The commands are tested; the hooks were not run inside the Kiro IDE.
 
 ### 6. Documentation
 6.1. README: the exact wording "Coroner does not block the agent from writing code. It blocks a ZOMBIE migration from being committed or pushed."

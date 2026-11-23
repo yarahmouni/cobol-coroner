@@ -74,6 +74,8 @@ COBOL + copybooks + Java 17 + schema.json
 - `scripts/gen_rounding_ties.py`
 - `scripts/init_demo_runs.sh`: generates bundled demo runs for Docker Compose start only when their folder is missing, never touches an existing run folder, and always rebuilds the derived catalog files from the runs on disk (`python -m coroner traps --from-runs`); checks each exit code against expected (0 ALIVE, 1 ZOMBIE)
 - `scripts/keep_catalog_only.sh`: keeps runs/trap_catalog.json and runs/trap_catalog.txt and deletes every run folder; run by the Dockerfile after `python3 -m coroner traps` so the image carries the catalog without the run folders (also used by a test)
+- `scripts/kiro_hook_fast_tests.py`: run by the IDE hook .kiro/hooks/fast-tests-on-save.json after a Python file is saved; runs pytest -x on the matching test file or a fixed fast subset, cut after 25 s
+- `scripts/kiro_hook_public_repo.py`: run by the IDE hook .kiro/hooks/public-repo-check.json before a git commit; blocks added em or en dashes and reuses the checks of scripts/precommit_guard.py
 - `scripts/make_screenshots.py`: make screenshots: README screenshots and demo GIF from real runs through the real UI (D-58)
 - `scripts/make_srt.py`: builds an .srt (subtitle or voice-over column) from the shot table in docs/video-plan.md; refuses an output path inside the repository
 - `scripts/precommit_guard.py`

@@ -1,0 +1,17 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Public repository check before commit",
+      "description": "Before a shell command runs, does nothing unless the command is git commit. For a git commit, it blocks when a staged line was added with an em dash or an en dash, when a staged file contains a home path, or when a file is added at the repository root or in scripts/ without being listed in docs/architecture.md (the checks of scripts/precommit_guard.py). It prints one line per finding. Measured: 0.18 s for a command that is not a commit, about 0.25 s for a commit check in a small repository. Limit: it cannot detect private names or other hackathon project names, which .kiro/steering/public-repo.md also forbids; it only recognizes a command that starts with git commit.",
+      "trigger": "PreToolUse",
+      "matcher": "shell",
+      "action": {
+        "type": "command",
+        "command": ".venv/bin/python scripts/kiro_hook_public_repo.py"
+      },
+      "timeout": 30,
+      "enabled": true
+    }
+  ]
+}
