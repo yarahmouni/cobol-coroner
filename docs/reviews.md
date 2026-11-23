@@ -1364,6 +1364,12 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Q9 and Q10 closed.
 - Kiro balance (2026-11-23): plan 405.95 of 531 used; kiroween2026 3359.42 of 4000 used.
 
+### R-186 2026-11-23: KIRO_USAGE.md answers each topic the rules list
+- Owner request (2026-11-23): the Kiro write-up must answer each listed topic (IDE vs CLI and how they differed, custom agents, hooks, specs vs vibe coding, steering strategy, MCP, property-based testing, powers), from evidence only, honest about which parts Kiro built.
+- Call p407 (haiku-5.5): a section "Answers to the judges' topics" before section 1: who built what (Kiro wrote the code, specs, designs, tasks and tests; the operator, Claude Code, wrote the prompts, checked the results and kept the log; exceptions in section 1), then one paragraph per topic with links to sections 1 to 9 and the evidence files. Specs vs prompts: 16 spec folders; the static page (R-168), the video scripts (R-111, R-160) and the README edits (R-159, R-179, R-182) have no spec and were single prompts; the ports under audit were written from a prompt alone on purpose. Section 1 source range and the section 7 balance line updated (R-185). Call p408 (haiku-5.5): "the fresh Kiro session" (one session in the independence track, not several).
+- Operator checks: the six cited review entries are the ones named; no spec folder for the static page or the video scripts; the IDE, agent, hook, MCP, PBT and power facts match sections 1, 4, 5, 8 and 9 and their evidence files; no dash in the diff.
+- Kiro balance (2026-11-23): plan 405.95 of 531 used; kiroween2026 3367.60 of 4000 used.
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.
