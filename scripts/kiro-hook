@@ -1,0 +1,20 @@
+#!/bin/sh
+# Runs the Python interpreter of the repository virtual environment with the given arguments.
+# Used by the commands of .kiro/hooks/*.json, so one command string works on macOS, Linux and
+# Windows (Git Bash); on Windows cmd and PowerShell the same string reaches scripts/kiro-hook.cmd.
+# The environment is found from the location of this file, not from the current directory.
+# Arguments and standard input go to Python unchanged.
+# With no virtual environment it prints one line on stderr and exits 1. Exit 1 is not a block
+# (a block is exit 2 with a JSON decision), which is what coroner.hooks does when its own scope
+# or certificate lookup fails: it allows.
+
+root=$(cd "$(dirname "$0")/.." && pwd) || exit 1
+
+for python in "$root/.venv/bin/python" "$root/.venv/Scripts/python.exe"; do
+    if [ -x "$python" ]; then
+        exec "$python" "$@"
+    fi
+done
+
+echo "kiro-hook: no virtual environment at $root/.venv; run: python3.12 -m venv .venv && .venv/bin/pip install -e \".[dev]\"" >&2
+exit 1

@@ -92,7 +92,11 @@ What `coroner/hooks.py` is: a module with three commands, `gate`, `stop` and `pr
 
 The migration under audit is named in [`.kiro/coroner-scope.json`](../.kiro/coroner-scope.json) (the `credit-fees` COBOL, copybooks, Java and schema paths).
 
-Kiro IDE hook files, in the standalone v1 format of `.kiro/hooks/` (one hook per file). They were not run in the Kiro IDE on this Mac (the IDE does not run on macOS 12), so their behaviour inside the IDE is not measured. Only the files (`tests/test_kiro_hooks_files.py`) and the commands they call are tested:
+Kiro IDE hook files, in the standalone v1 format of `.kiro/hooks/` (one hook per file). They were not run in the Kiro IDE on this Mac (the IDE does not run on macOS 12), so their behaviour inside the IDE is not measured. Only the files (`tests/test_kiro_hooks_files.py`) and the commands they call are tested.
+
+Every command of these files starts with the launcher `scripts/kiro-hook`, never with `python` or an interpreter path. The launcher finds the virtual environment of the repository from its own location (not the current directory) and runs that environment's Python with all arguments and the standard input: `.venv/bin/python` on macOS and Linux, `.venv/Scripts/python.exe` under Git Bash on Windows. `scripts/kiro-hook.cmd` is the Windows version (`.venv\Scripts\python.exe`, all arguments passed with `%*`). With no virtual environment, the launcher prints one line on stderr and exits 1. That is not a block (the gate blocks with a JSON decision and exit status 2), which matches `coroner.hooks`: when its own scope or certificate lookup fails, it allows. Which shell the Kiro IDE uses on Windows to run a hook command is not documented in the files of this repository, and nothing was measured: the Windows command is untested until the owner runs it in the Kiro IDE on Windows. If that shell does not resolve `scripts/kiro-hook` to the `.cmd` file, the command string has to name `scripts\kiro-hook.cmd` instead. The agent configuration for kiro-cli (`.kiro/agents/coroner-auditor.json`) keeps `.venv/bin/python`, because that is the command measured in the evidence files below and kiro-cli runs on macOS here.
+
+The five files:
 
 - [`coroner-commit-gate.json`](../.kiro/hooks/coroner-commit-gate.json): PreToolUse on shell commands, runs the same `gate` command as the agent configuration above.
 - [`coroner-stop-check.json`](../.kiro/hooks/coroner-stop-check.json): Stop, runs the same `stop` command (measured 9.9 s on the first run, 3.7 s on the second).

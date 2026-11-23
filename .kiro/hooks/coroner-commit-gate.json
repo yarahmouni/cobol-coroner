@@ -3,12 +3,12 @@
   "hooks": [
     {
       "name": "Coroner commit gate",
-      "description": "Before a shell command runs, blocks git commit, git push and git merge when the Coroner certificate of the migration in .kiro/coroner-scope.json replays as ZOMBIE or invalid, or is missing while the audited COBOL or Java file is staged. A git command replays the certificate (measured 3.7 to 9.9 s with the credit-fees scope); any other shell command passes with no replay (0.17 s). Limit: it does not block file writes, and it reads the command only from tool_input.command of the event.",
+      "description": "Before a shell command runs, blocks git commit, git push and git merge when the Coroner certificate of the migration in .kiro/coroner-scope.json replays as ZOMBIE or invalid, or is missing while the audited COBOL or Java file is staged. A git command replays the certificate (measured 3.7 to 9.9 s with the credit-fees scope); any other shell command passes with no replay (0.17 s). Limit: it does not block file writes, and it reads the command only from tool_input.command of the event. The command runs through scripts/kiro-hook, which picks the repository virtual environment. With no virtual environment it exits 1 (a warning, not a block). Windows: untested until the owner runs it in the Kiro IDE on Windows (scripts/kiro-hook.cmd).",
       "trigger": "PreToolUse",
       "matcher": "shell",
       "action": {
         "type": "command",
-        "command": ".venv/bin/python -m coroner.hooks gate"
+        "command": "scripts/kiro-hook -m coroner.hooks gate"
       },
       "timeout": 60,
       "enabled": true

@@ -1370,6 +1370,13 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Operator checks: the six cited review entries are the ones named; no spec folder for the static page or the video scripts; the IDE, agent, hook, MCP, PBT and power facts match sections 1, 4, 5, 8 and 9 and their evidence files; no dash in the diff.
 - Kiro balance (2026-11-23): plan 405.95 of 531 used; kiroween2026 3367.60 of 4000 used.
 
+### R-187 2026-11-23: hook commands resolve the venv interpreter on macOS, Linux and Windows
+- Owner decision (2026-11-23): a Windows-safe hook command, never bare python or .venv/bin/python; the owner tests the hooks in the Kiro IDE on Windows when recording shot 11.
+- Call p409 part 1 (sonnet-5.5): launchers scripts/kiro-hook (sh, executable, finds the repository root from its own location, runs .venv/bin/python or .venv/Scripts/python.exe, passes arguments, stdin and exit status) and scripts/kiro-hook.cmd (%~dp0..\.venv\Scripts\python.exe, %*, exit /b %ERRORLEVEL%); with no venv both print one line on stderr and exit 1, which is not a block (a block is exit 2 with a JSON decision; coroner.hooks also allows when its own lookup fails). The four command hooks now run scripts/kiro-hook (gate, stop, fast tests, public repo check); the trap refresh is an agent action. .kiro/agents/coroner-auditor.json unchanged (its command is the one measured with kiro-cli in docs/evidence). Hook descriptions, KIRO_USAGE section 4 and the kiro-hooks spec say the Windows command is untested until the owner runs it in the Kiro IDE on Windows (no Kiro document names the shell used there). tests/test_kiro_hooks_files.py: no hook command with bin/python, Scripts or .venv, or starting with python; launcher tests with a fake venv (space in the path, three working directories, stdin and exit status), the Git Bash fallback, the no-venv case, the real launcher on this Mac, the Windows launcher text.
+- Operator: a v3 PreToolUse event for "ls" through scripts/kiro-hook -m coroner.hooks gate exits 0 with no output; scripts/kiro-hook -c "import sys; print(sys.prefix)" prints the repository .venv; no dash in the changed files.
+- Results: agent: test_kiro_hooks_files.py and test_hooks.py with slow 65 passed; make test 978 passed on the second run (the first had one timeout in tests/test_trap_t3.py::test_cobol_runs_on_fixture under parallel load, passed alone and in the second run; same kind as R-97 and R-102).
+- Kiro balance (2026-11-23): plan 405.95 of 531 used; kiroween2026 3398.16 of 4000 used.
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.

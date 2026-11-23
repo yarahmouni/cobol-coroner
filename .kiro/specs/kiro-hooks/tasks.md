@@ -127,11 +127,12 @@ Create `tests/test_hooks.py`:
 _Requirements: 5.5_
 
 - [x] Done. Standalone hook files in the v1 format (`{"version": "v1", "hooks": [...]}`), one hook per file:
-  - `.kiro/hooks/coroner-commit-gate.json`: PreToolUse, matcher "shell", `.venv/bin/python -m coroner.hooks gate`.
-  - `.kiro/hooks/coroner-stop-check.json`: Stop, `.venv/bin/python -m coroner.hooks stop` (measured 9.9 s then 3.7 s, so enabled).
-  - `.kiro/hooks/fast-tests-on-save.json`: PostFileSave on Python files under coroner/ and tests/, runs `scripts/kiro_hook_fast_tests.py {{filePath}}`.
-  - `.kiro/hooks/public-repo-check.json`: PreToolUse, matcher "shell", runs `scripts/kiro_hook_public_repo.py` (blocks a git commit whose staged diff has an em dash, an en dash, a home path or an unlisted root or scripts file).
+  - `.kiro/hooks/coroner-commit-gate.json`: PreToolUse, matcher "shell", `scripts/kiro-hook -m coroner.hooks gate`.
+  - `.kiro/hooks/coroner-stop-check.json`: Stop, `scripts/kiro-hook -m coroner.hooks stop` (measured 9.9 s then 3.7 s, so enabled).
+  - `.kiro/hooks/fast-tests-on-save.json`: PostFileSave on Python files under coroner/ and tests/, runs `scripts/kiro-hook scripts/kiro_hook_fast_tests.py {{filePath}}`.
+  - `.kiro/hooks/public-repo-check.json`: PreToolUse, matcher "shell", runs `scripts/kiro-hook scripts/kiro_hook_public_repo.py` (blocks a git commit whose staged diff has an em dash, an en dash, a home path or an unlisted root or scripts file).
   - `.kiro/hooks/trap-catalog-refresh.json`: PostFileSave on trap samples under samples/traps/, an agent action that runs `make traps` and reports the figures it reads in runs/trap_catalog.txt.
+- Launchers: `scripts/kiro-hook` (sh) and `scripts/kiro-hook.cmd` (Windows) run the Python of the repository virtual environment, found from their own location, with all arguments and standard input; no hook command names `.venv/bin/python` or a bare `python`. With no virtual environment the launcher exits 1 with a message on stderr, which is not a block, like `coroner.hooks` when its own lookup fails. The Windows command is untested until the owner runs it in the Kiro IDE on Windows. `.kiro/agents/coroner-auditor.json` (kiro-cli on macOS, measured) is unchanged.
 - The legacy `.kiro.hook` format is not used.
 - No change under `coroner/`: the gate and stop commands are the ones of tasks 7 and 8.
 

@@ -4,8 +4,10 @@ Only the files and the commands are tested. The hooks were not run inside the Ki
 """
 import importlib.util
 import json
+import os
 import re
 import shlex
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -13,6 +15,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+LAUNCHER_COMMAND = "scripts/kiro-hook"
 HOOKS_DIR = REPO_ROOT / ".kiro" / "hooks"
 HOOK_FILES = sorted(HOOKS_DIR.glob("*.json"))
 TRIGGERS = {
@@ -83,7 +86,7 @@ def test_command_programs_exist():
                 continue
             seen += 1
             words = shlex.split(hook["action"]["command"].replace("{{filePath}}", "x.py"))
-            assert words[0] == ".venv/bin/python", f"{path.name}: unexpected program {words[0]}"
+            assert words[0] == LAUNCHER_COMMAND, f"{path.name}: unexpected program {words[0]}"
             if words[1] == "-m":
                 module_path = REPO_ROOT / Path(*words[2].split("."))
                 assert module_path.with_suffix(".py").is_file() or (module_path / "__init__.py").is_file(), (
@@ -94,11 +97,159 @@ def test_command_programs_exist():
     assert seen == 4
 
 
+def test_no_hook_command_names_an_interpreter_path_or_bare_python():
+    seen = 0
+    for path in HOOK_FILES:
+        for hook in json.loads(path.read_text(encoding="utf-8"))["hooks"]:
+            if hook["action"]["type"] != "command":
+                continue
+            seen += 1
+            command = hook["action"]["command"]
+            assert "bin/python" not in command, f"{path.name}: {command}"
+            assert "Scripts" not in command and ".venv" not in command, f"{path.name}: {command}"
+            assert not command.lstrip().lower().startswith("python"), f"{path.name}: {command}"
+            assert command.startswith(LAUNCHER_COMMAND + " "), f"{path.name}: {command}"
+    assert seen == 4
+
+
 def test_the_gate_and_stop_files_use_the_commands_of_the_agent_config():
+    """The IDE hooks run the same module and subcommand as the kiro-cli agent, through the launcher.
+
+    The agent configuration (kiro-cli on macOS, measured in docs/evidence/) keeps its direct
+    interpreter path on purpose, so only the part after the interpreter or launcher is compared.
+    """
     agent = json.loads((REPO_ROOT / ".kiro" / "agents" / "coroner-auditor.json").read_text(encoding="utf-8"))
-    assert load_hook("coroner-commit-gate.json")["action"]["command"] == agent["hooks"]["preToolUse"][0]["command"]
-    assert load_hook("coroner-stop-check.json")["action"]["command"] == agent["hooks"]["stop"][0]["command"]
+
+    def arguments(command, program):
+        assert command.startswith(program + " "), command
+        return command[len(program) + 1:]
+
+    gate = load_hook("coroner-commit-gate.json")["action"]["command"]
+    stop = load_hook("coroner-stop-check.json")["action"]["command"]
+    agent_gate = agent["hooks"]["preToolUse"][0]["command"]
+    agent_stop = agent["hooks"]["stop"][0]["command"]
+    assert arguments(gate, LAUNCHER_COMMAND) == arguments(agent_gate, ".venv/bin/python") == "-m coroner.hooks gate"
+    assert arguments(stop, LAUNCHER_COMMAND) == arguments(agent_stop, ".venv/bin/python") == "-m coroner.hooks stop"
     assert load_hook("coroner-commit-gate.json")["matcher"] == "shell"
+
+
+def test_command_hook_descriptions_say_the_windows_command_is_untested():
+    for name in ("coroner-commit-gate.json", "coroner-stop-check.json", "fast-tests-on-save.json", "public-repo-check.json"):
+        description = load_hook(name)["description"]
+        assert "Windows: untested until the owner runs it in the Kiro IDE on Windows" in description, name
+        assert "scripts/kiro-hook" in description, name
+
+
+# --- the launchers ----------------------------------------------------------------
+
+LAUNCHER = REPO_ROOT / "scripts" / "kiro-hook"
+LAUNCHER_CMD = REPO_ROOT / "scripts" / "kiro-hook.cmd"
+
+
+def make_fake_repository(tmp_path, python_relative):
+    """A copy of the POSIX launcher in <root>/scripts, with a fake interpreter at the given path.
+
+    The root name holds a space, to check quoting. The fake interpreter prints its own name, its
+    arguments, the working directory and the standard input, which shows what the launcher passed.
+    """
+    root = tmp_path / "my repo"
+    (root / "scripts").mkdir(parents=True)
+    launcher = root / "scripts" / "kiro-hook"
+    launcher.write_text(LAUNCHER.read_text(encoding="utf-8"), encoding="utf-8")
+    launcher.chmod(0o755)
+    if python_relative:
+        python = root / python_relative
+        python.parent.mkdir(parents=True)
+        python.write_text(
+            '#!/bin/sh\necho "fake-python"\nfor argument in "$@"; do echo "arg:$argument"; done\n'
+            'echo "cwd:$(pwd)"\necho "stdin:$(cat)"\nexit 7\n',
+            encoding="utf-8",
+        )
+        python.chmod(0o755)
+    return root, launcher
+
+
+def run_launcher(launcher, cwd, *arguments, stdin=""):
+    return subprocess.run(
+        [str(launcher), *arguments], input=stdin, capture_output=True, text=True, cwd=cwd, timeout=60,
+    )
+
+
+def test_both_launchers_exist():
+    assert LAUNCHER.is_file()
+    assert LAUNCHER_CMD.is_file()
+
+
+def test_the_posix_launcher_is_a_shell_script_with_the_executable_bit():
+    assert LAUNCHER.read_text(encoding="utf-8").startswith("#!/bin/sh\n")
+    if os.name != "nt":
+        assert LAUNCHER.stat().st_mode & stat.S_IXUSR, "scripts/kiro-hook must be executable (git update-index --chmod=+x)"
+
+
+def test_the_launcher_runs_the_repository_interpreter_and_passes_arguments_and_stdin(tmp_path):
+    root, launcher = make_fake_repository(tmp_path, ".venv/bin/python")
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    result = run_launcher(launcher, elsewhere, "-m", "coroner.hooks", "gate", "a b", stdin='{"x": 1}')
+    assert result.returncode == 7, "the exit status of the interpreter is the exit status of the launcher"
+    assert result.stdout.splitlines() == [
+        "fake-python", "arg:-m", "arg:coroner.hooks", "arg:gate", "arg:a b",
+        f"cwd:{elsewhere.resolve()}", 'stdin:{"x": 1}',
+    ]
+    assert result.stderr == ""
+
+
+def test_the_launcher_finds_the_interpreter_from_its_own_location_not_the_working_directory(tmp_path):
+    _, launcher = make_fake_repository(tmp_path, ".venv/bin/python")
+    for cwd in (tmp_path, launcher.parent, launcher.parent.parent):
+        assert run_launcher(launcher, cwd).stdout.splitlines()[0] == "fake-python"
+
+
+def test_the_launcher_falls_back_to_the_windows_layout_of_the_environment(tmp_path):
+    """Git Bash on Windows runs this script, and the interpreter is .venv/Scripts/python.exe there."""
+    _, launcher = make_fake_repository(tmp_path, ".venv/Scripts/python.exe")
+    result = run_launcher(launcher, tmp_path, "-c", "x")
+    assert result.stdout.splitlines()[:3] == ["fake-python", "arg:-c", "arg:x"]
+
+
+def test_without_an_environment_the_launcher_says_so_and_exits_1_without_a_block(tmp_path):
+    """Exit 1 is no block: the gate blocks with a JSON decision and exit 2. coroner.hooks fails open too."""
+    _, launcher = make_fake_repository(tmp_path, None)
+    result = run_launcher(launcher, tmp_path, "-m", "coroner.hooks", "gate", stdin="{}")
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert "no virtual environment" in result.stderr and ".venv" in result.stderr
+    assert "block" not in result.stderr
+
+
+def test_the_launcher_runs_the_python_of_the_repository_venv():
+    """With the repository virtual environment (a developer machine), the interpreter is that environment's.
+
+    Where there is none (the CI image and the CI checkout have no .venv), the launcher must say so.
+    """
+    result = run_launcher(LAUNCHER, REPO_ROOT, "-c", "import sys; print(sys.prefix)")
+    if (REPO_ROOT / ".venv").is_dir():
+        assert result.returncode == 0, result.stderr
+        assert Path(result.stdout.strip()).resolve() == (REPO_ROOT / ".venv").resolve()
+    else:
+        assert result.returncode == 1
+        assert "no virtual environment" in result.stderr
+
+
+def test_the_windows_launcher_text():
+    text = LAUNCHER_CMD.read_text(encoding="utf-8")
+    assert ".venv\\Scripts\\python.exe" in text
+    assert '"%PYTHON%" %*' in text, "all arguments go to Python"
+    assert "%~dp0" in text, "the environment is found from the location of the launcher"
+    assert "exit /b %ERRORLEVEL%" in text, "the exit status of Python is the exit status of the launcher"
+    assert "exit /b 1" in text and ">&2 echo" in text, "no environment: a message on stderr and exit 1"
+    assert "bin/python" not in text
+
+
+def test_both_launchers_and_the_hook_files_are_listed_in_the_architecture_file():
+    layout = (REPO_ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
+    assert "`scripts/kiro-hook`" in layout
+    assert "`scripts/kiro-hook.cmd`" in layout
 
 
 def test_triggers_and_matchers():
