@@ -1421,6 +1421,13 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Kiro balance after p416: kiroween2026 3441.06 of 4000 used (558.94 left).
 - Voice-over (owner, 2026-11-24, outside the repository): 20 takes for lines 0:00 to 2:04 (shots 1 to 13); lines 2:11 to 2:47 (shots 14 to 18) not in the set. Operator mix: prise2 where two takes exist, 05a to 05c and 09a to 09c joined with 0.35 s pauses, silences trimmed, inner pauses cut to 0.4 s, each line at -16 LUFS (two-pass loudnorm), no speed change. At natural speed lines 1 to 13 last 166.4 s (250 words, 1.5 words per second) against 131 s planned; with the shots extended to fit, the preview lasts 3:48 (227.8 s), so it is not for upload. Export: 1920x1080 H.264, AAC 48 kHz, captions burned in and as a soft track, -16.0 LUFS. Check by local speech recognition and levels, not by ear: "Case 1:" not spoken at 0:19 (4 s of faint off-mic sound before the line, removed); a possibly dropped "while" at 1:17; 7 doubtful words listed for the owner.
 
+### R-192 2026-11-24: synthetic voice-over and background music (outside the repository)
+- Owner order (2026-11-24): no recorded voice; macOS text-to-speech with an 18-line short script, one line per shot, shot timings kept, total under 3:00. Ava (Enhanced) and every other Enhanced English voice were not installed; Alex was used first, then Samantha (en_US) at the owner's request.
+- Generation: say -v Samantha, 170 words per minute (185 for the title line). Spoken spellings "Ed-it" (line 14) and "Kee-ro's" (line 16) because the speech recognizer heard "Added" and "Karol's"; captions keep the owner's text. Mix with the operator script vomix.py: lines trimmed, -16 LUFS each, no shot extended, total 175.0 s.
+- Background music (owner: original, generated for this project): -8.1 dB gain, side-chain ducking by the voice (threshold 0.05, ratio 3), fade-in 1 s, fade-out 2 s. Measured: music -34 to -36 LUFS under speech (voice -15.4 to -15.9 in the same windows), -28 LUFS between lines; whole file -17.9 LUFS integrated, peak -4.2 dBFS. Export 1920x1080 H.264, AAC 192 kb/s, captions burned in and as a soft track, separate SRT.
+- Call p417 (haiku-5.5): docs/video-plan.md sections 1 and 7 now say "Background music: original, generated for this project." The voice-over sheet (section 6) still holds the earlier script.
+- Kiro balance: kiroween2026 3444.13 of 4000 used (555.87 left).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.

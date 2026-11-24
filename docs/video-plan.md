@@ -6,7 +6,7 @@
 
 **Platform:** YouTube only, public
 
-**Music:** No music. No third-party trademarks or copyrighted music without permission (rules); the cut has no audio stream and no logo (operator check of every 2nd second, 2026-11-23).
+**Music:** Background music: original, generated for this project. It plays under the voice-over, about 20 dB below the voice while it speaks (ducking), with a 1 s fade-in and a 2 s fade-out. No third-party trademarks or copyrighted music without permission (rules); no logo in the cut (operator check of every 2nd second, 2026-11-23).
 
 **Language:** English
 
@@ -170,7 +170,7 @@ Shot 1 (title) and the text cards of shots 2 and 18 use the same words as their 
 - **Format:** 1280x720, 30 fps. Live pages are recorded at 1280x600 and placed at the top of the frame; the bottom 120 px are a black band that holds the burned subtitles (at most 2 lines). Text cards and the still image keep the same 120 px band free at the bottom.
 - **Page chrome:** The recording hides the Light/Dark toggle button, which is page chrome and overlaps content at 1280x600; no figure or text of the page is hidden.
 - **Subtitles:** an .srt file built from the shot table (the subtitle column, with the start and end times) and burned into the first cut inside the band, except on text-card shots (`make_srt.py --skip-kind card`). `voiceover.srt` keeps every shot. The finished cut replaces the burned-in subtitles with the owner's voice and keeps the .srt for YouTube captions.
-- **Music:** none. **Logo:** none in the first cut (no logo file exists in the repository; cards are text only).
+- **Music:** Background music: original, generated for this project. **Logo:** none (no logo file exists in the repository; cards are text only).
 - **Live site:** not used for any shot until the redeploy. Shots come from the local stack built from current main.
 - **Privacy check before publishing:** no home path, user name, PC name, e-mail address or IP address in any frame, including the still image of shot 15 and the Windows clip of shot 11.
 - **Before recording:** the local stack shows the rebuilt catalog (coroner-init rebuilds it at each start, docs/deploy.md); the four bundled runs (f584d5f35228, 29c15f04407b, df4d7929ce44, 08d14a07bcdb) are present; the Tamper page of shot 14 shows the status ZOMBIE for f584d5f35228.
