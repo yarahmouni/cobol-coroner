@@ -20,7 +20,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 LIVE_URL = "https://coroner.iqoba.com"
 REPO_URL = "https://github.com/yarahmouni/cobol-coroner"
-POSITIONING_START = "COBOL Coroner does not convert code."
+POSITIONING_START = "Coroner does not translate COBOL."
 
 CSS = """
 :root{--bg:#0f1115;--fg:#e6e6e6;--muted:#b4bac4;--panel:#181b22;--line:#3a404c;--link:#8ab4ff;--bad:#ff8a80;--good:#7bd88f}

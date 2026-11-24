@@ -9,7 +9,7 @@
   "cases_file_sha256": "a1ad67c683af957cc08cafda20e6f58f79115d82dab211bb572bb65364d43e84",
   "cases_total": 2000,
   "certificate_format": 1,
-  "certificate_sha256": "3b25523c1d3fa4b9c62dcfd8bbc3560f8cfc8c16e7c95e58b9a1b85214689cdc",
+  "certificate_sha256": "4c63f6bc2d40d8a4583e43dc39e7f64b19b4b6520e3e52952196a623f831115f",
   "cobc_flags": [],
   "cobc_version": "cobc (GnuCOBOL) 3.2.0",
   "cobol_file": "samples/traps/T1-ebcdic-match-merge/MATCH-MERGE.cob",
@@ -39,7 +39,7 @@
   "statement": "Reproducible run record: PASS: business behavior preserved on 2000 cases. Validated under GnuCOBOL 3.x. This is not a formal proof of equivalence.",
   "status": "ALIVE",
   "sub_label": "PASS: business behavior preserved on 2000 cases",
-  "tie_share": null,
-  "timestamp": "2026-11-21T20:54:21Z",
+  "tie_share": 0.06,
+  "timestamp": "2026-11-21T12:27:20Z",
   "title": "Coroner Certificate"
 }
