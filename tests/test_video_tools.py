@@ -70,11 +70,11 @@ def ffmpeg_duration(ffmpeg, path):
 # The plan
 # ---------------------------------------------------------------------------
 
-def test_plan_has_18_shots_ending_at_2_49():
+def test_plan_has_18_shots_ending_at_2_55():
     rows = plan_rows()
     assert [r["n"] for r in rows] == list(range(1, 19))
     assert rows[0]["start"] == 0
-    assert rows[-1]["end"] == 169
+    assert rows[-1]["end"] == 175
     for previous, current in zip(rows, rows[1:]):
         assert current["start"] == previous["end"]
     assert all(r["duration"] == r["end"] - r["start"] for r in rows)
@@ -203,7 +203,7 @@ def test_voiceover_srt_covers_all_18_shots_including_cards(tmp_path):
     assert len(rows) == 18
     for row in rows:
         assert any(row["start"] * 1000 <= c[0] < row["end"] * 1000 for c in cues), f"shot {row['n']} has no voice-over cue"
-    assert cues[-1][1] == 169000
+    assert cues[-1][1] == 175000
 
 
 def test_make_srt_rejects_an_unknown_skip_kind(tmp_path):

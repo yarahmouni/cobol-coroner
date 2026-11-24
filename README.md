@@ -379,7 +379,7 @@ Details: [section 2 of docs/KIRO_USAGE.md](docs/KIRO_USAGE.md#2-specs).
 - public-repo-check.json: before a git commit, blocks added em or en dashes, home paths and unlisted files at the root or in scripts/.
 - trap-catalog-refresh.json: after a trap sample is saved, asks the agent to run make traps and report what the catalog file says.
 
-The commit gate and the stop check are also wired in the custom agent for kiro-cli. The IDE hook files were not run in the Kiro IDE, because the IDE does not run on macOS 12 ([section 4 of docs/KIRO_USAGE.md](docs/KIRO_USAGE.md#4-hooks-and-the-gate)).
+The commit gate and the stop check are also wired in the custom agent for kiro-cli. The owner ran the IDE hooks in the Kiro IDE on Windows on 2026-11-24 with the command `scripts\kiro-hook.cmd`; the files now hold a quoted command form that was run on macOS only, and the IDE itself does not run on macOS 12 ([section 4 of docs/KIRO_USAGE.md](docs/KIRO_USAGE.md#4-hooks-and-the-gate)).
 
 **Skills.** Three folders in [.kiro/skills/](.kiro/skills/), loaded by the custom agent:
 - banking-trap-recognition: the six banking migration traps in COBOL and Java.

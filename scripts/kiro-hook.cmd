@@ -1,4 +1,6 @@
+:; exec "$(dirname "$0")/kiro-hook" "$@" #
 @echo off
+rem The first line is a label in cmd.exe (skipped) and a shell command in sh, which hands over to scripts/kiro-hook.
 rem Windows launcher of scripts/kiro-hook: runs the Python interpreter of the repository
 rem virtual environment with the given arguments. The environment is found from the location
 rem of this file, not from the current directory. Arguments and standard input go to Python.

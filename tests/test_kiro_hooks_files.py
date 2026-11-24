@@ -1,6 +1,8 @@
 """Tests of the Kiro IDE hook files in .kiro/hooks/ and of the two scripts they call.
 
-Only the files and the commands are tested. The hooks were not run inside the Kiro IDE.
+The files, the commands and the regular expressions are tested here. The owner ran the hooks in the
+Kiro IDE on Windows on 2026-11-24 (with scripts\\kiro-hook.cmd); the quoted command form of the
+files was measured with /bin/sh on macOS only, as the tests below do.
 """
 import importlib.util
 import json
@@ -15,7 +17,9 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-LAUNCHER_COMMAND = "scripts/kiro-hook"
+LAUNCHER_COMMAND = "scripts/kiro-hook.cmd"
+QUOTED_LAUNCHER = '"' + LAUNCHER_COMMAND + '"'
+POLYGLOT_FIRST_LINE = ':; exec "$(dirname "$0")/kiro-hook" "$@" #'
 HOOKS_DIR = REPO_ROOT / ".kiro" / "hooks"
 HOOK_FILES = sorted(HOOKS_DIR.glob("*.json"))
 TRIGGERS = {
@@ -108,7 +112,7 @@ def test_no_hook_command_names_an_interpreter_path_or_bare_python():
             assert "bin/python" not in command, f"{path.name}: {command}"
             assert "Scripts" not in command and ".venv" not in command, f"{path.name}: {command}"
             assert not command.lstrip().lower().startswith("python"), f"{path.name}: {command}"
-            assert command.startswith(LAUNCHER_COMMAND + " "), f"{path.name}: {command}"
+            assert command.startswith(QUOTED_LAUNCHER + " "), f"{path.name}: {command}"
     assert seen == 4
 
 
@@ -128,16 +132,25 @@ def test_the_gate_and_stop_files_use_the_commands_of_the_agent_config():
     stop = load_hook("coroner-stop-check.json")["action"]["command"]
     agent_gate = agent["hooks"]["preToolUse"][0]["command"]
     agent_stop = agent["hooks"]["stop"][0]["command"]
-    assert arguments(gate, LAUNCHER_COMMAND) == arguments(agent_gate, ".venv/bin/python") == "-m coroner.hooks gate"
-    assert arguments(stop, LAUNCHER_COMMAND) == arguments(agent_stop, ".venv/bin/python") == "-m coroner.hooks stop"
+    assert arguments(gate, QUOTED_LAUNCHER) == arguments(agent_gate, ".venv/bin/python") == "-m coroner.hooks gate"
+    assert arguments(stop, QUOTED_LAUNCHER) == arguments(agent_stop, ".venv/bin/python") == "-m coroner.hooks stop"
     assert load_hook("coroner-commit-gate.json")["matcher"] == "shell"
 
 
-def test_command_hook_descriptions_say_the_windows_command_is_untested():
+def test_command_hook_descriptions_say_what_was_measured_on_windows_and_on_macos():
+    windows = (
+        "Windows: the owner ran the hooks in the Kiro IDE on Windows on 2026-11-24 with scripts\\kiro-hook.cmd; "
+        "this quoted command form, which also runs in a POSIX shell, was measured on macOS only."
+    )
+    runs_through = (
+        "The command runs through scripts/kiro-hook.cmd, which hands over to scripts/kiro-hook in a POSIX shell, "
+        "and picks the repository virtual environment."
+    )
     for name in ("coroner-commit-gate.json", "coroner-stop-check.json", "fast-tests-on-save.json", "public-repo-check.json"):
         description = load_hook(name)["description"]
-        assert "Windows: untested until the owner runs it in the Kiro IDE on Windows" in description, name
-        assert "scripts/kiro-hook" in description, name
+        assert windows in description, name
+        assert runs_through in description, name
+        assert "untested" not in description, name
 
 
 # --- the launchers ----------------------------------------------------------------
@@ -246,6 +259,41 @@ def test_the_windows_launcher_text():
     assert "bin/python" not in text
 
 
+def test_the_windows_launcher_starts_with_the_polyglot_line_and_has_the_executable_bit():
+    lines = LAUNCHER_CMD.read_text(encoding="utf-8").splitlines()
+    assert lines[0] == POLYGLOT_FIRST_LINE
+    assert lines[1] == "@echo off", "cmd.exe skips the first line as a label, then echo is switched off"
+    assert lines[2].startswith("rem "), "one rem line explains the first line"
+    if os.name != "nt":
+        assert LAUNCHER_CMD.stat().st_mode & stat.S_IXUSR, "scripts/kiro-hook.cmd must be executable"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="runs the quoted command form with /bin/sh")
+@pytest.mark.parametrize("hook_file", [
+    "coroner-commit-gate.json", "coroner-stop-check.json", "fast-tests-on-save.json", "public-repo-check.json",
+])
+def test_the_quoted_command_form_runs_in_a_posix_shell_and_passes_arguments_and_stdin(tmp_path, hook_file):
+    """The command string of each hook file, run with /bin/sh from a copy of both launchers.
+
+    The first line of scripts/kiro-hook.cmd makes sh hand over to scripts/kiro-hook, which finds the
+    fake interpreter in the temporary layout (the root name holds a space).
+    """
+    root, _ = make_fake_repository(tmp_path, ".venv/bin/python")
+    launcher_cmd = root / "scripts" / "kiro-hook.cmd"
+    launcher_cmd.write_text(LAUNCHER_CMD.read_text(encoding="utf-8"), encoding="utf-8")
+    launcher_cmd.chmod(0o755)
+    command = load_hook(hook_file)["action"]["command"].replace("{{filePath}}", "tests/test_x.py")
+    words = shlex.split(command)
+    result = subprocess.run(
+        ["/bin/sh", "-c", command], input='{"event": 1}', capture_output=True, text=True, cwd=root, timeout=60,
+    )
+    assert result.returncode == 7, "the exit status of the interpreter is the exit status of the command"
+    assert result.stdout.splitlines() == [
+        "fake-python", *[f"arg:{word}" for word in words[1:]], f"cwd:{root.resolve()}", 'stdin:{"event": 1}',
+    ]
+    assert result.stderr == ""
+
+
 def test_both_launchers_and_the_hook_files_are_listed_in_the_architecture_file():
     layout = (REPO_ROOT / "docs" / "architecture.md").read_text(encoding="utf-8")
     assert "`scripts/kiro-hook`" in layout
@@ -296,6 +344,37 @@ def test_trap_refresh_regex():
         "samples/traps/cases.json",
         "samples/traps/T1-ebcdic-match-merge/trap.json",
         "coroner/traps.py",
+    ):
+        assert not pattern.search(subject), subject
+        assert not pattern.match(subject), subject
+
+
+def test_fast_tests_regex_accepts_windows_paths_with_backslashes():
+    """Kiro passes Windows paths with backslashes (measured by the owner, 2026-11-24)."""
+    pattern = re.compile(load_hook("fast-tests-on-save.json")["matcher"])
+    for subject in (
+        "coroner\\verdict.py", "tests\\test_verdict.py", "C:\\x\\cobol-coroner\\tests\\test_verdict.py",
+        "coroner\\ui\\app.py",
+    ):
+        assert pattern.search(subject), subject
+        assert pattern.match(subject), subject
+    for subject in ("coroner\\verdict.txt", "docs\\x.py", "scripts\\kiro_hook_fast_tests.py", "tests\\fixtures\\x.txt"):
+        assert not pattern.search(subject), subject
+        assert not pattern.match(subject), subject
+
+
+def test_trap_refresh_regex_accepts_windows_paths_with_backslashes():
+    pattern = re.compile(load_hook("trap-catalog-refresh.json")["matcher"])
+    for subject in (
+        "samples\\traps\\T6-cursed-modulo\\ROTATION-SLOT.cob",
+        "samples\\traps\\T1-ebcdic-match-merge\\schema.json",
+        "C:\\x\\cobol-coroner\\samples\\traps\\T1-ebcdic-match-merge\\java\\faulty\\MatchMerge.java",
+    ):
+        assert pattern.search(subject), subject
+        assert pattern.match(subject), subject
+    for subject in (
+        "samples\\credit-fees\\schema.json", "samples\\traps\\cases.json",
+        "samples\\traps\\T1-ebcdic-match-merge\\trap.json", "coroner\\traps.py",
     ):
         assert not pattern.search(subject), subject
         assert not pattern.match(subject), subject

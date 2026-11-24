@@ -3,12 +3,12 @@
   "hooks": [
     {
       "name": "Public repository check before commit",
-      "description": "Before a shell command runs, does nothing unless the command is git commit. For a git commit, it blocks when a staged line was added with an em dash or an en dash, when a staged file contains a home path, or when a file is added at the repository root or in scripts/ without being listed in docs/architecture.md (the checks of scripts/precommit_guard.py). It prints one line per finding. Measured: 0.18 s for a command that is not a commit, about 0.25 s for a commit check in a small repository. Limit: it cannot detect private names or other hackathon project names, which .kiro/steering/public-repo.md also forbids; it only recognizes a command that starts with git commit. The command runs through scripts/kiro-hook, which picks the repository virtual environment. Windows: untested until the owner runs it in the Kiro IDE on Windows (scripts/kiro-hook.cmd).",
+      "description": "Before a shell command runs, does nothing unless the command is git commit. For a git commit, it blocks when a staged line was added with an em dash or an en dash, when a staged file contains a home path, or when a file is added at the repository root or in scripts/ without being listed in docs/architecture.md (the checks of scripts/precommit_guard.py). It prints one line per finding. Measured: 0.18 s for a command that is not a commit, about 0.25 s for a commit check in a small repository. Limit: it cannot detect private names or other hackathon project names, which .kiro/steering/public-repo.md also forbids; it only recognizes a command that starts with git commit. The command runs through scripts/kiro-hook.cmd, which hands over to scripts/kiro-hook in a POSIX shell, and picks the repository virtual environment. Windows: the owner ran the hooks in the Kiro IDE on Windows on 2026-11-24 with scripts\\kiro-hook.cmd; this quoted command form, which also runs in a POSIX shell, was measured on macOS only.",
       "trigger": "PreToolUse",
       "matcher": "shell",
       "action": {
         "type": "command",
-        "command": "scripts/kiro-hook scripts/kiro_hook_public_repo.py"
+        "command": "\"scripts/kiro-hook.cmd\" scripts/kiro_hook_public_repo.py"
       },
       "timeout": 30,
       "enabled": true
