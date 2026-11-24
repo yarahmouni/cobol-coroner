@@ -33,7 +33,7 @@ Six links on the live site. Each step says what you should see.
 2. On that page, press Verify: "Certificate: VALID" (the audit is replayed; it takes a few seconds).
 3. [Tamper with it](https://coroner.iqoba.com/tamper?run_id=f584d5f35228): set Cases Divergent to 0 and press "Verify Tampered Certificate": "Certificate: INVALID" with "replay mismatch (cases_divergent: expected 0, got 682)".
 4. [Case 1, correct port](https://coroner.iqoba.com/run/29c15f04407b): ALIVE, "MIGRATION CERTIFIED", "PASS: business behavior preserved on 2000 cases", "All 9 branches match".
-5. [Detection Matrix](https://coroner.iqoba.com/matrix): Cases 1 to 5 detected on their faulty ports (682, 856, 429, 87 and 602 of 2000) and ALIVE on every correct port; Case 6 reserved, not measured.
+5. [Detection Matrix](https://coroner.iqoba.com/matrix): Cases 1 to 6 detected on their faulty ports (682, 856, 429, 87, 602 and 636 of 2000) and ALIVE on every correct port.
 6. [The bank failure story](https://coroner.iqoba.com/story): Case 1 told in 8 steps, with a Business view and an Engineer view.
 
 To run your own audit, use the Run Audit form on the [home page](https://coroner.iqoba.com/).
@@ -136,8 +136,8 @@ All screenshots produced by `make screenshots` from real runs.
 ![Case 1, The Missing Branch, correct port: ALIVE, migration certified, business behavior preserved on 2000 cases, exposure 0.00](docs/screenshots/alive-light.png)
 *Case 1, The Missing Branch, correct port: ALIVE, business behavior preserved on 2000 cases (light theme).*
 
-![Detection Matrix: Cases 1 to 5 measured with detected counts and rates, Case 6 reserved and not measured](docs/screenshots/matrix.png)
-*Detection Matrix: Cases 1 to 5 measured (detected cases of 2000, rate, correct port ALIVE), Case 6 reserved and not measured.*
+![Detection Matrix: Cases 1 to 6 measured with detected counts and rates, every correct port ALIVE](docs/screenshots/matrix.png)
+*Detection Matrix: Cases 1 to 6 measured (detected cases of 2000, rate, correct port ALIVE), including Case 6, The Cursed Modulo, 636 of 2000.*
 
 ![Tamper page for the Case 1 faulty run: Status edited to ALIVE and Cases Divergent to 0, result Certificate INVALID, replay mismatch (status: expected ALIVE, got ZOMBIE)](docs/screenshots/verify-invalid.png)
 *Tamper page: run f584d5f35228 (Case 1, faulty port) edited to ALIVE with 0 divergent cases; the replay gives Certificate: INVALID, replay mismatch (status: expected ALIVE, got ZOMBIE). The page does not print the run id; it is in the address of the page (/tamper?run_id=f584d5f35228).*

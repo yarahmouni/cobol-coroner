@@ -609,9 +609,9 @@ def capture_screenshots(port, run_ids, base_dir, only=None):
         page.wait_for_selector("table")
         time.sleep(1)
         check_page(page, "Detection matrix", [
-            f"Case {entry['case']} {entry['name']}" if entry['name'] != "reserved" else "reserved"
+            f"Case {entry['case']} {entry['name']}"
             for entry in registry.values()
-        ] + ["not measured"])
+        ])
         page.screenshot(path="docs/screenshots/matrix.png", full_page=True)
         img = Image.open("docs/screenshots/matrix.png")
         img.save("docs/screenshots/matrix.png", optimize=True)
