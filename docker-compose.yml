@@ -5,15 +5,15 @@
 #
 # All three services run one prebuilt image from GitHub Container Registry,
 # pinned by digest (published by .github/workflows/publish-image.yml run
-# 45029885381, commit 2c2a11b). Nothing is built on the tester's machine: Docker pulls the image
-# when it is missing. The reference is a YAML anchor in this file and not an
-# environment variable, so a stray variable in a shell cannot change which
-# image runs.
+# 45380736987, commit 03e6dfc). Nothing is built on the tester's machine:
+# Docker pulls the image when it is missing. The reference is a YAML anchor
+# in this file and not an environment variable, so a stray variable in a
+# shell cannot change which image runs.
 #
 # To build from the Dockerfile instead (developers):
 #   docker compose -f docker-compose.yml -f docker-compose.build.yml up --build
 
-x-coroner-image: &coroner-image ghcr.io/yarahmouni/cobol-coroner@sha256:7bc88f3cd371903865c3303af2e9ca6285edc18b23b42874fe812f1d4efc7211
+x-coroner-image: &coroner-image ghcr.io/yarahmouni/cobol-coroner@sha256:b32beb5dbcb3a4e39ba6641355e9a52c399fe8e7bad562d9ab7b8ba1f6a60621
 
 services:
   # Init service: generates bundled demo runs at first start

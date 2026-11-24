@@ -7,7 +7,7 @@ All notable changes to COBOL Coroner. The format follows Keep a Changelog. Items
 State at 2026-11-21, from the review log (R-xxx) and the judge guide:
 
 - The live site https://coroner.iqoba.com is online. The deployment check passed all 10 checks against it on 2026-11-21 (R-148, fd81f52); the judge guide links to it, and the deployment guide records the server outputs (R-152).
-- The image of commit 2c2a11b (digest ...efc7211, publish run 45029885381) is published and pinned; it adds the verdict box for reused runs and the amount difference figure for Cases 2 to 5. The local upgrade check passed on 2026-11-22. The live site runs the previous image until the owner redeploys.
+- The image of commit 03e6dfc (digest ...a60621, publish run 45380736987) is published and pinned; it adds Case 6 The Cursed Modulo. The local upgrade check passed on 2026-11-24. The live site runs the image of commit 2c2a11b until the owner redeploys.
 - Case 6, The Cursed Modulo (T6) replaces the placeholder (owner decision Q1, 2026-11-23): a COBOL `FUNCTION MOD` of a negative day offset against Java `%`. Measured on a catalog run in a temporary base (2000 cases, seed 42): faulty run e3919aefc333, ZOMBIE on 636 of 2000 cases (0.3180); correct run 35909d3fe97d, ALIVE. T1 to T5 run ids and counts are unchanged. It is not in the image the live site runs until the next image is published and deployed.
 - The independence table has no hand-written row: it was removed on 2026-11-23 by owner decision (Q3), because no port written by hand existed before the deadline.
 - The Kiro power `coroner-audit` is in `powers/coroner-audit/` and was run in the Kiro IDE 1.4.178 on Windows (evidence [`docs/evidence/kiro-power-run.md`](docs/evidence/kiro-power-run.md), Q6).

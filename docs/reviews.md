@@ -1392,6 +1392,19 @@ Kiro is driven with `kiro-cli chat --no-interactive --agent coroner-builder` (ag
 - Results: README and compose tests with test_trap_t6.py and test_case_name_retired.py: 71 passed.
 - Kiro balance (2026-11-23): plan 405.95 of 531 used; kiroween2026 3403.94 of 4000 used.
 
+### R-190 2026-11-24: image of 03e6dfc published (Case 6), local upgrade check passed, digest pinned (redeploy checklist step 1)
+- Owner order (2026-11-24): run the redeploy checklist of docs/deploy.md today, in order.
+- Publish run 45380736987 (workflow_dispatch on 03e6dfc): 968 passed, 345 deselected in the image; digest sha256:b32beb5dbcb3a4e39ba6641355e9a52c399fe8e7bad562d9ab7b8ba1f6a60621.
+- Operator local upgrade check (compose project coroner-upg, its own volumes):
+  - Stack on the 2c2a11b image (7bc88f3c); 149 run files hashed.
+  - Same project and volumes switched to the new image with up -d. coroner-init kept every existing run, generated Case 6 runs e3919aefc333 and 35909d3fe97d, then "Amount difference: written 0, already present 6, not applicable 8, no figure 1, errors 0" and "Bundled demo runs generated.". The 147 existing run files are byte-identical; only the derived trap_catalog.json and trap_catalog.txt changed.
+  - e3919aefc333: ZOMBIE, 636 of 2000; 35909d3fe97d: ALIVE, 0 of 2000; both certificates replay VALID in the container. The trap catalog shows Case 6 "Status: measured".
+  - scripts/deploy_check.py --skip-build on http://127.0.0.1:8000: all checks PASS, f584d5f35228 and 29c15f04407b. Stack removed with down (no -v).
+  - MCP server of the new image over stdio (the power command): run_differential_check on Case 6 faulty (copybooks = the case folder, 2000 cases, seed 42) returned run e3919aefc333, ZOMBIE, 636 of 2000, paragraph coverage 4/4, branch coverage 7/14; get_failure_report: GEN-000003, DAY-OFFSET -1, COBOL SLOT +6, Java SLOT -1.
+- Call p412 (haiku-5.5, text only): new digest in docker-compose.yml (comment: run 45380736987, commit 03e6dfc), tests/test_docker_compose.py, the three power files, docs/deploy.md (digest lines, a "third image" paragraph, the second-image paragraph put in the past), CHANGELOG state line. docs/static is rebuilt at step 5.
+- Results: agent: test_docker_compose.py 52 passed. Operator: no old digest outside docs/reviews.md and docs/static; no dash, no local path in the diff; make test 977 passed, 1 failed (tests/test_trap_t3.py::test_cobol_runs_on_fixture, subprocess timeout while the Mac was loaded); that file alone: 4 passed.
+- Kiro balance (2026-11-24): kiroween2026 3409.35 of 4000 used (590.65 left).
+
 ## Open questions (owner)
 
 Kept at the end of this log; new review entries go above this section. Work continues on everything else while these are open.
